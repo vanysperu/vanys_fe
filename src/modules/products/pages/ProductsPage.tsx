@@ -1,0 +1,731 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
+import { Check, Package, Pencil, Plus, Sparkles } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
+
+import { useCreateProduct, useProducts, useToggleProductStatus, useUpdateProduct } from '@/modules/products/hooks/useProducts';
+import {
+  useCreateTechnique,
+  useTechniques,
+  useToggleTechniqueStatus,
+  useUpdateTechnique,
+} from '@/modules/products/hooks/useTechniques';
+import {
+  createProductSchema,
+  createTechniqueSchema,
+  type CreateProductFormValues,
+  type CreateTechniqueFormValues,
+} from '@/modules/products/schemas/product.schema';
+import type { CustomizationTechnique, Product } from '@/modules/products/types/product.types';
+import { toOptionalNumber } from '@/lib/inputRestrictions';
+import { DataTable } from '@/presentation/components/shared/DataTable';
+import { PageHeader } from '@/presentation/components/shared/PageHeader';
+import { Pagination } from '@/presentation/components/shared/Pagination';
+import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
+import { Badge } from '@/presentation/components/shared/ui/badge';
+import { Button } from '@/presentation/components/shared/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/presentation/components/shared/ui/dialog';
+import { Input } from '@/presentation/components/shared/ui/input';
+import { Label } from '@/presentation/components/shared/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
+import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import type { ApiClientError } from '@/config/api.types';
+
+// Dos vistas del sidebar apuntan acá (/productos y /productos/tecnicas, ver
+// PrivateRoutes.tsx) — antes esta página ignoraba cuál de las dos rutas te
+// trajo y siempre abría "Productos" primero, así que "Técnicas de
+// personalización" nunca se sentía como su propia pantalla. El tab activo
+// ahora sigue la URL en los dos sentidos: entrar por /productos/tecnicas
+// abre esa pestaña, y cambiar de pestaña actualiza la URL.
+const TECHNIQUES_PATH = '/productos/tecnicas';
+
+export function ProductsPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeTab = location.pathname === TECHNIQUES_PATH ? 'techniques' : 'products';
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Productos" description="Catálogo de productos base y técnicas de personalización" />
+
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => navigate(value === 'techniques' ? TECHNIQUES_PATH : '/productos')}
+      >
+        <TabsList>
+          <TabsTrigger value="products">Productos</TabsTrigger>
+          <TabsTrigger value="techniques">Técnicas de personalización</TabsTrigger>
+        </TabsList>
+        <TabsContent value="products">
+          <ProductsTab />
+        </TabsContent>
+        <TabsContent value="techniques">
+          <TechniquesTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function ProductsTab() {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  // Ordenamiento elevado a la página (mismo criterio que ClientsPage/Pagination).
+  const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
+  const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const canCreate = usePermissionButton('producto.create.button');
+  const canUpdate = usePermissionButton('producto.update.button');
+  const canDisable = usePermissionButton('producto.disable.button');
+  const { data: access } = useAccess();
+  // Un producto siempre pertenece a una empresa específica — un super
+  // administrador no gestiona el catálogo operativo de ninguna empresa en
+  // particular, así que ni siquiera ve el botón de crear (pedido explícito
+  // del usuario; el backend además lo rechaza igual si se intenta).
+  const canCreateHere = canCreate && !access?.isSystem;
+
+  const { data, isLoading } = useProducts({
+    page,
+    limit: pageSize,
+    orderBy,
+    orderDir,
+    name: columnFilters.name || undefined,
+    sku: columnFilters.sku || undefined,
+    status: columnFilters.status || undefined,
+  });
+  const { mutate: toggleStatus, isPending: isToggling } = useToggleProductStatus();
+
+  const handleSortChange = (key: string, dir: 'asc' | 'desc' | undefined) => {
+    setOrderBy(dir ? key : undefined);
+    setOrderDir(dir);
+    setPage(1);
+  };
+
+  const handleColumnFilterChange = (key: string, value: string) => {
+    setColumnFilters((previous) => ({ ...previous, [key]: value }));
+    setPage(1);
+  };
+
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex justify-end">{canCreateHere && <ProductFormDialog />}</div>
+
+      <DataTable
+        columns={[
+          {
+            header: 'Nombre',
+            sortable: true,
+            sortKey: 'name',
+            filterable: true,
+            filterKey: 'name',
+            cell: (product) => <span className="font-medium">{product.name}</span>,
+          },
+          {
+            header: 'SKU',
+            sortable: true,
+            sortKey: 'sku',
+            filterable: true,
+            filterKey: 'sku',
+            cell: (product) => product.sku ?? '—',
+          },
+          {
+            header: 'Precios',
+            cell: (product) => (
+              <div className="flex flex-wrap gap-1">
+                {product.price_unit != null && (
+                  <Badge variant="outline">Unidad: S/ {Number(product.price_unit).toFixed(2)}</Badge>
+                )}
+                {product.price_hundred != null && (
+                  <Badge variant="outline">Ciento: S/ {Number(product.price_hundred).toFixed(2)}</Badge>
+                )}
+                {product.price_half_thousand != null && (
+                  <Badge variant="outline">Medio millar: S/ {Number(product.price_half_thousand).toFixed(2)}</Badge>
+                )}
+                {product.price_thousand != null && (
+                  <Badge variant="outline">Millar: S/ {Number(product.price_thousand).toFixed(2)}</Badge>
+                )}
+              </div>
+            ),
+          },
+          {
+            header: 'Estado',
+            filterable: true,
+            filterKey: 'status',
+            cell: (product) =>
+              product.is_deleted ? <Badge variant="destructive">Inactivo</Badge> : <Badge variant="success">Activo</Badge>,
+          },
+          {
+            header: '',
+            align: 'right',
+            cell: (product) => (
+              <div className="flex justify-end gap-1">
+                {canUpdate && (
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditProduct(product)}>
+                    <Pencil className="size-4" />
+                  </Button>
+                )}
+                {canDisable && (
+                  <ToggleStatusButton
+                    active={!product.is_deleted}
+                    disabled={isToggling}
+                    entityLabel="producto"
+                    onToggle={() =>
+                      toggleStatus(product.id, {
+                        onSuccess: () =>
+                          toast.success(product.is_deleted ? 'Producto habilitado' : 'Producto deshabilitado'),
+                        onError: () => toast.error('No se pudo actualizar el producto'),
+                      })
+                    }
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]}
+        rows={data?.data ?? []}
+        rowKey={(product) => product.id}
+        isLoading={isLoading}
+        emptyIcon={Package}
+        emptyTitle="No se encontraron productos"
+        sortBy={orderBy}
+        sortDir={orderDir}
+        onSortChange={handleSortChange}
+        columnFilters={columnFilters}
+        onColumnFilterChange={handleColumnFilterChange}
+      />
+
+      {data && (
+        <Pagination
+          result={{ page: data.meta.page, pageSize: data.meta.limit, totalCount: data.meta.total }}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
+
+      {editProduct && <ProductFormDialog product={editProduct} onClose={() => setEditProduct(null)} />}
+    </div>
+  );
+}
+
+function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: () => void }) {
+  const isEditing = Boolean(product);
+  const [open, setOpen] = useState(isEditing);
+  const { data: access } = useAccess();
+  const { mutate: create, isPending: isCreating, error: createError } = useCreateProduct();
+  const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateProduct();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CreateProductFormValues>({ resolver: zodResolver(createProductSchema) });
+
+  useEffect(() => {
+    if (product) {
+      reset({
+        name: product.name,
+        description: product.description ?? '',
+        sku: product.sku ?? '',
+        price_unit: product.price_unit != null ? Number(product.price_unit) : undefined,
+        price_hundred: product.price_hundred != null ? Number(product.price_hundred) : undefined,
+        price_half_thousand: product.price_half_thousand != null ? Number(product.price_half_thousand) : undefined,
+        price_thousand: product.price_thousand != null ? Number(product.price_thousand) : undefined,
+      });
+    }
+  }, [product, reset]);
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) onClose?.();
+  };
+
+  const onSubmit = (values: CreateProductFormValues) => {
+    if (isEditing && product) {
+      const { company_id: _companyId, ...dto } = values;
+      update(
+        { id: product.id, dto },
+        {
+          onSuccess: () => {
+            toast.success('Producto actualizado correctamente');
+            handleOpenChange(false);
+          },
+        },
+      );
+      return;
+    }
+
+    // Un producto siempre se crea en la empresa del admin que lo crea — el
+    // super administrador ni siquiera llega aquí (no ve el botón de crear,
+    // ver ProductsTab).
+    const companyId = access?.companyId;
+    if (!companyId) return;
+
+    create(
+      { ...values, company_id: companyId },
+      {
+        onSuccess: () => {
+          toast.success('Producto creado correctamente');
+          reset();
+          handleOpenChange(false);
+        },
+      },
+    );
+  };
+
+  const apiError = (isEditing ? updateError : createError) as ApiClientError | null;
+  const isPending = isEditing ? isUpdating : isCreating;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {!isEditing && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="size-4" />
+            Nuevo producto
+          </Button>
+        </DialogTrigger>
+      )}
+      <DialogContent expandable>
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Editar producto' : 'Nuevo producto'}</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nombre</Label>
+            <Input id="name" {...register('name')} />
+            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sku">SKU</Label>
+            <Input id="sku" {...register('sku')} />
+          </div>
+
+          {/* Un producto puede tener los 4 precios cargados a la vez — el
+              modo (unidad/ciento/medio millar/millar) se elige POR ITEM al
+              armar la cotización, no acá (pedido explícito del usuario: "es
+              un producto que se registra con precios diferentes"). */}
+          <div className="space-y-2">
+            <Label>Precios de catálogo (carga los que apliquen)</Label>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="price_unit" className="text-xs font-normal text-muted-foreground">
+                  Por unidad (S/)
+                </Label>
+                <Input id="price_unit" type="number" step="0.01" {...register('price_unit', { setValueAs: toOptionalNumber })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="price_hundred" className="text-xs font-normal text-muted-foreground">
+                  Por ciento (S/)
+                </Label>
+                <Input
+                  id="price_hundred"
+                  type="number"
+                  step="0.01"
+                  {...register('price_hundred', { setValueAs: toOptionalNumber })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="price_half_thousand" className="text-xs font-normal text-muted-foreground">
+                  Medio millar (S/)
+                </Label>
+                <Input
+                  id="price_half_thousand"
+                  type="number"
+                  step="0.01"
+                  {...register('price_half_thousand', { setValueAs: toOptionalNumber })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="price_thousand" className="text-xs font-normal text-muted-foreground">
+                  Por millar (S/)
+                </Label>
+                <Input
+                  id="price_thousand"
+                  type="number"
+                  step="0.01"
+                  {...register('price_thousand', { setValueAs: toOptionalNumber })}
+                />
+              </div>
+            </div>
+            {errors.price_unit && <p className="text-sm text-destructive">{errors.price_unit.message}</p>}
+            <p className="text-xs text-muted-foreground">
+              Cada precio es una tarifa por unidad para ese volumen de pedido (suele bajar mientras más
+              grande la modalidad) — al cotizar, se elige la tarifa y la cantidad real se multiplica por
+              ella.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Descripción</Label>
+            <Input id="description" {...register('description')} />
+          </div>
+
+          {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
+
+          <DialogFooter>
+            <Button type="submit" disabled={isPending}>
+              <Check className="size-4" />
+              {isPending ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear producto'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TechniquesTab() {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [editTechnique, setEditTechnique] = useState<CustomizationTechnique | null>(null);
+  // Mismo criterio que ProductsTab: orden y filtros por columna elevados acá.
+  const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
+  const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const canCreate = usePermissionButton('producto.technique.create.button');
+  const canUpdate = usePermissionButton('producto.technique.update.button');
+  const canDisable = usePermissionButton('producto.technique.disable.button');
+  const { data: access } = useAccess();
+  // Misma regla que productos: una técnica pertenece a una empresa
+  // específica, un super administrador no la gestiona.
+  const canCreateHere = canCreate && !access?.isSystem;
+
+  const { data, isLoading } = useTechniques({
+    page,
+    limit: pageSize,
+    orderBy,
+    orderDir,
+    name: columnFilters.name || undefined,
+    status: columnFilters.status || undefined,
+  });
+  const { mutate: toggleStatus, isPending: isToggling } = useToggleTechniqueStatus();
+
+  const handleSortChange = (key: string, dir: 'asc' | 'desc' | undefined) => {
+    setOrderBy(dir ? key : undefined);
+    setOrderDir(dir);
+    setPage(1);
+  };
+
+  const handleColumnFilterChange = (key: string, value: string) => {
+    setColumnFilters((previous) => ({ ...previous, [key]: value }));
+    setPage(1);
+  };
+
+  return (
+    <div className="space-y-4 pt-4">
+      <div className="flex justify-end">{canCreateHere && <TechniqueFormDialog />}</div>
+
+      <DataTable
+        columns={[
+          {
+            header: 'Nombre',
+            sortable: true,
+            sortKey: 'name',
+            filterable: true,
+            filterKey: 'name',
+            cell: (technique) => <span className="font-medium">{technique.name}</span>,
+          },
+          {
+            header: 'Costo adicional',
+            cell: (technique) =>
+              technique.extra_type === 'percentage' ? (
+                `${Number(technique.extra_value)}%`
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {technique.price_unit != null && (
+                    <Badge variant="outline">Unidad: S/ {Number(technique.price_unit).toFixed(2)}</Badge>
+                  )}
+                  {technique.price_hundred != null && (
+                    <Badge variant="outline">Ciento: S/ {Number(technique.price_hundred).toFixed(2)}</Badge>
+                  )}
+                  {technique.price_half_thousand != null && (
+                    <Badge variant="outline">1/2 millar: S/ {Number(technique.price_half_thousand).toFixed(2)}</Badge>
+                  )}
+                  {technique.price_thousand != null && (
+                    <Badge variant="outline">Millar: S/ {Number(technique.price_thousand).toFixed(2)}</Badge>
+                  )}
+                </div>
+              ),
+          },
+          {
+            header: 'Estado',
+            filterable: true,
+            filterKey: 'status',
+            cell: (technique) =>
+              technique.is_deleted ? (
+                <Badge variant="destructive">Inactiva</Badge>
+              ) : (
+                <Badge variant="success">Activa</Badge>
+              ),
+          },
+          {
+            header: '',
+            align: 'right',
+            cell: (technique) => (
+              <div className="flex justify-end gap-1">
+                {canUpdate && (
+                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditTechnique(technique)}>
+                    <Pencil className="size-4" />
+                  </Button>
+                )}
+                {canDisable && (
+                  <ToggleStatusButton
+                    active={!technique.is_deleted}
+                    disabled={isToggling}
+                    entityLabel="técnica"
+                    onToggle={() =>
+                      toggleStatus(technique.id, {
+                        onSuccess: () =>
+                          toast.success(technique.is_deleted ? 'Técnica habilitada' : 'Técnica deshabilitada'),
+                        onError: () => toast.error('No se pudo actualizar la técnica'),
+                      })
+                    }
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]}
+        rows={data?.data ?? []}
+        rowKey={(technique) => technique.id}
+        isLoading={isLoading}
+        emptyIcon={Sparkles}
+        emptyTitle="No se encontraron técnicas"
+        sortBy={orderBy}
+        sortDir={orderDir}
+        onSortChange={handleSortChange}
+        columnFilters={columnFilters}
+        onColumnFilterChange={handleColumnFilterChange}
+      />
+
+      {data && (
+        <Pagination
+          result={{ page: data.meta.page, pageSize: data.meta.limit, totalCount: data.meta.total }}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+      )}
+
+      {editTechnique && <TechniqueFormDialog technique={editTechnique} onClose={() => setEditTechnique(null)} />}
+    </div>
+  );
+}
+
+function TechniqueFormDialog({
+  technique,
+  onClose,
+}: {
+  technique?: CustomizationTechnique;
+  onClose?: () => void;
+}) {
+  const isEditing = Boolean(technique);
+  const [open, setOpen] = useState(isEditing);
+  const { data: access } = useAccess();
+  const { mutate: create, isPending: isCreating, error: createError } = useCreateTechnique();
+  const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateTechnique();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<CreateTechniqueFormValues>({
+    resolver: zodResolver(createTechniqueSchema),
+    defaultValues: { extra_type: 'fixed' },
+  });
+
+  useEffect(() => {
+    if (technique) {
+      reset({
+        name: technique.name,
+        description: technique.description ?? '',
+        extra_type: technique.extra_type,
+        extra_value: Number(technique.extra_value),
+        price_unit: technique.price_unit != null ? Number(technique.price_unit) : undefined,
+        price_hundred: technique.price_hundred != null ? Number(technique.price_hundred) : undefined,
+        price_half_thousand: technique.price_half_thousand != null ? Number(technique.price_half_thousand) : undefined,
+        price_thousand: technique.price_thousand != null ? Number(technique.price_thousand) : undefined,
+      });
+    }
+  }, [technique, reset]);
+
+  const extraType = watch('extra_type');
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) onClose?.();
+  };
+
+  const onSubmit = (values: CreateTechniqueFormValues) => {
+    if (isEditing && technique) {
+      const { company_id: _companyId, ...dto } = values;
+      update(
+        { id: technique.id, dto },
+        {
+          onSuccess: () => {
+            toast.success('Técnica actualizada correctamente');
+            handleOpenChange(false);
+          },
+        },
+      );
+      return;
+    }
+
+    // Igual que productos: la técnica se crea siempre en la empresa del
+    // admin que la crea, el super administrador no ve el botón de crear.
+    const companyId = access?.companyId;
+    if (!companyId) return;
+
+    create(
+      { ...values, company_id: companyId },
+      {
+        onSuccess: () => {
+          toast.success('Técnica creada correctamente');
+          reset();
+          handleOpenChange(false);
+        },
+      },
+    );
+  };
+
+  const apiError = (isEditing ? updateError : createError) as ApiClientError | null;
+  const isPending = isEditing ? isUpdating : isCreating;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {!isEditing && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="size-4" />
+            Nueva técnica
+          </Button>
+        </DialogTrigger>
+      )}
+      <DialogContent expandable>
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Editar técnica' : 'Nueva técnica de personalización'}</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tech-name">Nombre</Label>
+            <Input id="tech-name" {...register('name')} />
+            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tipo de costo</Label>
+            <Select value={extraType} onValueChange={(value) => setValue('extra_type', value as 'fixed' | 'percentage')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed">Fijo por volumen (S/)</SelectItem>
+                <SelectItem value="percentage">Porcentual (%)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {extraType === 'percentage' ? (
+            <div className="space-y-2">
+              <Label htmlFor="extra_value">Costo adicional (%)</Label>
+              <Input
+                id="extra_value"
+                type="number"
+                step="0.01"
+                {...register('extra_value', { valueAsNumber: true })}
+              />
+              {errors.extra_value && <p className="text-sm text-destructive">{errors.extra_value.message}</p>}
+            </div>
+          ) : (
+            // Mismo criterio que ProductFormDialog: un extra POR UNIDAD
+            // distinto según el volumen pedido (pedido explícito del
+            // usuario — antes esto era un único monto sin importar el modo
+            // de precio elegido en el item de la cotización).
+            <div className="space-y-2">
+              <Label>Extra por volumen (carga el/los que apliquen)</Label>
+              <div className="grid grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="tech_price_unit" className="text-xs font-normal text-muted-foreground">
+                    Por unidad (S/)
+                  </Label>
+                  <Input id="tech_price_unit" type="number" step="0.01" {...register('price_unit', { setValueAs: toOptionalNumber })} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="tech_price_hundred" className="text-xs font-normal text-muted-foreground">
+                    Por ciento (S/)
+                  </Label>
+                  <Input
+                    id="tech_price_hundred"
+                    type="number"
+                    step="0.01"
+                    {...register('price_hundred', { setValueAs: toOptionalNumber })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="tech_price_half_thousand" className="text-xs font-normal text-muted-foreground">
+                    Medio millar (S/)
+                  </Label>
+                  <Input
+                    id="tech_price_half_thousand"
+                    type="number"
+                    step="0.01"
+                    {...register('price_half_thousand', { setValueAs: toOptionalNumber })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="tech_price_thousand" className="text-xs font-normal text-muted-foreground">
+                    Por millar (S/)
+                  </Label>
+                  <Input
+                    id="tech_price_thousand"
+                    type="number"
+                    step="0.01"
+                    {...register('price_thousand', { setValueAs: toOptionalNumber })}
+                  />
+                </div>
+              </div>
+              {errors.price_unit && <p className="text-sm text-destructive">{errors.price_unit.message}</p>}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="tech-description">Descripción</Label>
+            <Input id="tech-description" {...register('description')} />
+          </div>
+
+          {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
+
+          <DialogFooter>
+            <Button type="submit" disabled={isPending}>
+              <Check className="size-4" />
+              {isPending ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear técnica'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

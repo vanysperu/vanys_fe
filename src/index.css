@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Paleta y tokens de Vanys (grulla_fe/../vn design handoff) — hex directos
+   en vez de oklch para poder cotejarlos 1:1 con el spec de diseño. */
+:root {
+  --radius: 0.75rem;
+  --background: #f4f4f1;
+  --foreground: #1b1c22;
+  --card: #ffffff;
+  --card-foreground: #1b1c22;
+  --popover: #ffffff;
+  --popover-foreground: #1b1c22;
+  /* Azul (por defecto) — mismo tono que la pantalla de login y que el tema
+     "blue" sembrado en grulla_be (database/seeders/20260912233650-seed-themes.js),
+     así ambos coinciden sin que el usuario tenga que elegir nada (ver
+     presentation/hooks/shared/useBrandTheme.ts, que sobreescribe estas
+     mismas variables cuando la empresa elige otra paleta de marca). */
+  --primary: #1b84ff;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f0ee;
+  --secondary-foreground: #41424d;
+  --muted: #fbfbfa;
+  --muted-foreground: #7b7d88;
+  --accent: #e9f3ff;
+  --accent-foreground: #056ee9;
+  --destructive: #b4231f;
+  --destructive-foreground: #ffffff;
+  --success: #1f8a5f;
+  --success-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.1);
+  --ring: rgba(27, 132, 255, 0.5);
+  --sidebar: #14151b;
+  --sidebar-foreground: #eceaf6;
+  --sidebar-muted: #b9b6c9;
+  --sidebar-accent: #1b84ff;
+  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+.dark {
+  --background: #16171b;
+  --foreground: #eceaf6;
+  --card: #1c1d24;
+  --card-foreground: #eceaf6;
+  --popover: #1c1d24;
+  --popover-foreground: #eceaf6;
+  --primary: #4dabff;
+  --primary-foreground: #0b1220;
+  --secondary: #26272f;
+  --secondary-foreground: #eceaf6;
+  --muted: #202127;
+  --muted-foreground: #9a98a6;
+  --accent: #16283d;
+  --accent-foreground: #9cd0ff;
+  --destructive: #e35b56;
+  --destructive-foreground: #15151b;
+  --success: #3ba97a;
+  --success-foreground: #15151b;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: rgba(77, 171, 255, 0.5);
+  --sidebar: #0f1015;
+  --sidebar-foreground: #eceaf6;
+  --sidebar-muted: #8a8798;
+  --sidebar-accent: #4dabff;
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+@theme inline {
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .font-mono-nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    /* Firefox: pulgar/track parejos con el resto de la UI en vez del gris
+       genérico del navegador (pedido explícito del usuario: "sigo viendo
+       scroll feos" — antes solo se fijaba el ancho, nunca el color). */
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}

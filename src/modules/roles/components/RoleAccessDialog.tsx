@@ -1,0 +1,224 @@
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Check, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { resolveIcon } from '@/lib/resolveIcon';
+import { cn } from '@/lib/utils';
+import { useRoleResourceTree, useSetRoleResources } from '@/modules/roles/hooks/useRoleResourceTree';
+import type { ModuleTreeItem, ResourceTreeItem, Role } from '@/modules/roles/types/role.types';
+import { Badge } from '@/presentation/components/shared/ui/badge';
+import { Button } from '@/presentation/components/shared/ui/button';
+import { Checkbox } from '@/presentation/components/shared/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/presentation/components/shared/ui/dialog';
+import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
+
+const TYPE_LABEL: Record<ResourceTreeItem['type'], string> = {
+  view: 'Vista',
+  button: 'Botón',
+  endpoint: 'Endpoint',
+};
+
+interface RoleAccessDialogProps {
+  role: Role | null;
+  onClose: () => void;
+}
+
+// Panel de asignación de accesos: marca/desmarca recursos (vistas, botones,
+// endpoints) de un rol y guarda solo el diff (add/remove) contra el backend
+// (CLAUDE.md sección 2 - RBAC, PUT /roles/:roleId/resources).
+export function RoleAccessDialog({ role, onClose }: RoleAccessDialogProps) {
+  const open = Boolean(role);
+  const { data, isLoading } = useRoleResourceTree(role?.id ?? 0, open);
+  const { mutate: save, isPending } = useSetRoleResources(role?.id ?? 0);
+
+  // Los roles de plantilla (Administrador/Especialista/Gestor, company_id
+  // NULL) son una sola fila compartida por todas las empresas — el backend
+  // ya rechaza el guardado para estos (CLAUDE.md sección 10: una empresa
+  // solo otorga/quita accesos sobre SUS PROPIOS roles), así que acá se
+  // deshabilita la edición en vez de dejar que el usuario marque cosas y
+  // reciba un 403 confuso al guardar.
+  const isSharedTemplate = Boolean(role) && !role!.is_system && role!.company_id == null;
+  const readOnly = Boolean(role?.is_system) || isSharedTemplate;
+
+  const [granted, setGranted] = useState<Set<number>>(new Set());
+  const [initialGranted, setInitialGranted] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!data) return;
+    const ids = new Set<number>();
+    const walk = (items: ResourceTreeItem[]) => {
+      for (const item of items) {
+        if (item.granted) ids.add(item.id);
+        if (item.children.length > 0) walk(item.children);
+      }
+    };
+    data.modules.forEach((module) => walk(module.resources));
+    setGranted(new Set(ids));
+    setInitialGranted(new Set(ids));
+  }, [data]);
+
+  const toggle = (id: number) => {
+    if (readOnly) return;
+    setGranted((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const hasChanges = useMemo(() => {
+    if (granted.size !== initialGranted.size) return true;
+    for (const id of granted) if (!initialGranted.has(id)) return true;
+    return false;
+  }, [granted, initialGranted]);
+
+  const handleSave = () => {
+    const add = [...granted].filter((id) => !initialGranted.has(id));
+    const remove = [...initialGranted].filter((id) => !granted.has(id));
+
+    save(
+      { resourceIds: { add, remove } },
+      {
+        onSuccess: () => {
+          toast.success('Accesos del rol actualizados');
+          setInitialGranted(new Set(granted));
+        },
+        onError: () => toast.error('No se pudieron guardar los accesos'),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent expandable className="max-w-2xl overflow-hidden p-0">
+        <DialogHeader className="border-b px-6 py-4">
+          <DialogTitle>Accesos de {role?.name}</DialogTitle>
+          <DialogDescription>
+            Marca los módulos, vistas, botones y endpoints que este rol puede usar.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="scrollbar-thin max-h-[55vh] overflow-y-auto px-6 py-4">
+          {role?.is_system && (
+            <p className="mb-4 rounded-lg bg-accent px-3 py-2 text-sm text-accent-foreground">
+              Este es un rol de plataforma (<code>is_system</code>): tiene todos los accesos otorgados
+              automáticamente, sin importar lo que se marque aquí.
+            </p>
+          )}
+
+          {isSharedTemplate && (
+            <p className="mb-4 rounded-lg bg-accent px-3 py-2 text-sm text-accent-foreground">
+              Este es un rol de plantilla compartido con todas las empresas — solo puede consultarse acá,
+              no editarse, porque un cambio afectaría a las demás empresas que también lo usan.
+            </p>
+          )}
+
+          {isLoading && (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading &&
+            data?.modules.map((module, index) => (
+              <ModuleGroup key={module.id} module={module} granted={granted} onToggle={toggle} readOnly={readOnly} index={index} />
+            ))}
+        </div>
+
+        <DialogFooter className="border-t px-6 py-4">
+          <Button variant="ghost" onClick={onClose}>
+            <X className="size-4" />
+            Cerrar
+          </Button>
+          {!readOnly && (
+            <Button onClick={handleSave} disabled={!hasChanges || isPending}>
+              <Check className="size-4" />
+              {isPending ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ModuleGroup({
+  module,
+  granted,
+  onToggle,
+  readOnly,
+  index,
+}: {
+  module: ModuleTreeItem;
+  granted: Set<number>;
+  onToggle: (id: number) => void;
+  readOnly: boolean;
+  index: number;
+}) {
+  const ModuleIcon = resolveIcon(module.icon);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: index * 0.04 }}
+      className="mb-4 rounded-xl border"
+    >
+      <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
+        <ModuleIcon className="size-4 text-muted-foreground" />
+        <span className="text-sm font-semibold">{module.name}</span>
+      </div>
+      <div className="divide-y">
+        {module.resources.map((resource) => (
+          <ResourceRow key={resource.id} resource={resource} granted={granted} onToggle={onToggle} readOnly={readOnly} />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+function ResourceRow({
+  resource,
+  granted,
+  onToggle,
+  readOnly,
+  depth = 0,
+}: {
+  resource: ResourceTreeItem;
+  granted: Set<number>;
+  onToggle: (id: number) => void;
+  readOnly: boolean;
+  depth?: number;
+}) {
+  return (
+    <div>
+      <label
+        className={cn(
+          'flex items-center gap-3 px-4 py-2.5 text-sm transition-colors',
+          readOnly ? 'cursor-default' : 'cursor-pointer hover:bg-muted/40',
+        )}
+        style={{ paddingLeft: `${16 + depth * 20}px` }}
+      >
+        <Checkbox checked={granted.has(resource.id)} onCheckedChange={() => onToggle(resource.id)} disabled={readOnly} />
+        <span className="flex-1">{resource.name}</span>
+        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+          {TYPE_LABEL[resource.type]}
+        </Badge>
+      </label>
+      {resource.children.map((child) => (
+        <ResourceRow key={child.id} resource={child} granted={granted} onToggle={onToggle} readOnly={readOnly} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
