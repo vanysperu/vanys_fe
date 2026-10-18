@@ -186,7 +186,7 @@ export interface QuotationItem {
     price_half_thousand: number | null;
     price_thousand: number | null;
   };
-  technique?: { id: number; name: string; extra_type: string; extra_value: number } | null;
+  technique?: { id: number; name: string } | null;
   stage?: QuotationItemStage | null;
 }
 
@@ -204,6 +204,8 @@ export interface QuotationPayment {
   paid_at: string;
   notes: string | null;
   operation_number: string | null;
+  // Cuenta a la que entró (null = efectivo).
+  payment_account_id: number | null;
   created_at: string;
   actor?: QuotationActor;
 }
@@ -249,6 +251,7 @@ export interface CreateQuotationPaymentDto {
   paid_at: string;
   notes?: string | null;
   operation_number?: string | null;
+  payment_account_id?: number | null;
 }
 
 export interface CreateQuotationExpenseDto {
@@ -304,4 +307,10 @@ export interface QuotationListParams {
   limit?: number;
   status?: QuotationStatus;
   clientId?: number;
+  // Solo tiene efecto si el usuario no está limitado a una tienda.
+  businessUnitId?: number;
+  createdBy?: number;
+  // Rango de fecha de emisión (YYYY-MM-DD).
+  dateFrom?: string;
+  dateTo?: string;
 }

@@ -17,6 +17,9 @@ import {
 import type { VariableGeneral } from '@/modules/variableGeneral/types/variableGeneral.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
+import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
@@ -47,6 +50,7 @@ export function VariableGeneralPage() {
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
 
   const canCreate = usePermissionButton('variable_general.create.button');
   const canUpdate = usePermissionButton('variable_general.update.button');
@@ -63,7 +67,13 @@ export function VariableGeneralPage() {
     title: columnFilters.title || undefined,
     name: columnFilters.name || undefined,
     status: columnFilters.status || undefined,
+    category: categoryFilter,
   });
+  // Categorías existentes, para el filtro (son pocas filas: una sola consulta).
+  const { data: allForCategories } = useVariableGenerals({ ignorePagination: true });
+  const categoryOptions = Array.from(new Set((allForCategories?.data ?? []).map((row) => row.category)))
+    .sort()
+    .map((category) => ({ value: category, label: category }));
   // Un admin de empresa solo ve sus propias variables (+ las globales, ver
   // backend) — nunca necesita listar otras empresas, así que esta consulta
   // (exclusiva de is_system) no se dispara para él.
@@ -89,7 +99,7 @@ export function VariableGeneralPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Variables generales"
+        title="Generales"
         description="Catálogos usados en formularios de todo el sistema (tipos de documento, género, etc.)"
         action={
           <div className="flex items-center gap-3">
@@ -109,6 +119,26 @@ export function VariableGeneralPage() {
           </div>
         }
       />
+
+      <FiltersBar
+        hasActiveFilters={Boolean(categoryFilter)}
+        onClear={() => {
+          setCategoryFilter(undefined);
+          setPage(1);
+        }}
+      >
+        <FilterSelect
+          aria-label="Categoría"
+          allLabel="Todas las categorías"
+          className="w-56"
+          value={categoryFilter}
+          onChange={(value) => {
+            setCategoryFilter(value);
+            setPage(1);
+          }}
+          options={categoryOptions}
+        />
+      </FiltersBar>
 
       <DataTable
         columns={[
@@ -143,6 +173,8 @@ export function VariableGeneralPage() {
             header: 'Estado',
             filterable: true,
             filterKey: 'status',
+            filterType: 'multiselect',
+            filterOptions: ACTIVE_STATUS_FILTER_OPTIONS,
             cell: (row) =>
               row.is_deleted ? <Badge variant="destructive">Inactiva</Badge> : <Badge variant="success">Activa</Badge>,
           },

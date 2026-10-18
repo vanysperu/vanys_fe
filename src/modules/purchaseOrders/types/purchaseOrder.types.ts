@@ -57,6 +57,18 @@ export interface CreatePurchaseOrderItemPurchaseDto {
   amount: number;
   notes?: string;
   funding_source: FundingSource;
+  // true = la persona ya confirmó que quiere comprar por encima de lo pedido.
+  allow_exceed?: boolean;
+}
+
+// Código y detalle con los que el backend rechaza una compra que supera lo
+// pedido sin confirmación (grulla_be: purchase_order.controller.ts).
+export const PURCHASE_EXCEEDS_REMAINING_CODE = 'PURCHASE_EXCEEDS_REMAINING';
+
+export interface PurchaseExceedsRemainingDetail {
+  ordered: number;
+  already_purchased: number;
+  requested: number;
 }
 
 export interface PurchaseOrder {
@@ -98,4 +110,7 @@ export interface PurchaseOrderListParams {
   // Filtros por columna de la tabla (buscador en el header de DataTable).
   clientName?: string;
   assigneeName?: string;
+  // Rango de fecha de creación (YYYY-MM-DD).
+  dateFrom?: string;
+  dateTo?: string;
 }

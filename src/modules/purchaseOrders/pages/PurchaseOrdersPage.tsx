@@ -14,6 +14,8 @@ import { Pagination } from '@/presentation/components/shared/Pagination';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 
 const ALL_STATUS_VALUE = 'all';
 
@@ -30,6 +32,7 @@ export function PurchaseOrdersPage() {
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const canEditItems = usePermissionButton('purchase_order.item.updateStatus.button');
 
   const handleSortChange = (key: string, dir: 'asc' | 'desc' | undefined) => {
@@ -51,6 +54,8 @@ export function PurchaseOrdersPage() {
     orderDir,
     clientName: columnFilters.clientName || undefined,
     assigneeName: columnFilters.assigneeName || undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
   });
 
   return (
@@ -61,7 +66,10 @@ export function PurchaseOrdersPage() {
         action={
           <Select
             value={status ?? ALL_STATUS_VALUE}
-            onValueChange={(value) => setStatus(value === ALL_STATUS_VALUE ? undefined : (value as PurchaseOrderStatus))}
+            onValueChange={(value) => {
+              setStatus(value === ALL_STATUS_VALUE ? undefined : (value as PurchaseOrderStatus));
+              setPage(1);
+            }}
           >
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Todos los estados" />
@@ -77,6 +85,23 @@ export function PurchaseOrdersPage() {
           </Select>
         }
       />
+
+      <FiltersBar
+        hasActiveFilters={Boolean(dateRange.dateFrom || dateRange.dateTo)}
+        onClear={() => {
+          setDateRange({});
+          setPage(1);
+        }}
+      >
+        <DateRangeFilter
+          placeholder="Fecha de creación"
+          value={dateRange}
+          onChange={(value) => {
+            setDateRange(value);
+            setPage(1);
+          }}
+        />
+      </FiltersBar>
 
       <DataTable<PurchaseOrder>
         columns={[

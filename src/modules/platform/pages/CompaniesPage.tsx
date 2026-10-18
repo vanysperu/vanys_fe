@@ -15,6 +15,9 @@ import { createCompanySchema, type CreateCompanyFormValues } from '@/modules/pla
 import type { Company } from '@/modules/platform/types/platform.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
+import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
@@ -40,6 +43,7 @@ export function CompaniesPage() {
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const canCreate = usePermissionButton('platform.company.create.button');
   const canUpdate = usePermissionButton('platform.company.update.button');
   const canDisable = usePermissionButton('platform.company.disable.button');
@@ -53,6 +57,8 @@ export function CompaniesPage() {
     businessName: columnFilters.businessName || undefined,
     email: columnFilters.email || undefined,
     status: columnFilters.status || undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
   });
   const { mutate: toggleStatus, isPending: isToggling } = useToggleCompanyStatus();
 
@@ -74,6 +80,23 @@ export function CompaniesPage() {
         description="Empresas (tenants) registradas en la plataforma"
         action={canCreate && <CompanyFormDialog />}
       />
+
+      <FiltersBar
+        hasActiveFilters={Boolean(dateRange.dateFrom || dateRange.dateTo)}
+        onClear={() => {
+          setDateRange({});
+          setPage(1);
+        }}
+      >
+        <DateRangeFilter
+          placeholder="Fecha de registro"
+          value={dateRange}
+          onChange={(value) => {
+            setDateRange(value);
+            setPage(1);
+          }}
+        />
+      </FiltersBar>
 
       <DataTable
         columns={[
@@ -113,6 +136,8 @@ export function CompaniesPage() {
             header: 'Estado',
             filterable: true,
             filterKey: 'status',
+            filterType: 'multiselect',
+            filterOptions: ACTIVE_STATUS_FILTER_OPTIONS,
             cell: (company) =>
               company.is_deleted ? (
                 <Badge variant="destructive">Deshabilitada</Badge>

@@ -48,6 +48,13 @@ const EmployeeDebtsPage = lazy(() =>
   import('@/modules/employeeDebts/pages/EmployeeDebtsPage').then((m) => ({ default: m.EmployeeDebtsPage })),
 );
 
+const ReceivablesPage = lazy(() =>
+  import('@/modules/receivables/pages/ReceivablesPage').then((m) => ({ default: m.ReceivablesPage })),
+);
+const RemindersPage = lazy(() =>
+  import('@/modules/reminders/pages/RemindersPage').then((m) => ({ default: m.RemindersPage })),
+);
+
 function RouteFallback() {
   return (
     <div className="flex h-40 items-center justify-center">
@@ -88,6 +95,8 @@ export default function PrivateRoutes() {
           <Route path="/caja" element={<CashMovementsPage />} />
           <Route path="/pagos" element={<PaymentsPage />} />
           <Route path="/deudas-personal" element={<EmployeeDebtsPage />} />
+          <Route path="/por-cobrar" element={<ReceivablesPage />} />
+          <Route path="/recordatorios" element={<RemindersPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

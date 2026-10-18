@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
-import { Check, Package, Pencil, Plus, Sparkles } from 'lucide-react';
+import { Check, Package, Pencil, Plus, Search, Sparkles } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -36,8 +36,10 @@ import {
 } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
+import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
 
@@ -56,7 +58,7 @@ export function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Productos" description="Catálogo de productos base y técnicas de personalización" />
+      <PageHeader title="Lista de precios" description="Productos y técnicas de personalización, con sus precios por volumen" />
 
       <Tabs
         value={activeTab}
@@ -85,6 +87,8 @@ function ProductsTab() {
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const canCreate = usePermissionButton('producto.create.button');
   const canUpdate = usePermissionButton('producto.update.button');
   const canDisable = usePermissionButton('producto.disable.button');
@@ -100,9 +104,12 @@ function ProductsTab() {
     limit: pageSize,
     orderBy,
     orderDir,
+    searchTerm: search || undefined,
     name: columnFilters.name || undefined,
     sku: columnFilters.sku || undefined,
     status: columnFilters.status || undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
   });
   const { mutate: toggleStatus, isPending: isToggling } = useToggleProductStatus();
 
@@ -119,7 +126,38 @@ function ProductsTab() {
 
   return (
     <div className="space-y-4 pt-4">
-      <div className="flex justify-end">{canCreateHere && <ProductFormDialog />}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <FiltersBar
+          hasActiveFilters={Boolean(search || dateRange.dateFrom || dateRange.dateTo)}
+          onClear={() => {
+            setSearch('');
+            setDateRange({});
+            setPage(1);
+          }}
+        >
+          <div className="relative">
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre o SKU..."
+              className="h-9 w-64 pl-9"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <DateRangeFilter
+            placeholder="Fecha de registro"
+            value={dateRange}
+            onChange={(value) => {
+              setDateRange(value);
+              setPage(1);
+            }}
+          />
+        </FiltersBar>
+        {canCreateHere && <ProductFormDialog />}
+      </div>
 
       <DataTable
         columns={[
@@ -162,6 +200,8 @@ function ProductsTab() {
             header: 'Estado',
             filterable: true,
             filterKey: 'status',
+            filterType: 'multiselect',
+            filterOptions: ACTIVE_STATUS_FILTER_OPTIONS,
             cell: (product) =>
               product.is_deleted ? <Badge variant="destructive">Inactivo</Badge> : <Badge variant="success">Activo</Badge>,
           },
@@ -399,6 +439,7 @@ function TechniquesTab() {
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const canCreate = usePermissionButton('producto.technique.create.button');
   const canUpdate = usePermissionButton('producto.technique.update.button');
   const canDisable = usePermissionButton('producto.technique.disable.button');
@@ -414,6 +455,8 @@ function TechniquesTab() {
     orderDir,
     name: columnFilters.name || undefined,
     status: columnFilters.status || undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
   });
   const { mutate: toggleStatus, isPending: isToggling } = useToggleTechniqueStatus();
 
@@ -430,7 +473,25 @@ function TechniquesTab() {
 
   return (
     <div className="space-y-4 pt-4">
-      <div className="flex justify-end">{canCreateHere && <TechniqueFormDialog />}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <FiltersBar
+          hasActiveFilters={Boolean(dateRange.dateFrom || dateRange.dateTo)}
+          onClear={() => {
+            setDateRange({});
+            setPage(1);
+          }}
+        >
+          <DateRangeFilter
+            placeholder="Fecha de registro"
+            value={dateRange}
+            onChange={(value) => {
+              setDateRange(value);
+              setPage(1);
+            }}
+          />
+        </FiltersBar>
+        {canCreateHere && <TechniqueFormDialog />}
+      </div>
 
       <DataTable
         columns={[
@@ -443,11 +504,8 @@ function TechniquesTab() {
             cell: (technique) => <span className="font-medium">{technique.name}</span>,
           },
           {
-            header: 'Costo adicional',
-            cell: (technique) =>
-              technique.extra_type === 'percentage' ? (
-                `${Number(technique.extra_value)}%`
-              ) : (
+            header: 'Precios',
+            cell: (technique) => (
                 <div className="flex flex-wrap gap-1">
                   {technique.price_unit != null && (
                     <Badge variant="outline">Unidad: S/ {Number(technique.price_unit).toFixed(2)}</Badge>
@@ -462,12 +520,14 @@ function TechniquesTab() {
                     <Badge variant="outline">Millar: S/ {Number(technique.price_thousand).toFixed(2)}</Badge>
                   )}
                 </div>
-              ),
+            ),
           },
           {
             header: 'Estado',
             filterable: true,
             filterKey: 'status',
+            filterType: 'multiselect',
+            filterOptions: ACTIVE_STATUS_FILTER_OPTIONS,
             cell: (technique) =>
               technique.is_deleted ? (
                 <Badge variant="destructive">Inactiva</Badge>
@@ -548,12 +608,9 @@ function TechniqueFormDialog({
     register,
     handleSubmit,
     reset,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<CreateTechniqueFormValues>({
     resolver: zodResolver(createTechniqueSchema),
-    defaultValues: { extra_type: 'fixed' },
   });
 
   useEffect(() => {
@@ -561,8 +618,6 @@ function TechniqueFormDialog({
       reset({
         name: technique.name,
         description: technique.description ?? '',
-        extra_type: technique.extra_type,
-        extra_value: Number(technique.extra_value),
         price_unit: technique.price_unit != null ? Number(technique.price_unit) : undefined,
         price_hundred: technique.price_hundred != null ? Number(technique.price_hundred) : undefined,
         price_half_thousand: technique.price_half_thousand != null ? Number(technique.price_half_thousand) : undefined,
@@ -570,8 +625,6 @@ function TechniqueFormDialog({
       });
     }
   }, [technique, reset]);
-
-  const extraType = watch('extra_type');
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -635,37 +688,11 @@ function TechniqueFormDialog({
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
 
+          {/* Igual que ProductFormDialog: un precio POR UNIDAD según el
+              volumen pedido. El item cobra (producto + técnica) en el mismo
+              modo × cantidad (pedido explícito del usuario). */}
           <div className="space-y-2">
-            <Label>Tipo de costo</Label>
-            <Select value={extraType} onValueChange={(value) => setValue('extra_type', value as 'fixed' | 'percentage')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fixed">Fijo por volumen (S/)</SelectItem>
-                <SelectItem value="percentage">Porcentual (%)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {extraType === 'percentage' ? (
-            <div className="space-y-2">
-              <Label htmlFor="extra_value">Costo adicional (%)</Label>
-              <Input
-                id="extra_value"
-                type="number"
-                step="0.01"
-                {...register('extra_value', { valueAsNumber: true })}
-              />
-              {errors.extra_value && <p className="text-sm text-destructive">{errors.extra_value.message}</p>}
-            </div>
-          ) : (
-            // Mismo criterio que ProductFormDialog: un extra POR UNIDAD
-            // distinto según el volumen pedido (pedido explícito del
-            // usuario — antes esto era un único monto sin importar el modo
-            // de precio elegido en el item de la cotización).
-            <div className="space-y-2">
-              <Label>Extra por volumen (carga el/los que apliquen)</Label>
+              <Label>Precio por unidad según volumen (carga el/los que apliquen)</Label>
               <div className="grid grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="tech_price_unit" className="text-xs font-normal text-muted-foreground">
@@ -708,8 +735,7 @@ function TechniqueFormDialog({
                 </div>
               </div>
               {errors.price_unit && <p className="text-sm text-destructive">{errors.price_unit.message}</p>}
-            </div>
-          )}
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="tech-description">Descripción</Label>

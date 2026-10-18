@@ -10,7 +10,7 @@ test.describe('Variables generales', () => {
     await page.goto('/configuracion/variables-generales');
     await expect(page.locator('table')).toBeVisible();
     await page.waitForTimeout(500);
-    await expect(page.locator('h1', { hasText: 'Variables generales' }).locator('xpath=../..')).toHaveScreenshot(
+    await expect(page.locator('h1', { hasText: 'Generales' }).locator('xpath=../..')).toHaveScreenshot(
       'variable-general-header.png',
     );
   });

@@ -46,104 +46,80 @@ import { toOptionalNumber } from '@/lib/inputRestrictions';
 // itemTotal.toFixed(2) revienta más abajo porque itemTotal deja de ser un
 // number (esto era exactamente el crash reportado al elegir un producto
 // con precios de catálogo).
-function resolveCatalogPrice(product: Product | undefined, pricingMode: QuotationItemPricingMode): number | null {
-  if (!product) return null;
-  const raw =
-    pricingMode === 'unit'
-      ? product.price_unit
-      : pricingMode === 'hundred'
-        ? product.price_hundred
-        : pricingMode === 'half_thousand'
-          ? product.price_half_thousand
-          : pricingMode === 'thousand'
-            ? product.price_thousand
-            : null;
+// Producto y técnica comparten la misma forma de precios: un precio POR
+// UNIDAD para cada volumen (unidad / ciento / medio millar / millar).
+interface TierPriced {
+  price_unit: number | null;
+  price_hundred: number | null;
+  price_half_thousand: number | null;
+  price_thousand: number | null;
+}
+
+const TIER_FIELD: Record<Exclude<QuotationItemPricingMode, 'custom'>, keyof TierPriced> = {
+  unit: 'price_unit',
+  hundred: 'price_hundred',
+  half_thousand: 'price_half_thousand',
+  thousand: 'price_thousand',
+};
+
+function resolveTierPrice(row: TierPriced | undefined, pricingMode: QuotationItemPricingMode): number | null {
+  if (!row || pricingMode === 'custom') return null;
+  const raw = row[TIER_FIELD[pricingMode]];
   return raw == null ? null : Number(raw);
 }
 
-// Extra de la técnica para el modo de precio elegido en el item — mismo
-// criterio que el backend (grulla_be: quotation.service.ts ->
-// resolveTechniqueTierExtra): "custom" no tiene modo de catálogo propio, así
-// que cae a price_unit; si la técnica no cargó precio para ese modo, el
-// extra es 0 (no todas las técnicas necesitan estar completas en los 4).
-function resolveTechniqueTierExtra(
-  technique: { price_unit: number | null; price_hundred: number | null; price_half_thousand: number | null; price_thousand: number | null } | undefined,
-  pricingMode: QuotationItemPricingMode,
-  // "custom": el usuario puede escribir un precio propio para la técnica en
-  // esta cotización puntual (pedido explícito del usuario) — si no lo
-  // escribe, cae a technique.price_unit como antes.
-  customTechniquePrice?: number,
-): number {
-  if (!technique) return 0;
-  if (pricingMode === 'custom') {
-    if (customTechniquePrice != null && !Number.isNaN(customTechniquePrice)) return customTechniquePrice;
-    return technique.price_unit == null ? 0 : Number(technique.price_unit);
-  }
-  const raw =
-    pricingMode === 'unit'
-      ? technique.price_unit
-      : pricingMode === 'hundred'
-        ? technique.price_hundred
-        : pricingMode === 'half_thousand'
-          ? technique.price_half_thousand
-          : technique.price_thousand;
-  return raw == null ? 0 : Number(raw);
+// Modos que tienen precio cargado en el producto Y en la técnica elegida, más
+// "personalizado" (siempre disponible) — igual que el backend, que rechaza
+// un modo sin precio en cualquiera de los dos. Si todavía no se eligió
+// técnica, se filtra solo por el producto.
+function availablePricingModes(product: Product | undefined, technique: TierPriced | undefined): QuotationItemPricingMode[] {
+  const catalogModes = (Object.keys(TIER_FIELD) as Exclude<QuotationItemPricingMode, 'custom'>[]).filter(
+    (mode) => resolveTierPrice(product, mode) != null && (!technique || resolveTierPrice(technique, mode) != null),
+  );
+  return [...catalogModes, 'custom'];
 }
 
-// Modos de precio que el producto realmente tiene cargados, más
-// "personalizado" (siempre disponible) — evita ofrecer un modo sin precio
-// (pedido explícito del usuario tras la corrección: "no dejar seleccionar
-// ese modo").
-function availablePricingModes(product: Product | undefined): QuotationItemPricingMode[] {
-  const modes: QuotationItemPricingMode[] = [];
-  if (product?.price_unit != null) modes.push('unit');
-  if (product?.price_hundred != null) modes.push('hundred');
-  if (product?.price_half_thousand != null) modes.push('half_thousand');
-  if (product?.price_thousand != null) modes.push('thousand');
-  modes.push('custom');
-  return modes;
+interface ItemPriceBreakdown {
+  productPrice: number;
+  techniquePrice: number;
+  unitPrice: number;
+  total: number;
 }
 
-// Precio en vivo del item, mismo cálculo que hace el backend al crear
-// (grulla_be: quotation.service.ts -> resolveBasePrice/resolveUnitPrice/
-// computeItemSubtotal) — solo para previsualizar antes de enviar, el
-// backend recalcula igual al guardar. Cada modo de precio es una tarifa
-// POR UNIDAD (no el precio de un lote cerrado): el total es siempre
-// precio_por_unidad × cantidad, sin importar el modo (pedido explícito del
-// usuario, confirmado con ejemplos: millar S/700 × 850 = S/595,000; medio
-// millar S/500 × 5 = S/2,500).
-function computeItemTotal(
+const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+// Precio en vivo del item, MISMO cálculo que el backend al crear (grulla_be:
+// quotation.service.ts -> resolveUnitPrice): (precio del producto + precio de
+// la técnica, los dos en el mismo modo) × cantidad, con el precio unitario
+// redondeado a 2 decimales antes de multiplicar. Ejemplo del usuario: jabón
+// ciento S/0.90 + serigrafía ciento S/0.95 = S/1.85 × 10 = S/18.50.
+// Devuelve null mientras falte algún dato (NaN incluido: un input numérico
+// vacío entrega NaN, no undefined).
+function computeItemPrice(
   product: Product | undefined,
-  technique:
-    | {
-        extra_type: string;
-        extra_value: number;
-        price_unit: number | null;
-        price_hundred: number | null;
-        price_half_thousand: number | null;
-        price_thousand: number | null;
-      }
-    | undefined,
+  technique: TierPriced | undefined,
   quantity: number | undefined,
   pricingMode: QuotationItemPricingMode | undefined,
   customPrice: number | undefined,
   customTechniquePrice: number | undefined,
-) {
+): ItemPriceBreakdown | null {
   const mode = pricingMode ?? 'unit';
-  const basePrice = mode === 'custom' ? customPrice : resolveCatalogPrice(product, mode);
-  // Number.isNaN, no solo `== null`: un <input type="number"> vacío con
-  // react-hook-form `valueAsNumber:true` entrega NaN (no undefined), y
-  // NaN !== null — sin este chequeo, "S/ NaN" se filtraba al total
-  // (pedido explícito del usuario: "sale NaN en vez de 0").
-  if (basePrice == null || Number.isNaN(basePrice) || !quantity || Number.isNaN(quantity)) return 0;
+  const productPrice = mode === 'custom' ? customPrice : resolveTierPrice(product, mode);
+  const techniquePrice =
+    mode === 'custom'
+      ? customTechniquePrice != null && !Number.isNaN(customTechniquePrice)
+        ? customTechniquePrice
+        : technique?.price_unit != null
+          ? Number(technique.price_unit)
+          : null
+      : resolveTierPrice(technique, mode);
 
-  const extra = !technique
-    ? 0
-    : technique.extra_type === 'percentage'
-      ? (basePrice * Number(technique.extra_value)) / 100
-      : resolveTechniqueTierExtra(technique, mode, mode === 'custom' ? customTechniquePrice : undefined);
+  if (productPrice == null || Number.isNaN(productPrice)) return null;
+  if (techniquePrice == null || Number.isNaN(techniquePrice)) return null;
+  if (!quantity || Number.isNaN(quantity)) return null;
 
-  return (basePrice + extra) * quantity;
+  const unitPrice = roundMoney(productPrice + techniquePrice);
+  return { productPrice, techniquePrice, unitPrice, total: roundMoney(unitPrice * quantity) };
 }
 
 interface CreateQuotationDialogProps {
@@ -195,7 +171,11 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
   const subtotal = watchedItems.reduce((sum, item) => {
     const product = products?.data.find((row) => row.id === item.product_id);
     const technique = techniques?.data.find((row) => row.id === item.technique_id);
-    return sum + computeItemTotal(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price);
+    return (
+      sum +
+      (computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price)
+        ?.total ?? 0)
+    );
   }, 0);
   // Viene de "Variables Generales" (categoría "tax_config"), ya no es un
   // 18% hardcodeado — el backend recalcula con el mismo valor real al
@@ -388,7 +368,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                 const product = products?.data.find((row) => row.id === item?.product_id);
                 const technique = techniques?.data.find((row) => row.id === item?.technique_id);
                 const pricingMode = item?.pricing_mode ?? 'unit';
-                const itemTotal = computeItemTotal(
+                const price = computeItemPrice(
                   product,
                   technique,
                   item?.quantity,
@@ -396,7 +376,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                   item?.custom_price,
                   item?.custom_technique_price,
                 );
-                const modes = availablePricingModes(product);
+                const modes = availablePricingModes(product, technique);
 
                 return (
                   <div key={field.id} className="space-y-2 rounded-md border border-transparent p-1 [&:not(:last-child)]:border-b-muted">
@@ -415,8 +395,10 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                             // nuevo no) — vuelve a "por unidad" si eso pasa, o
                             // se queda como "personalizado" si ya estaba así.
                             const newProduct = products?.data.find((row) => row.id === Number(value));
-                            const stillValid = availablePricingModes(newProduct).includes(pricingMode);
-                            if (!stillValid) setValue(`items.${index}.pricing_mode`, 'unit');
+                            const newModes = availablePricingModes(newProduct, technique);
+                            if (!newModes.includes(pricingMode)) {
+                              setValue(`items.${index}.pricing_mode`, newModes[0] ?? 'custom');
+                            }
                           }}
                           options={(products?.data ?? []).map((row) => ({ value: String(row.id), label: row.name }))}
                         />
@@ -445,9 +427,17 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                           className="flex-1"
                           placeholder="Selecciona una técnica"
                           value={item?.technique_id ? String(item.technique_id) : undefined}
-                          onChange={(value) =>
-                            setValue(`items.${index}.technique_id`, Number(value), { shouldValidate: true })
-                          }
+                          onChange={(value) => {
+                            setValue(`items.${index}.technique_id`, Number(value), { shouldValidate: true });
+                            // Igual que al cambiar de producto: si la técnica
+                            // nueva no tiene precio para el modo elegido, se
+                            // pasa al primer modo que ambos tengan.
+                            const newTechnique = techniques?.data.find((row) => row.id === Number(value));
+                            const newModes = availablePricingModes(product, newTechnique);
+                            if (!newModes.includes(pricingMode)) {
+                              setValue(`items.${index}.pricing_mode`, newModes[0] ?? 'custom');
+                            }
+                          }}
                           options={(techniques?.data ?? []).map((row) => ({ value: String(row.id), label: row.name }))}
                         />
                         <QuickCreateTechniqueDialog
@@ -462,7 +452,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                       )}
                     </div>
 
-                    <div className="col-span-2 text-sm font-semibold text-primary">S/ {itemTotal.toFixed(2)}</div>
+                    <div className="col-span-2 text-sm font-semibold text-primary">S/ {(price?.total ?? 0).toFixed(2)}</div>
 
                     <div className="col-span-1">
                       <Button
@@ -522,12 +512,11 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                         )}
                       </div>
                     )}
-                    {/* Personalizado también necesita el extra propio de la
+                    {/* Personalizado también lleva un precio propio de la
                         técnica (pedido explícito del usuario: "cuando se le
                         da personalizado debe darte para colocar el precio
-                        del producto y de la técnica") — "percentage" no lo
-                        necesita, ya escala solo desde el precio del producto. */}
-                    {pricingMode === 'custom' && technique?.extra_type === 'fixed' && (
+                        del producto y de la técnica"). */}
+                    {pricingMode === 'custom' && technique && (
                       <div className="w-36 space-y-1">
                         <Label className="text-xs">Precio técnica (S/)</Label>
                         <Input
@@ -544,6 +533,13 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                       </div>
                     )}
                   </div>
+                  {/* Desglose visible: de dónde sale el total del item. */}
+                  {price && (
+                    <p className="text-xs text-muted-foreground" data-testid={`item-price-breakdown-${index}`}>
+                      Producto S/ {price.productPrice.toFixed(2)} + técnica S/ {price.techniquePrice.toFixed(2)} = S/{' '}
+                      {price.unitPrice.toFixed(2)} c/u × {item?.quantity} = S/ {price.total.toFixed(2)}
+                    </p>
+                  )}
                   </div>
                 );
               })}

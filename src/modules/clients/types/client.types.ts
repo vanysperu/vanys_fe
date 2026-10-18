@@ -35,6 +35,12 @@ export interface ClientListParams {
   // Filtros por columna (buscadores del header de DataTable).
   phone?: string;
   documentNumber?: string;
-  // "activo" | "inactivo" (texto libre, match parcial sobre la etiqueta).
+  name?: string;
+  email?: string;
+  // "active", "inactive" o ambos separados por coma (filtro de selección
+  // múltiple de la columna Estado).
   status?: string;
+  // Rango de fecha de registro (YYYY-MM-DD).
+  dateFrom?: string;
+  dateTo?: string;
 }

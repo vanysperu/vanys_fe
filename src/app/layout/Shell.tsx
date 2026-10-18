@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { AppSidebar } from '@/app/layout/AppSidebar';
 import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
+import { ReminderBell } from '@/modules/reminders/components/ReminderBell';
 import { ThemeToggle } from '@/presentation/components/shared/ThemeToggle';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { SidebarProvider } from '@/presentation/components/shared/ui/sidebar';
@@ -31,6 +32,7 @@ export function Shell() {
       <AppSidebar />
       <main className="scrollbar-thin min-w-0 flex-1 overflow-y-auto">
         <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/80 px-4 py-2 backdrop-blur">
+          <ReminderBell />
           <ThemeToggle />
         </div>
         <AnimatePresence mode="wait">

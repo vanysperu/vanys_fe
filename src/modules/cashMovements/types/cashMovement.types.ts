@@ -25,6 +25,14 @@ export interface CashMovementListItem {
   quotation_id: number | null;
   purchase_order_id: number | null;
   business_unit_id: number | null;
+  // Cuenta por la que entró/salió (null = efectivo). En gastos de compras
+  // pagadas por un trabajador: la cuenta desde la que se le repuso.
+  payment_account_id: number | null;
+  payment_account_name: string | null;
+  // Solo en gastos de compras pagadas con plata de un trabajador.
+  paid_by_employee_name: string | null;
+  reimbursement_status: 'pending' | 'paid' | null;
+  reimbursed_at: string | null;
   created_at: string;
 }
 
@@ -35,6 +43,9 @@ export interface CashMovementListParams {
   limit?: number;
   direction?: CashMovementDirection;
   category?: string;
+  source?: CashMovementSource;
+  // Id de la cuenta, o "cash" para los movimientos en efectivo.
+  paymentAccountId?: number | 'cash';
   quotationId?: number;
   purchaseOrderId?: number;
   dateFrom?: string;
@@ -53,4 +64,6 @@ export interface CreateCashMovementDto {
   // Solo la usa un is_system (elige la tienda al no tener una propia); un
   // admin de empresa limitado a su tienda queda forzado server-side.
   business_unit_id?: number;
+  // Desde/hacia qué cuenta se movió el dinero (null = efectivo).
+  payment_account_id?: number | null;
 }

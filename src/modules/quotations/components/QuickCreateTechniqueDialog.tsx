@@ -10,16 +10,26 @@ import { Button } from '@/presentation/components/shared/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
-
 import type { ApiClientError } from '@/config/api.types';
+import { toOptionalNumber } from '@/lib/inputRestrictions';
 
 interface QuickCreateTechniqueDialogProps {
   companyId?: number;
   onCreated: (id: number) => void;
 }
 
-// "+" al lado del select de Técnica — misma idea que producto/cliente.
+const TIER_FIELDS = [
+  { id: 'quick-technique-price-unit', field: 'price_unit', label: 'Unidad' },
+  { id: 'quick-technique-price-hundred', field: 'price_hundred', label: 'Ciento' },
+  { id: 'quick-technique-price-half-thousand', field: 'price_half_thousand', label: 'Medio millar' },
+  { id: 'quick-technique-price-thousand', field: 'price_thousand', label: 'Millar' },
+] as const;
+
+// "+" al lado del select de Técnica — mismo formulario que la creación
+// rápida de productos: la técnica tiene sus propios 4 precios por volumen,
+// y el item cobra (producto + técnica) en el mismo modo × cantidad. Antes
+// este diálogo solo ofrecía el modo "porcentual", así que toda técnica
+// creada desde la cotización se cobraba como un % del producto.
 export function QuickCreateTechniqueDialog({ companyId, onCreated }: QuickCreateTechniqueDialogProps) {
   const [open, setOpen] = useState(false);
   const { mutate: create, isPending } = useCreateTechnique();
@@ -27,13 +37,8 @@ export function QuickCreateTechniqueDialog({ companyId, onCreated }: QuickCreate
     register,
     handleSubmit,
     reset,
-    watch,
-    setValue,
     formState: { errors },
-  } = useForm<CreateTechniqueFormValues>({
-    resolver: zodResolver(createTechniqueSchema),
-    defaultValues: { extra_type: 'percentage' },
-  });
+  } = useForm<CreateTechniqueFormValues>({ resolver: zodResolver(createTechniqueSchema) });
 
   const onSubmit = (values: CreateTechniqueFormValues) => {
     if (!companyId) return;
@@ -43,7 +48,7 @@ export function QuickCreateTechniqueDialog({ companyId, onCreated }: QuickCreate
         onSuccess: (technique) => {
           toast.success('Técnica creada');
           onCreated(technique.id);
-          reset({ extra_type: 'percentage' });
+          reset();
           setOpen(false);
         },
         onError: (error) => toast.error((error as ApiClientError).message),
@@ -68,28 +73,19 @@ export function QuickCreateTechniqueDialog({ companyId, onCreated }: QuickCreate
             <Input id="quick-technique-name" {...register('name')} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label>Tipo de costo</Label>
-              {/* Solo "porcentual": el modo "fijo" necesita los 4 precios por
-                  volumen (ver ProductsPage/TechniqueFormDialog), que este
-                  formulario reducido (creación rápida inline) no expone —
-                  ofrecerlo acá bloqueaba el submit en silencio (ningún precio
-                  cargado, el error de ese campo no se mostraba en este diálogo). */}
-              <Select value={watch('extra_type')} onValueChange={(value) => setValue('extra_type', value as 'fixed' | 'percentage')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="percentage">Porcentual (%)</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="space-y-1">
+            <Label>Precio por unidad según volumen (carga los que apliquen)</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TIER_FIELDS.map(({ id, field, label }) => (
+                <div key={id} className="space-y-1">
+                  <Label htmlFor={id} className="text-[11px] font-normal text-muted-foreground">
+                    {label}
+                  </Label>
+                  <Input id={id} type="number" step="0.01" min="0" {...register(field, { setValueAs: toOptionalNumber })} />
+                </div>
+              ))}
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="quick-technique-value">Costo adicional</Label>
-              <Input id="quick-technique-value" type="number" step="0.01" {...register('extra_value', { valueAsNumber: true })} />
-              {errors.extra_value && <p className="text-xs text-destructive">{errors.extra_value.message}</p>}
-            </div>
+            {errors.price_unit && <p className="text-xs text-destructive">{errors.price_unit.message}</p>}
           </div>
           <DialogFooter>
             <Button type="submit" size="sm" disabled={isPending}>

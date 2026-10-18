@@ -12,7 +12,12 @@ import { QUOTATION_STATUS_LABEL, type QuotationStatus } from '@/modules/quotatio
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
-import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useClients } from '@/modules/clients/hooks/useClients';
+import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 
 const ALL_STATUS_VALUE = 'all';
 type ViewMode = 'list' | 'board';
@@ -25,6 +30,15 @@ export function QuotationsPage() {
   const [view, setView] = useState<ViewMode>('board');
   const canCreate = usePermissionButton('cotizacion.create.button');
   const canChangeStatus = usePermissionButton('cotizacion.changeStatus.button');
+  const [clientFilter, setClientFilter] = useState<string | undefined>(undefined);
+  const [businessUnitFilter, setBusinessUnitFilter] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const { data: access } = useAccess();
+  // Filtro por tienda solo para quien administra tiendas (mismo criterio que
+  // CreateQuotationDialog): a un Gestor el backend ya lo limita a la suya.
+  const canFilterByStore = !access?.isSystem && Boolean(access?.modules.includes('platform'));
+  const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: canFilterByStore });
+  const { data: clients } = useClients({ page: 1, limit: 100 });
 
   // Mismo componente de lista agrupada que el Panel principal — se pide un
   // límite alto porque el agrupamiento por estado es del lado del cliente
@@ -32,7 +46,17 @@ export function QuotationsPage() {
   // volumen real lo justifique. El tablero Kanban necesita ver TODOS los
   // estados a la vez (son las columnas), así que ignora el filtro mientras
   // esa vista está activa.
-  const { data, isLoading } = useQuotations({ page: 1, limit: 200, status: view === 'board' ? undefined : status });
+  const { data, isLoading } = useQuotations({
+    page: 1,
+    limit: 200,
+    status: view === 'board' ? undefined : status,
+    clientId: clientFilter ? Number(clientFilter) : undefined,
+    businessUnitId: businessUnitFilter ? Number(businessUnitFilter) : undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
+  });
+
+  const hasActiveFilters = Boolean(clientFilter || businessUnitFilter || dateRange.dateFrom || dateRange.dateTo);
 
   return (
     <div className="space-y-6">
@@ -85,6 +109,37 @@ export function QuotationsPage() {
           </div>
         }
       />
+
+      {/* Cliente, tienda y fecha de emisión filtran en las dos vistas (lista
+          y tablero); el estado solo en la lista, porque en el tablero cada
+          estado ya es una columna. */}
+      <FiltersBar
+        hasActiveFilters={hasActiveFilters}
+        onClear={() => {
+          setClientFilter(undefined);
+          setBusinessUnitFilter(undefined);
+          setDateRange({});
+        }}
+      >
+        <FilterSelect
+          aria-label="Cliente"
+          allLabel="Todos los clientes"
+          className="w-56"
+          value={clientFilter}
+          onChange={setClientFilter}
+          options={(clients?.data ?? []).map((client) => ({ value: String(client.id), label: client.name }))}
+        />
+        {canFilterByStore && (
+          <FilterSelect
+            aria-label="Tienda"
+            allLabel="Todas las tiendas"
+            value={businessUnitFilter}
+            onChange={setBusinessUnitFilter}
+            options={(businessUnits?.data ?? []).map((unit) => ({ value: String(unit.id), label: unit.business_code }))}
+          />
+        )}
+        <DateRangeFilter placeholder="Fecha de emisión" value={dateRange} onChange={setDateRange} />
+      </FiltersBar>
 
       {isLoading ? (
         <div className="space-y-2">

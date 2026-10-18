@@ -1,4 +1,5 @@
 import {
+  Bell,
   Boxes,
   Building2,
   Contact,
@@ -11,6 +12,7 @@ import {
   LayoutDashboard,
   Package,
   Palette,
+  Receipt,
   Settings,
   ShieldCheck,
   ShoppingBasket,
@@ -54,6 +56,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   wallet: Wallet,
   'credit-card': CreditCard,
   'hand-coins': HandCoins,
+  receipt: Receipt,
+  bell: Bell,
 };
 
 // Si un ícono no está mapeado, se usa uno de "falta configurar" (signo de

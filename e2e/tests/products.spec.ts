@@ -1,17 +1,17 @@
 import { expect, test } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
-import { chooseSelect, stamp } from '../helpers';
+import { stamp } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
-test.describe('Productos', () => {
+test.describe('Lista de precios', () => {
   test('la vista se ve bien, con sus dos pestañas (Productos / Técnicas)', async ({ page }) => {
     await page.goto('/productos');
     await expect(page.locator('[role="tab"]', { hasText: 'Productos' })).toBeVisible();
     await expect(page.locator('[role="tab"]', { hasText: 'Técnicas de personalización' })).toBeVisible();
     await page.waitForTimeout(500);
-    await expect(page.locator('h1', { hasText: 'Productos' }).locator('xpath=../..')).toHaveScreenshot(
+    await expect(page.locator('h1', { hasText: 'Lista de precios' }).locator('xpath=../..')).toHaveScreenshot(
       'products-header.png',
     );
   });
@@ -55,14 +55,16 @@ test.describe('Productos', () => {
     await page.goto('/productos/tecnicas');
     await page.click('button:has-text("Nueva técnica")');
     await page.fill('#tech-name', name);
-    await chooseSelect(page, 'Tipo de costo', 'Porcentual');
-    await page.fill('#extra_value', '10');
+    // Misma escala de 4 precios que un producto (ya no hay "tipo de costo").
+    await page.fill('#tech_price_unit', '1.50');
+    await page.fill('#tech_price_hundred', '0.95');
     await page.click('div[role="dialog"] button:has-text("Crear técnica")');
     await expect(page.locator('text=Técnica creada correctamente')).toBeVisible({ timeout: 10_000 });
 
     const row = page.locator('tr', { hasText: name });
     await expect(row).toBeVisible();
-    await expect(row).toContainText('10%');
+    await expect(row).toContainText('Unidad: S/ 1.50');
+    await expect(row).toContainText('Ciento: S/ 0.95');
 
     await row.getByRole('button', { name: 'Deshabilitar técnica' }).click();
     await expect(page.locator('text=Técnica deshabilitada')).toBeVisible({ timeout: 10_000 });

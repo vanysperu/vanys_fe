@@ -17,6 +17,9 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel?: string;
+  // Opcional con default: las pantallas que ya lo usan siguen mostrando
+  // "Cancelar"; una pregunta de sí/no puede pasar "No".
+  cancelLabel?: string;
   variant?: 'default' | 'destructive';
   onConfirm: () => void | Promise<void>;
 }
@@ -30,6 +33,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
   variant = 'destructive',
   onConfirm,
 }: ConfirmDialogProps) {
@@ -54,7 +58,7 @@ export function ConfirmDialog({
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isConfirming}>
             <X className="size-4" />
-            Cancelar
+            {cancelLabel}
           </Button>
           <Button variant={variant} onClick={handleConfirm} disabled={isConfirming}>
             {isConfirming ? (

@@ -28,6 +28,8 @@ export interface RoleListParams {
   name?: string;
   description?: string;
   isSystem?: string;
+  // "active", "inactive" o ambos separados por coma.
+  status?: string;
 }
 
 // Espejo de RoleResourceTreeResponse (grulla_be: roles_resources.interface.ts).

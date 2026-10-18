@@ -84,7 +84,11 @@ export interface CompanyListParams {
   ruc?: string;
   businessName?: string;
   email?: string;
+  // "active", "inactive" o ambos separados por coma.
   status?: string;
+  // Rango de fecha de registro (YYYY-MM-DD).
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 // Filtros por columna de "Tiendas".
@@ -96,6 +100,8 @@ export interface BusinessUnitListParams {
   businessCode?: string;
   address?: string;
   status?: string;
+  dateFrom?: string;
+  dateTo?: string;
   // Solo tiene efecto para un caller is_system (ej. el selector de tienda
   // al crear un usuario, una vez elegida la empresa) — un caller normal
   // siempre queda scopeado a su propia empresa sin importar esto.

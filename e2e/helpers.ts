@@ -68,6 +68,13 @@ export async function chooseSearchableSelect(page: Page, labelText: string, opti
   await popover.locator('[cmdk-item]', { hasText: optionText }).first().click();
 }
 
+// Día del mes de HOY en la zona del negocio (Lima). Útil para registrar
+// movimientos que deben quedar en la primera página de listas ordenadas por
+// fecha desc, sin importar cuántos datos de días anteriores haya.
+export function businessTodayDay(): number {
+  return Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', day: 'numeric' }).format(new Date()));
+}
+
 // DateField: el popover del Calendar se porta fuera del subtree del Dialog
 // (Radix lo monta en <body>), así que NO se escopea a `div[role=dialog]`.
 export async function pickDate(page: Page, fieldId: string, dayNumber: number) {

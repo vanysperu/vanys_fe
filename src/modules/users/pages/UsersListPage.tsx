@@ -18,6 +18,9 @@ import { DateField } from '@/presentation/components/shared/DateField';
 import { disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { digitsFilter, lettersFilter, maxLengthFilter, withInputFilter } from '@/lib/inputRestrictions';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
@@ -44,6 +47,10 @@ export function UsersListPage() {
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const { data: rolesForFilter } = useRoles({ page: 1, limit: 100 });
   // Códigos exactos registrados como resource tipo "button" en el backend
   // (grulla_be: seed-base-rbac.js -> "users.create.button"/"users.disable.button").
   const canCreate = usePermissionButton('users.create.button');
@@ -59,7 +66,19 @@ export function UsersListPage() {
     name: columnFilters.name || undefined,
     email: columnFilters.email || undefined,
     roleName: columnFilters.roleName || undefined,
+    isActive: statusFilter === undefined ? undefined : statusFilter === 'active',
+    roleId: roleFilter ? Number(roleFilter) : undefined,
+    startDate: dateRange.dateFrom,
+    endDate: dateRange.dateTo,
   });
+
+  const hasActiveFilters = Boolean(statusFilter || roleFilter || dateRange.dateFrom || dateRange.dateTo);
+  const clearFilters = () => {
+    setStatusFilter(undefined);
+    setRoleFilter(undefined);
+    setDateRange({});
+    setPage(1);
+  };
   const { mutate: toggleStatus, isPending: isToggling } = useToggleUserStatus();
 
   const handleSortChange = (key: string, dir: 'asc' | 'desc' | undefined) => {
@@ -96,6 +115,40 @@ export function UsersListPage() {
           </div>
         }
       />
+
+      <FiltersBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
+        <FilterSelect
+          aria-label="Estado"
+          allLabel="Todos los estados"
+          value={statusFilter}
+          onChange={(value) => {
+            setStatusFilter(value);
+            setPage(1);
+          }}
+          options={[
+            { value: 'active', label: 'Activos' },
+            { value: 'inactive', label: 'Inactivos' },
+          ]}
+        />
+        <FilterSelect
+          aria-label="Rol"
+          allLabel="Todos los roles"
+          value={roleFilter}
+          onChange={(value) => {
+            setRoleFilter(value);
+            setPage(1);
+          }}
+          options={(rolesForFilter?.rows ?? []).map((role) => ({ value: String(role.id), label: role.name }))}
+        />
+        <DateRangeFilter
+          placeholder="Fecha de registro"
+          value={dateRange}
+          onChange={(value) => {
+            setDateRange(value);
+            setPage(1);
+          }}
+        />
+      </FiltersBar>
 
       <DataTable
         columns={[

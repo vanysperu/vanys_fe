@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
+import { AcceptQuotationDialog, type AcceptQuotationTarget } from '@/modules/quotations/components/AcceptQuotationDialog';
+import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import { useChangeQuotationStatusAny } from '@/modules/quotations/hooks/useQuotations';
 import {
   getKanbanDropTargets,
@@ -15,6 +17,7 @@ import {
   type QuotationStatus,
 } from '@/modules/quotations/types/quotation.types';
 import { EmptyState } from '@/presentation/components/shared/EmptyState';
+import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
 import { Layers } from 'lucide-react';
 
@@ -38,6 +41,9 @@ interface QuotationsKanbanBoardProps {
 export function QuotationsKanbanBoard({ quotations, onSelect, canChangeStatus }: QuotationsKanbanBoardProps) {
   const [activeId, setActiveId] = useState<number | null>(null);
   const { mutate: changeStatus } = useChangeQuotationStatusAny();
+  const canRegisterPayment = usePermissionButton('cotizacion.payment.create.button');
+  // Tarjeta soltada en "Aceptada": primero se pregunta por el adelanto.
+  const [accepting, setAccepting] = useState<AcceptQuotationTarget | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const columns = QUOTATION_MAIN_CHAIN.map((status) => ({
@@ -62,6 +68,22 @@ export function QuotationsKanbanBoard({ quotations, onSelect, canChangeStatus }:
 
     if (!getKanbanDropTargets(quotation.status).includes(nextStatus)) {
       toast.error('No puedes saltarte pasos del flujo — solo puedes mover una cotización a la etapa anterior o siguiente.');
+      return;
+    }
+
+    const askForAdvance = shouldAskForAdvance({
+      currentStatus: quotation.status,
+      nextStatus,
+      balance: Number(quotation.total) - Number(quotation.total_paid),
+      canRegisterPayment,
+    });
+    if (askForAdvance) {
+      setAccepting({
+        id: quotation.id,
+        total: Number(quotation.total),
+        total_paid: Number(quotation.total_paid),
+        clientName: quotation.client?.name,
+      });
       return;
     }
 
@@ -93,6 +115,7 @@ export function QuotationsKanbanBoard({ quotations, onSelect, canChangeStatus }:
       </div>
 
       <DragOverlay>{activeQuotation && <QuotationCard quotation={activeQuotation} dragging />}</DragOverlay>
+      <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
     </DndContext>
   );
 }

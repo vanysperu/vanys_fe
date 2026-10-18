@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { getPayments, togglePaymentStatus, updatePayment } from '@/modules/payments/api/payments.api';
 import { paymentsKeys } from '@/modules/payments/hooks/payments.keys';
 import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
+import { receivablesKeys } from '@/modules/receivables/hooks/receivables.keys';
 import type { PaymentListParams, UpdatePaymentDto } from '@/modules/payments/types/payment.types';
 
 export function usePayments(params: PaymentListParams) {
@@ -20,6 +21,7 @@ export function useUpdatePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.all });
+      queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
     },
   });
 }
@@ -31,6 +33,7 @@ export function useTogglePaymentStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.all });
+      queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
     },
   });
 }

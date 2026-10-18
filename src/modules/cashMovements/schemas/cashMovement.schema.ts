@@ -9,6 +9,8 @@ export const createCashMovementSchema = z.object({
   quotation_id: z.number().optional(),
   purchase_order_id: z.number().optional(),
   business_unit_id: z.number().optional(),
+  // null = efectivo (sin cuenta).
+  payment_account_id: z.number().nullable().optional(),
 });
 
 export type CreateCashMovementFormValues = z.infer<typeof createCashMovementSchema>;

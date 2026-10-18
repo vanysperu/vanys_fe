@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { AcceptQuotationDialog, type AcceptQuotationTarget } from '@/modules/quotations/components/AcceptQuotationDialog';
+import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import { QuotationExpensesSection } from '@/modules/quotations/components/QuotationExpensesSection';
 import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/components/QuotationPurchaseOrdersSection';
 import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationItemsKanban';
@@ -64,9 +66,27 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const canCreatePurchaseOrder = usePermissionButton('purchase_order.create.button');
   const { mutate: downloadPdf } = useDownloadQuotationPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Cotización que se está aceptando: abre el modal "¿pagó adelanto?".
+  const [accepting, setAccepting] = useState<AcceptQuotationTarget | null>(null);
 
   const handleTransition = (status: QuotationStatus) => {
-    changeStatus(status, {
+    if (!quotation) return;
+    const askForAdvance = shouldAskForAdvance({
+      currentStatus: quotation.status,
+      nextStatus: status,
+      balance: Number(quotation.total) - Number(quotation.total_paid),
+      canRegisterPayment,
+    });
+    if (askForAdvance) {
+      setAccepting({
+        id: quotation.id,
+        total: Number(quotation.total),
+        total_paid: Number(quotation.total_paid),
+        clientName: quotation.client?.name,
+      });
+      return;
+    }
+    changeStatus({ status }, {
       onSuccess: () => toast.success(`Cotización marcada como "${QUOTATION_STATUS_LABEL[status]}"`),
       onError: (error) => toast.error((error as ApiClientError).message),
     });
@@ -122,6 +142,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
         </DialogHeader>
 
         <QuotationPdfPreviewDialog quotationId={previewOpen ? quotationId : null} onClose={() => setPreviewOpen(false)} />
+        <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
 
         {isLoading && (
           <div className="space-y-3">

@@ -10,6 +10,9 @@ export interface PaymentListItem {
   paid_at: string;
   notes: string | null;
   operation_number: string | null;
+  // Cuenta a la que entró el pago (null = efectivo).
+  payment_account_id: number | null;
+  payment_account_name: string | null;
   is_deleted: boolean;
   business_unit_id: number | null;
   created_at: string;
@@ -17,14 +20,20 @@ export interface PaymentListItem {
 
 export type PaymentListResult = PagedListResult<PaymentListItem>;
 
+// "active" (por defecto en el backend) = vigentes; "disabled" = anulados.
+export type PaymentStatusFilter = 'active' | 'disabled' | 'all';
+
 export interface PaymentListParams {
   page?: number;
   limit?: number;
   quotationId?: number;
   method?: string;
+  // Id de la cuenta, o "cash" para los pagos en efectivo.
+  paymentAccountId?: number | 'cash';
+  clientName?: string;
   dateFrom?: string;
   dateTo?: string;
-  includeDisabled?: boolean;
+  status?: PaymentStatusFilter;
 }
 
 export interface UpdatePaymentDto {
@@ -33,4 +42,5 @@ export interface UpdatePaymentDto {
   paid_at: string;
   notes?: string;
   operation_number?: string;
+  payment_account_id?: number | null;
 }

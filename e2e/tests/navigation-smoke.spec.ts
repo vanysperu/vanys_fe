@@ -13,16 +13,18 @@ const COMPANY_VIEWS: { path: string; heading: string }[] = [
   { path: '/', heading: 'Panel principal' },
   { path: '/seguridad/usuarios', heading: 'Usuarios' },
   { path: '/seguridad/roles-accesos', heading: 'Roles y accesos' },
-  { path: '/configuracion/variables-generales', heading: 'Variables generales' },
+  { path: '/configuracion/variables-generales', heading: 'Generales' },
   { path: '/clientes', heading: 'Clientes' },
-  { path: '/productos', heading: 'Productos' },
-  { path: '/productos/tecnicas', heading: 'Productos' },
+  { path: '/productos', heading: 'Lista de precios' },
+  { path: '/productos/tecnicas', heading: 'Lista de precios' },
   { path: '/cotizaciones', heading: 'Cotizaciones' },
   { path: '/ordenes-compra', heading: 'Órdenes de compra' },
   { path: '/configuracion/documentos', heading: 'Documentos de la empresa' },
   { path: '/caja', heading: 'Caja' },
-  { path: '/pagos', heading: 'Pagos' },
+  { path: '/pagos', heading: 'Pagos recibidos' },
   { path: '/deudas-personal', heading: 'Deudas a personal' },
+  { path: '/por-cobrar', heading: 'Por cobrar' },
+  { path: '/recordatorios', heading: 'Recordatorios' },
 ];
 
 for (const view of COMPANY_VIEWS) {

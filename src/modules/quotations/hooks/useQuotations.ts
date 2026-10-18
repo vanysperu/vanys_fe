@@ -11,7 +11,9 @@ import {
   getQuotations,
   updateQuotation,
 } from '@/modules/quotations/api/quotations.api';
+import { paymentsKeys } from '@/modules/payments/hooks/payments.keys';
 import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
+import { receivablesKeys } from '@/modules/receivables/hooks/receivables.keys';
 import type {
   CreateQuotationExpenseDto,
   CreateQuotationPaymentDto,
@@ -55,13 +57,22 @@ export function useUpdateQuotation(id: number) {
   });
 }
 
+export interface ChangeQuotationStatusVariables {
+  status: QuotationStatus;
+  // Solo al aceptar: adelanto del cliente registrado en la misma operación.
+  advancePayment?: CreateQuotationPaymentDto;
+}
+
 export function useChangeQuotationStatus(id: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (status: QuotationStatus) => changeQuotationStatus(id, status),
+    mutationFn: ({ status, advancePayment }: ChangeQuotationStatusVariables) =>
+      changeQuotationStatus(id, status, advancePayment),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
     },
   });
 }
@@ -71,10 +82,13 @@ export function useChangeQuotationStatus(id: number) {
 export function useChangeQuotationStatusAny() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: number; status: QuotationStatus }) => changeQuotationStatus(id, status),
+    mutationFn: ({ id, status, advancePayment }: ChangeQuotationStatusVariables & { id: number }) =>
+      changeQuotationStatus(id, status, advancePayment),
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
     },
   });
 }
@@ -96,6 +110,8 @@ export function useCreateQuotationPayment(quotationId: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(quotationId) });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
     },
   });
 }

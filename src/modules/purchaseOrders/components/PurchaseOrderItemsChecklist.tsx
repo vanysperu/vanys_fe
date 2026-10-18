@@ -10,11 +10,15 @@ import { cn } from '@/lib/utils';
 import { useCreatePurchaseOrderItemPurchase, useUpdatePurchaseOrderItemStatus } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
 import {
   FUNDING_SOURCE_LABEL,
+  PURCHASE_EXCEEDS_REMAINING_CODE,
+  type CreatePurchaseOrderItemPurchaseDto,
   type FundingSource,
+  type PurchaseExceedsRemainingDetail,
   type PurchaseOrderItem,
   type PurchaseOrderItemStatus,
 } from '@/modules/purchaseOrders/types/purchaseOrder.types';
 import { CharCounter } from '@/presentation/components/shared/CharCounter';
+import { ConfirmDialog } from '@/presentation/components/shared/ConfirmDialog';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Textarea } from '@/presentation/components/shared/ui/textarea';
@@ -33,6 +37,21 @@ const registerPurchaseSchema = z.object({
   funding_source: z.enum(['company', 'employee'], { error: 'Selecciona con qué plata se pagó' }),
 });
 type RegisterPurchaseFormValues = z.infer<typeof registerPurchaseSchema>;
+
+interface PendingExceed {
+  itemId: number;
+  dto: CreatePurchaseOrderItemPurchaseDto;
+  detail: PurchaseExceedsRemainingDetail;
+}
+
+// "La cantidad a comprar era 10 (ya se compraron 8). Estás registrando 5,
+// es decir 3 más de lo pedido. ¿Seguro quieres comprar más?"
+function describeExceed({ ordered, already_purchased, requested }: PurchaseExceedsRemainingDetail): string {
+  const remaining = Math.max(ordered - already_purchased, 0);
+  const extra = requested - remaining;
+  const progress = already_purchased > 0 ? ` (ya se compraron ${already_purchased})` : '';
+  return `La cantidad a comprar era ${ordered}${progress}. Estás registrando ${requested}, es decir ${extra} más de lo pedido. ¿Seguro quieres comprar más?`;
+}
 
 interface PurchaseOrderItemsChecklistProps {
   items: PurchaseOrderItem[];
@@ -55,6 +74,9 @@ const STATUS_STYLE: Record<PurchaseOrderItemStatus, string> = {
 // producto pasa a "comprado" recién cuando la suma alcanza lo pedido.
 export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId }: PurchaseOrderItemsChecklistProps) {
   const [openFormItemId, setOpenFormItemId] = useState<number | null>(null);
+  // Compra que superaba lo pedido y espera confirmación (pedido explícito del
+  // usuario: en vez de solo avisar, preguntar "¿seguro quieres comprar más?").
+  const [pendingExceed, setPendingExceed] = useState<PendingExceed | null>(null);
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdatePurchaseOrderItemStatus();
   const { mutate: registerPurchase, isPending: isRegistering } = useCreatePurchaseOrderItemPurchase(quotationId);
 
@@ -62,8 +84,43 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId }: Pur
     updateStatus({ itemId, status }, { onError: (error) => toast.error((error as ApiClientError).message) });
   };
 
+  const submitPurchase = (itemId: number, dto: CreatePurchaseOrderItemPurchaseDto) =>
+    registerPurchase(
+      { itemId, dto },
+      {
+        onSuccess: () => {
+          toast.success(dto.allow_exceed ? 'Compra adicional registrada' : 'Compra registrada');
+          setOpenFormItemId(null);
+          setPendingExceed(null);
+        },
+        onError: (error) => {
+          const apiError = error as ApiClientError;
+          // El backend no registra nada sin confirmación: se pregunta y,
+          // si la persona acepta, se reenvía la misma compra confirmada.
+          if (apiError.code === PURCHASE_EXCEEDS_REMAINING_CODE && !dto.allow_exceed) {
+            setPendingExceed({ itemId, dto, detail: apiError.errors as PurchaseExceedsRemainingDetail });
+            return;
+          }
+          toast.error(apiError.message);
+        },
+      },
+    );
+
   return (
     <div className="space-y-2">
+      <ConfirmDialog
+        open={pendingExceed !== null}
+        onOpenChange={(open) => !open && setPendingExceed(null)}
+        title="¿Comprar más de lo pedido?"
+        description={pendingExceed ? describeExceed(pendingExceed.detail) : ''}
+        confirmLabel="Sí, comprar más"
+        cancelLabel="No"
+        variant="default"
+        onConfirm={() => {
+          if (!pendingExceed) return;
+          submitPurchase(pendingExceed.itemId, { ...pendingExceed.dto, allow_exceed: true });
+        }}
+      />
       {items.map((item) => {
         const purchasedQty = item.purchases.reduce((sum, purchase) => sum + purchase.quantity, 0);
         const spentAmount = item.purchases.reduce((sum, purchase) => sum + Number(purchase.amount), 0);
@@ -137,18 +194,7 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId }: Pur
                 remaining={item.quantity - purchasedQty}
                 isPending={isRegistering}
                 onCancel={() => setOpenFormItemId(null)}
-                onSubmit={(values) =>
-                  registerPurchase(
-                    { itemId: item.id, dto: values },
-                    {
-                      onSuccess: () => {
-                        toast.success('Compra registrada');
-                        setOpenFormItemId(null);
-                      },
-                      onError: (error) => toast.error((error as ApiClientError).message),
-                    },
-                  )
-                }
+                onSubmit={(values) => submitPurchase(item.id, values)}
               />
             )}
           </div>

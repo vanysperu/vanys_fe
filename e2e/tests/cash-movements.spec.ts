@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
-import { chooseSearchableSelect, pickDate, stamp } from '../helpers';
+import { chooseSearchableSelect, pickDate, stamp, businessTodayDay } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -28,7 +28,9 @@ test.describe('Caja', () => {
 
     await chooseSearchableSelect(page, 'Categoría', 'Otro ingreso');
     await page.fill('#cash-movement-amount', '150.00');
-    await pickDate(page, 'cash-movement-date', 15);
+    // Fecha de HOY (Lima): la lista ordena por fecha desc, así el movimiento
+    // queda en la primera página aunque haya muchos de días anteriores.
+    await pickDate(page, 'cash-movement-date', businessTodayDay());
     await page.fill('#cash-movement-description', description);
     await page.click('div[role="dialog"] button:has-text("Registrar movimiento")');
     await expect(page.locator('text=Movimiento registrado correctamente')).toBeVisible({ timeout: 10_000 });

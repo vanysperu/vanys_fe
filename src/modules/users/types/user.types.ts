@@ -32,6 +32,9 @@ export interface UsersListParams {
   searchTerm?: string;
   isActive?: boolean;
   roleId?: number;
+  // Rango de fecha de registro (YYYY-MM-DD).
+  startDate?: string;
+  endDate?: string;
   // Filtros por columna (buscadores del header de DataTable), se agregan
   // al buscador global existente sin reemplazarlo.
   name?: string;

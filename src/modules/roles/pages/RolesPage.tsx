@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
+import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Button } from '@/presentation/components/shared/ui/button';
@@ -71,6 +72,7 @@ export function RolesPage() {
     name: columnFilters.name || undefined,
     description: columnFilters.description || undefined,
     isSystem: columnFilters.isSystem || undefined,
+    status: columnFilters.status || undefined,
   });
   const { mutate: toggleStatus } = useToggleRoleStatus();
 
@@ -102,6 +104,12 @@ export function RolesPage() {
             header: 'Tipo',
             filterable: true,
             filterKey: 'isSystem',
+            // Antes era texto libre: había que escribir "true"/"false".
+            filterType: 'multiselect',
+            filterOptions: [
+              { value: 'true', label: 'Plataforma' },
+              { value: 'false', label: 'Empresa' },
+            ],
             cell: (role) =>
               role.is_system ? (
                 <Badge variant="default">Plataforma</Badge>
@@ -111,6 +119,10 @@ export function RolesPage() {
           },
           {
             header: 'Estado',
+            filterable: true,
+            filterKey: 'status',
+            filterType: 'multiselect',
+            filterOptions: ACTIVE_STATUS_FILTER_OPTIONS,
             cell: (role) =>
               role.status ? <Badge variant="success">Activo</Badge> : <Badge variant="destructive">Inactivo</Badge>,
           },

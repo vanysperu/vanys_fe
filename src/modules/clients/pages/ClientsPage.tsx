@@ -6,7 +6,11 @@ import { toast } from 'sonner';
 
 import { useCompanies } from '@/modules/platform/hooks/useCompanies';
 import { useClients, useCreateClient, useToggleClientStatus, useUpdateClient } from '@/modules/clients/hooks/useClients';
-import { createClientSchema, type CreateClientFormValues } from '@/modules/clients/schemas/client.schema';
+import { createClientSchema, PHONE_MAX_DIGITS, type CreateClientFormValues } from '@/modules/clients/schemas/client.schema';
+import { digitsFilter, withInputFilter } from '@/lib/inputRestrictions';
+import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import type { Client } from '@/modules/clients/types/client.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
@@ -40,6 +44,7 @@ export function ClientsPage() {
   // Filtros por columna (teléfono, documento, estado) — se agregan al
   // buscador global existente, no lo reemplazan.
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const canCreate = usePermissionButton('cliente.create.button');
   const canUpdate = usePermissionButton('cliente.update.button');
   const canDisable = usePermissionButton('cliente.disable.button');
@@ -50,9 +55,13 @@ export function ClientsPage() {
     searchTerm: search || undefined,
     orderBy,
     orderDir,
+    name: columnFilters.name || undefined,
+    email: columnFilters.email || undefined,
     phone: columnFilters.phone || undefined,
     documentNumber: columnFilters.documentNumber || undefined,
     status: columnFilters.status || undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
   });
 
   const handleSortChange = (key: string, dir: 'asc' | 'desc' | undefined) => {
@@ -91,15 +100,41 @@ export function ClientsPage() {
         }
       />
 
+      <FiltersBar
+        hasActiveFilters={Boolean(dateRange.dateFrom || dateRange.dateTo)}
+        onClear={() => {
+          setDateRange({});
+          setPage(1);
+        }}
+      >
+        <DateRangeFilter
+          placeholder="Fecha de registro"
+          value={dateRange}
+          onChange={(value) => {
+            setDateRange(value);
+            setPage(1);
+          }}
+        />
+      </FiltersBar>
+
       <DataTable
         columns={[
           {
             header: 'Nombre',
             sortable: true,
             sortKey: 'name',
+            filterable: true,
+            filterKey: 'name',
             cell: (client) => <span className="font-medium">{client.name}</span>,
           },
-          { header: 'Email', sortable: true, sortKey: 'email', cell: (client) => client.email ?? '—' },
+          {
+            header: 'Email',
+            sortable: true,
+            sortKey: 'email',
+            filterable: true,
+            filterKey: 'email',
+            cell: (client) => client.email ?? '—',
+          },
           {
             header: 'Teléfono',
             sortable: true,
@@ -122,6 +157,8 @@ export function ClientsPage() {
             sortKey: 'is_deleted',
             filterable: true,
             filterKey: 'status',
+            filterType: 'multiselect',
+            filterOptions: ACTIVE_STATUS_FILTER_OPTIONS,
             cell: (client) =>
               client.is_deleted ? <Badge variant="destructive">Inactivo</Badge> : <Badge variant="success">Activo</Badge>,
           },
@@ -299,7 +336,16 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Teléfono</Label>
-              <Input id="phone" {...register('phone')} />
+              {/* Solo dígitos y máximo 9 mientras se escribe; el mínimo de 6
+                  se avisa con el mensaje de abajo. Antes este error no se
+                  mostraba y el guardado se bloqueaba sin decir por qué. */}
+              <Input
+                id="phone"
+                inputMode="numeric"
+                maxLength={PHONE_MAX_DIGITS}
+                {...withInputFilter(register('phone'), digitsFilter(PHONE_MAX_DIGITS))}
+              />
+              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
             </div>
           </div>
 

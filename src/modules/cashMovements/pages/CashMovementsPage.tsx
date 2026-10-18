@@ -8,6 +8,10 @@ import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
 import { usePurchaseOrders } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
 import { useQuotations } from '@/modules/quotations/hooks/useQuotations';
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
+import { PaymentAccountSelect, usePaymentAccounts } from '@/modules/variableGeneral/components/PaymentAccountSelect';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 import {
   useCashMovements,
   useCreateCashMovement,
@@ -18,6 +22,7 @@ import {
   CASH_MOVEMENT_DIRECTION_LABEL,
   type CashMovementDirection,
   type CashMovementListItem,
+  type CashMovementSource,
 } from '@/modules/cashMovements/types/cashMovement.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateField } from '@/presentation/components/shared/DateField';
@@ -42,8 +47,6 @@ import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
 
-const ALL_DIRECTION_VALUE = 'all';
-
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -66,11 +69,41 @@ export function CashMovementsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [direction, setDirection] = useState<CashMovementDirection | undefined>(undefined);
+  const [source, setSource] = useState<CashMovementSource | undefined>(undefined);
+  const [account, setAccount] = useState<string | undefined>(undefined);
+  const [category, setCategory] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const { data: accountsResult } = usePaymentAccounts();
+  const { data: categoriesResult } = useVariableGenerals({ category: 'cash_movement_type', ignorePagination: true });
 
   const canCreate = usePermissionButton('cash_movement.create.button');
   const canDisable = usePermissionButton('cash_movement.disable.button');
 
-  const { data, isLoading } = useCashMovements({ page, limit: pageSize, direction });
+  const { data, isLoading } = useCashMovements({
+    page,
+    limit: pageSize,
+    direction,
+    source,
+    category,
+    paymentAccountId: account === 'cash' ? 'cash' : account ? Number(account) : undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
+  });
+
+  const hasActiveFilters = Boolean(direction || source || account || category || dateRange.dateFrom || dateRange.dateTo);
+  const clearFilters = () => {
+    setDirection(undefined);
+    setSource(undefined);
+    setAccount(undefined);
+    setCategory(undefined);
+    setDateRange({});
+    setPage(1);
+  };
+  // Cambiar cualquier filtro vuelve a la primera página.
+  const withPageReset = <T,>(setter: (value: T) => void) => (value: T) => {
+    setter(value);
+    setPage(1);
+  };
   const { mutate: toggleStatus, isPending: isToggling } = useToggleCashMovementStatus();
 
   const totals = (data?.data ?? []).reduce(
@@ -88,27 +121,47 @@ export function CashMovementsPage() {
         title="Caja"
         description="Ingresos y salidas de dinero — pagos, gastos y movimientos manuales"
         action={
-          <div className="flex items-center gap-3">
-            <Select
-              value={direction ?? ALL_DIRECTION_VALUE}
-              onValueChange={(value) => {
-                setDirection(value === ALL_DIRECTION_VALUE ? undefined : (value as CashMovementDirection));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_DIRECTION_VALUE}>Todos</SelectItem>
-                <SelectItem value="income">Solo ingresos</SelectItem>
-                <SelectItem value="expense">Solo egresos</SelectItem>
-              </SelectContent>
-            </Select>
-            {canCreate && <CreateCashMovementDialog />}
-          </div>
+          <div className="flex items-center gap-3">{canCreate && <CreateCashMovementDialog />}</div>
         }
       />
+
+      <FiltersBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
+        <FilterSelect
+          aria-label="Tipo"
+          allLabel="Ingresos y egresos"
+          value={direction}
+          onChange={withPageReset((value) => setDirection(value as CashMovementDirection | undefined))}
+          options={[
+            { value: 'income', label: 'Solo ingresos' },
+            { value: 'expense', label: 'Solo egresos' },
+          ]}
+        />
+        <FilterSelect
+          aria-label="Origen"
+          allLabel="Todos los orígenes"
+          value={source}
+          onChange={withPageReset((value) => setSource(value as CashMovementSource | undefined))}
+          options={(Object.keys(SOURCE_LABEL) as CashMovementSource[]).map((value) => ({ value, label: SOURCE_LABEL[value] }))}
+        />
+        <FilterSelect
+          aria-label="Cuenta"
+          allLabel="Todas las cuentas"
+          value={account}
+          onChange={withPageReset(setAccount)}
+          options={[
+            { value: 'cash', label: 'Efectivo' },
+            ...(accountsResult?.data ?? []).map((row) => ({ value: String(row.id), label: row.name })),
+          ]}
+        />
+        <FilterSelect
+          aria-label="Categoría"
+          allLabel="Todas las categorías"
+          value={category}
+          onChange={withPageReset(setCategory)}
+          options={(categoriesResult?.data ?? []).map((row) => ({ value: row.prefix_id, label: row.name }))}
+        />
+        <DateRangeFilter placeholder="Fecha" value={dateRange} onChange={withPageReset(setDateRange)} />
+      </FiltersBar>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
@@ -150,8 +203,18 @@ export function CashMovementsPage() {
                   {row.quotation_id && ` · COT-${String(row.quotation_id).padStart(4, '0')}`}
                   {row.purchase_order_id && ` · OC-${String(row.purchase_order_id).padStart(4, '0')}`}
                 </span>
+                {/* Compra pagada con plata de un trabajador: quién la pagó y
+                    si ya se le repuso (pedido explícito del usuario). */}
+                {row.paid_by_employee_name && <EmployeeReimbursementNote row={row} />}
               </div>
             ),
+          },
+          {
+            header: 'Cuenta',
+            cell: (row) =>
+              row.paid_by_employee_name && row.reimbursement_status === 'pending'
+                ? '—'
+                : (row.payment_account_name ?? 'Efectivo'),
           },
           {
             header: 'Monto',
@@ -201,6 +264,26 @@ export function CashMovementsPage() {
         />
       )}
     </div>
+  );
+}
+
+// "Pagado por Juan Pérez · pendiente de reponer" o
+// "Pagado por Juan Pérez · repuesto el 18/10/2026 desde BCP Soles".
+function EmployeeReimbursementNote({ row }: { row: CashMovementListItem }) {
+  if (row.reimbursement_status === 'paid') {
+    const date = row.reimbursed_at ? new Date(`${row.reimbursed_at}T00:00:00`).toLocaleDateString('es-PE') : '';
+    const from = row.payment_account_name ? ` desde ${row.payment_account_name}` : ' en efectivo';
+    return (
+      <span className="mt-0.5 block text-[11px] text-[var(--success)]">
+        Pagado por {row.paid_by_employee_name} · repuesto el {date}
+        {from}
+      </span>
+    );
+  }
+  return (
+    <span className="mt-0.5 block text-[11px] text-[var(--warning,#b45309)]">
+      Pagado por {row.paid_by_employee_name} · pendiente de reponer
+    </span>
   );
 }
 
@@ -301,6 +384,17 @@ function CreateCashMovementDialog() {
               />
               {errors.occurred_at && <p className="text-sm text-destructive">{errors.occurred_at.message}</p>}
             </div>
+          </div>
+
+          {/* De qué cuenta salió / a qué cuenta entró (pedido explícito del
+              usuario); por defecto efectivo. */}
+          <div className="space-y-2">
+            <Label htmlFor="cash-movement-account">{direction === 'income' ? 'Entró a' : direction === 'expense' ? 'Salió de' : 'Cuenta'}</Label>
+            <PaymentAccountSelect
+              id="cash-movement-account"
+              value={watch('payment_account_id')}
+              onChange={(value) => setValue('payment_account_id', value)}
+            />
           </div>
 
           <div className="space-y-2">

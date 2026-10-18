@@ -27,7 +27,7 @@ test.describe('Origen de fondos de una compra y Deudas a personal', () => {
 
     await page.click('button[title="Nueva técnica"]');
     await page.fill('#quick-technique-name', techniqueName);
-    await page.fill('#quick-technique-value', '5');
+    await page.fill('#quick-technique-price-unit', '5');
     await page.click('div[role="dialog"] button:has-text("Crear técnica")');
     await expect(page.locator('text=Técnica creada')).toBeVisible({ timeout: 10_000 });
 
@@ -35,7 +35,7 @@ test.describe('Origen de fondos de una compra y Deudas a personal', () => {
     await page.click('div[role="dialog"] button:has-text("Crear cotización")');
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
-    await page.click('button:has-text("Lista")');
+    await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
     await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();
 
@@ -69,6 +69,17 @@ test.describe('Origen de fondos de una compra y Deudas a personal', () => {
     await page.click('div[role="dialog"] button:has-text("Marcar como pagado")');
     await expect(page.locator('text=Deuda saldada correctamente')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('tr', { hasText: 'Ana Acme' })).toHaveCount(0);
+
+    // Con el filtro "Ya pagadas" sí aparece.
+    await page.getByRole('combobox', { name: 'Estado' }).click();
+    await page.getByRole('option', { name: 'Ya pagadas' }).click();
+    await expect(page.locator('tr', { hasText: 'Ana Acme' })).toBeVisible();
+
+    // En Caja, el gasto de la compra dice quién lo pagó y que ya se le repuso.
+    await page.goto('/caja');
+    const expenseRow = page.locator('tr', { hasText: productName });
+    await expect(expenseRow).toContainText('Pagado por Ana Acme');
+    await expect(expenseRow).toContainText(/repuesto el .* en efectivo/);
   });
 });
 

@@ -4,23 +4,17 @@ import { Check, Plus, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { PaymentFormFields } from '@/modules/quotations/components/PaymentFormFields';
+import { usePaymentDtoBuilder } from '@/modules/quotations/hooks/usePaymentDtoBuilder';
 import { useCreateQuotationPayment } from '@/modules/quotations/hooks/useQuotations';
 import {
-  CASH_PAYMENT_METHOD,
   createQuotationPaymentSchema,
   type CreateQuotationPaymentFormValues,
 } from '@/modules/quotations/schemas/quotation.schema';
+import { usePaymentAccounts } from '@/modules/variableGeneral/components/PaymentAccountSelect';
 import type { QuotationPayment } from '@/modules/quotations/types/quotation.types';
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
-import { NOTES_MAX_LENGTH } from '@/lib/constants';
-import { CharCounter } from '@/presentation/components/shared/CharCounter';
-import { DateField } from '@/presentation/components/shared/DateField';
-import { disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { Button } from '@/presentation/components/shared/ui/button';
-import { Input } from '@/presentation/components/shared/ui/input';
-import { Label } from '@/presentation/components/shared/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
-import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import type { ApiClientError } from '@/config/api.types';
 import { todayLocalDateString } from '@/lib/dateUtils';
 
@@ -55,20 +49,23 @@ export function QuotationPaymentsSection({
   // para no romper el historial.
   const methodLabel = (value: string | null) =>
     paymentMethods.find((method) => method.prefix_id === value || method.name === value)?.name ?? value;
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<CreateQuotationPaymentFormValues>({
+  const form = useForm<CreateQuotationPaymentFormValues>({
     resolver: zodResolver(createQuotationPaymentSchema),
     defaultValues: { paid_at: todayLocalDateString() },
   });
+  const { handleSubmit, reset } = form;
+  // Cuenta de destino obligatoria si no es efectivo (ver PaymentFormFields).
+  const buildPaymentDto = usePaymentDtoBuilder(form);
+
+  // Nombre de la cuenta para el historial (incluye cuentas ya deshabilitadas:
+  // un pago viejo debe seguir mostrando a dónde entró).
+  const { data: accountsResult } = usePaymentAccounts();
+  const accountName = (id: number | null) => accountsResult?.data.find((account) => account.id === id)?.name ?? null;
 
   const onSubmit = (values: CreateQuotationPaymentFormValues) => {
-    createPayment(values, {
+    const dto = buildPaymentDto(values);
+    if (!dto) return;
+    createPayment(dto, {
       onSuccess: () => {
         toast.success('Pago registrado');
         reset({ paid_at: todayLocalDateString() });
@@ -99,6 +96,7 @@ export function QuotationPaymentsSection({
               <p className="font-medium">{money(payment.amount)}</p>
               <p className="text-xs text-muted-foreground">
                 {payment.paid_at} {payment.method ? `· ${methodLabel(payment.method)}` : ''}
+                {accountName(payment.payment_account_id) ? ` · a ${accountName(payment.payment_account_id)}` : ''}
                 {payment.operation_number ? ` · Op. ${payment.operation_number}` : ''}
                 {payment.actor ? ` · ${payment.actor.name} ${payment.actor.paternal_lastname}` : ''}
               </p>
@@ -117,65 +115,7 @@ export function QuotationPaymentsSection({
             </Button>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 rounded-lg border p-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label htmlFor="payment-amount">Monto (S/)</Label>
-                  <Input
-                    id="payment-amount"
-                    type="number"
-                    step="0.01"
-                    {...register('amount', { valueAsNumber: true })}
-                  />
-                  {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="payment-date">Fecha</Label>
-                  <DateField
-                    id="payment-date"
-                    value={watch('paid_at')}
-                    onChange={(value) => setValue('paid_at', value, { shouldValidate: true })}
-                    disabled={disableFuture}
-                  />
-                  {errors.paid_at && <p className="text-xs text-destructive">{errors.paid_at.message}</p>}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="payment-method">Método</Label>
-                <Select value={watch('method')} onValueChange={(value) => setValue('method', value)}>
-                  <SelectTrigger id="payment-method">
-                    <SelectValue placeholder="Selecciona un método" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => (
-                      <SelectItem key={method.id} value={method.prefix_id}>
-                        {method.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.method && <p className="text-xs text-destructive">{errors.method.message}</p>}
-              </div>
-
-              {watch('method') && watch('method') !== CASH_PAYMENT_METHOD && (
-                <div className="space-y-1">
-                  <Label htmlFor="payment-operation-number">Número de operación</Label>
-                  <Input
-                    id="payment-operation-number"
-                    maxLength={50}
-                    {...register('operation_number')}
-                  />
-                  {errors.operation_number && (
-                    <p className="text-xs text-destructive">{errors.operation_number.message}</p>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <Label htmlFor="payment-notes">Comentario (opcional)</Label>
-                <Textarea id="payment-notes" rows={2} maxLength={NOTES_MAX_LENGTH} {...register('notes')} />
-                <CharCounter value={watch('notes')} max={NOTES_MAX_LENGTH} />
-                {errors.notes && <p className="text-xs text-destructive">{errors.notes.message}</p>}
-              </div>
+              <PaymentFormFields form={form} />
 
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" size="sm" variant="ghost" onClick={() => setFormOpen(false)}>

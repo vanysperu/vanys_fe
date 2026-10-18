@@ -6,8 +6,21 @@
 // es el día siguiente — un pago registrado a las 8 p. m. quedaba con fecha
 // de mañana por defecto.
 export function todayLocalDateString(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${now.getFullYear()}-${month}-${day}`;
+  return toLocalIsoDate(new Date());
+}
+
+// Date (día local) -> "YYYY-MM-DD", sin pasar por UTC.
+export function toLocalIsoDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+// "YYYY-MM-DD" -> Date a medianoche LOCAL (new Date("YYYY-MM-DD") la
+// interpreta como medianoche UTC, que en Lima es el día anterior).
+export function parseLocalIsoDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day);
 }

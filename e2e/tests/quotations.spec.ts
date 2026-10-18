@@ -12,7 +12,7 @@ test.describe('Cotizaciones', () => {
     // Vista por defecto: tablero.
     await expect(page.locator('text=Pendiente').first()).toBeVisible();
 
-    await page.click('button:has-text("Lista")');
+    await page.getByRole('button', { name: 'Lista', exact: true }).click();
     // Puede no haber ninguna cotización todavía (empresa recién creada) — en
     // ese caso la vista de Lista muestra su propio empty-state en vez de la
     // tabla agrupada por estado, igual de válido.
@@ -49,7 +49,7 @@ test.describe('Cotizaciones', () => {
     // Técnica nueva desde el "+".
     await page.click('button[title="Nueva técnica"]');
     await page.fill('#quick-technique-name', techniqueName);
-    await page.fill('#quick-technique-value', '5');
+    await page.fill('#quick-technique-price-unit', '5');
     await page.click('div[role="dialog"] button:has-text("Crear técnica")');
     await expect(page.locator('text=Técnica creada')).toBeVisible({ timeout: 10_000 });
 
@@ -66,7 +66,7 @@ test.describe('Cotizaciones', () => {
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
     // Confirmar que aparece en la vista de Lista.
-    await page.click('button:has-text("Lista")');
+    await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await expect(page.locator('span', { hasText: clientName })).toBeVisible();
   });
 
@@ -94,14 +94,14 @@ test.describe('Cotizaciones', () => {
     // personalización".
     await page.click('button[title="Nueva técnica"]');
     await page.fill('#quick-technique-name', techniqueName);
-    await page.fill('#quick-technique-value', '5');
+    await page.fill('#quick-technique-price-unit', '5');
     await page.click('div[role="dialog"] button:has-text("Crear técnica")');
     await expect(page.locator('text=Técnica creada')).toBeVisible({ timeout: 10_000 });
 
     await page.click('div[role="dialog"] button:has-text("Crear cotización")');
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
-    await page.click('button:has-text("Lista")');
+    await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
     await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();
 

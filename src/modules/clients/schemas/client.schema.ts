@@ -6,6 +6,8 @@ const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'.-]+$/;
 // 6 a 9 dígitos, solo números (ni espacios ni guiones) — mismo pedido:
 // "no tiene un mínimo de 6 y máximo de 9 para lo que es el teléfono".
 const PHONE_REGEX = /^\d{6,9}$/;
+// Tope que usan los inputs para no dejar escribir de más.
+export const PHONE_MAX_DIGITS = 9;
 
 export const createClientSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').regex(NAME_REGEX, 'El nombre solo puede tener letras'),

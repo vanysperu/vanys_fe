@@ -30,19 +30,13 @@ export interface CreateProductDto {
 
 export type UpdateProductDto = Partial<Omit<CreateProductDto, 'company_id'>>;
 
-// Espejo de CustomizationTechniqueAttributes.
-export type ExtraType = 'fixed' | 'percentage';
-
+// Espejo de CustomizationTechniqueAttributes: igual que "Product", un precio
+// POR UNIDAD según el modo de precio del item.
 export interface CustomizationTechnique {
   id: number;
   company_id: number;
   name: string;
   description: string | null;
-  extra_type: ExtraType;
-  // Solo aplica si extra_type="percentage" (% sobre el precio base).
-  extra_value: number;
-  // Solo aplican si extra_type="fixed" — extra POR UNIDAD según el modo de
-  // precio del item (igual que los 4 precios de "Product").
   price_unit: number | null;
   price_hundred: number | null;
   price_half_thousand: number | null;
@@ -55,8 +49,6 @@ export interface CreateTechniqueDto {
   company_id: number;
   name: string;
   description?: string;
-  extra_type: ExtraType;
-  extra_value?: number;
   price_unit?: number | null;
   price_hundred?: number | null;
   price_half_thousand?: number | null;
@@ -77,5 +69,9 @@ export interface CatalogListParams {
   // aplica a productos, el backend simplemente lo ignora si no corresponde).
   name?: string;
   sku?: string;
+  // "active", "inactive" o ambos separados por coma.
   status?: string;
+  // Rango de fecha de registro (YYYY-MM-DD).
+  dateFrom?: string;
+  dateTo?: string;
 }

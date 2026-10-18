@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { useCreateClient } from '@/modules/clients/hooks/useClients';
-import { createClientSchema, type CreateClientFormValues } from '@/modules/clients/schemas/client.schema';
+import { createClientSchema, PHONE_MAX_DIGITS, type CreateClientFormValues } from '@/modules/clients/schemas/client.schema';
+import { digitsFilter, withInputFilter } from '@/lib/inputRestrictions';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
@@ -70,7 +71,16 @@ export function QuickCreateClientDialog({ companyId, onCreated }: QuickCreateCli
           </div>
           <div className="space-y-1">
             <Label htmlFor="quick-client-phone">Teléfono (opcional)</Label>
-            <Input id="quick-client-phone" {...register('phone')} />
+            {/* Solo dígitos y máximo 9 mientras se escribe; el mínimo de 6 se
+                avisa con el mensaje de abajo. Antes este error no se mostraba
+                y el guardado se bloqueaba sin decir por qué. */}
+            <Input
+              id="quick-client-phone"
+              inputMode="numeric"
+              maxLength={PHONE_MAX_DIGITS}
+              {...withInputFilter(register('phone'), digitsFilter(PHONE_MAX_DIGITS))}
+            />
+            {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
           </div>
           <DialogFooter>
             <Button type="submit" size="sm" disabled={isPending}>

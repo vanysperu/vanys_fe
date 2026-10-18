@@ -30,28 +30,21 @@ export const createProductSchema = z
 
 export type CreateProductFormValues = z.infer<typeof createProductSchema>;
 
-// "fixed" ahora es tarifa por volumen (igual que createProductSchema, misma
-// regla: con uno de los 4 precios alcanza); "percentage" sigue usando un
-// solo valor porque ya escala solo con el precio base del producto.
+// La técnica funciona igual que el producto: 4 precios por volumen, y con
+// uno cargado alcanza. El item cobra (producto + técnica) en el mismo modo ×
+// cantidad. Ya no existe el modo porcentual.
 export const createTechniqueSchema = z
   .object({
     name: z.string().min(1, 'El nombre es obligatorio').max(255, 'Máximo 255 caracteres'),
     description: z.string().optional(),
-    extra_type: z.enum(['fixed', 'percentage']),
-    extra_value: z.number().min(0, 'Debe ser un número positivo').optional(),
     price_unit: z.number().min(0, 'Debe ser un número positivo').optional(),
     price_hundred: z.number().min(0, 'Debe ser un número positivo').optional(),
     price_half_thousand: z.number().min(0, 'Debe ser un número positivo').optional(),
     price_thousand: z.number().min(0, 'Debe ser un número positivo').optional(),
     company_id: z.number().optional(),
   })
-  .refine((data) => data.extra_type !== 'percentage' || data.extra_value != null, {
-    message: 'El costo adicional es obligatorio',
-    path: ['extra_value'],
-  })
   .refine(
     (data) =>
-      data.extra_type !== 'fixed' ||
       data.price_unit != null ||
       data.price_hundred != null ||
       data.price_half_thousand != null ||

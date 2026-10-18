@@ -63,6 +63,11 @@ export const createQuotationPaymentSchema = z
     paid_at: z.string({ error: 'La fecha es obligatoria' }).min(1, 'La fecha es obligatoria'),
     notes: z.string().max(NOTES_MAX_LENGTH, `Máximo ${NOTES_MAX_LENGTH} caracteres`).optional(),
     operation_number: z.string().max(50, 'Máximo 50 caracteres').optional(),
+    // Cuenta a la que entró el dinero (null = efectivo). Que sea obligatoria
+    // cuando el método no es efectivo y la empresa tiene cuentas lo decide
+    // el formulario (depende de las cuentas configuradas) y lo revalida el
+    // backend.
+    payment_account_id: z.number().nullable().optional(),
   })
   .refine((data) => data.method === CASH_PAYMENT_METHOD || Boolean(data.operation_number?.trim()), {
     message: 'El número de operación es obligatorio para pagos que no son en efectivo',
@@ -70,6 +75,8 @@ export const createQuotationPaymentSchema = z
   });
 
 export type CreateQuotationPaymentFormValues = z.infer<typeof createQuotationPaymentSchema>;
+
+export const PAYMENT_ACCOUNT_REQUIRED_MESSAGE = 'Indica a qué cuenta (banco, Yape o Plin) entró el pago';
 
 // 300/50 caracteres: mismos topes que el backend (columna VARCHAR(50) para
 // category) — evita el error de "dato demasiado largo" antes de enviarlo.

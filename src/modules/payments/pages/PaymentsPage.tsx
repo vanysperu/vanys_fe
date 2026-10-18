@@ -1,12 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreditCard, Pencil } from 'lucide-react';
+import { CreditCard, Pencil, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import { usePayments, useTogglePaymentStatus, useUpdatePayment } from '@/modules/payments/hooks/usePayments';
-import { updatePaymentSchema, type UpdatePaymentFormValues } from '@/modules/payments/schemas/payment.schema';
+import {
+  CASH_PAYMENT_METHOD,
+  updatePaymentSchema,
+  type UpdatePaymentFormValues,
+} from '@/modules/payments/schemas/payment.schema';
+import { PaymentAccountSelect, usePaymentAccounts } from '@/modules/variableGeneral/components/PaymentAccountSelect';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
+import type { PaymentStatusFilter } from '@/modules/payments/types/payment.types';
 import type { PaymentListItem } from '@/modules/payments/types/payment.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateField } from '@/presentation/components/shared/DateField';
@@ -41,6 +50,13 @@ export function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [editingPayment, setEditingPayment] = useState<PaymentListItem | null>(null);
+  // Filtros (pedido explícito del usuario: rangos de fecha, estados, personas).
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
+  const [methodFilter, setMethodFilter] = useState<string | undefined>(undefined);
+  const [accountFilter, setAccountFilter] = useState<string | undefined>(undefined);
+  const [clientName, setClientName] = useState('');
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const { data: accountsForFilter } = usePaymentAccounts();
 
   const canUpdate = usePermissionButton('payment.update.button');
   const canDisable = usePermissionButton('payment.disable.button');
@@ -49,7 +65,33 @@ export function PaymentsPage() {
   // siempre), acá SÍ se listan los anulados con su badge — la columna de
   // estado y el botón de alternar (ToggleStatusButton) no tendrían sentido
   // si el pago desapareciera de la tabla al anularlo.
-  const { data, isLoading } = usePayments({ page, limit: pageSize, includeDisabled: true });
+  const { data, isLoading } = usePayments({
+    page,
+    limit: pageSize,
+    // Sin filtro elegido se listan vigentes y anulados (con su badge).
+    status: (statusFilter as PaymentStatusFilter | undefined) ?? 'all',
+    method: methodFilter,
+    paymentAccountId: accountFilter === 'cash' ? 'cash' : accountFilter ? Number(accountFilter) : undefined,
+    clientName: clientName.trim() || undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
+  });
+
+  const hasActiveFilters = Boolean(
+    statusFilter || methodFilter || accountFilter || clientName || dateRange.dateFrom || dateRange.dateTo,
+  );
+  const clearFilters = () => {
+    setStatusFilter(undefined);
+    setMethodFilter(undefined);
+    setAccountFilter(undefined);
+    setClientName('');
+    setDateRange({});
+    setPage(1);
+  };
+  const withPageReset = <T,>(setter: (value: T) => void) => (value: T) => {
+    setter(value);
+    setPage(1);
+  };
   const { mutate: toggleStatus, isPending: isToggling } = useTogglePaymentStatus();
 
   // El backend guarda el prefix_id (ej. "cash"), no el nombre — mismo
@@ -62,7 +104,47 @@ export function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Pagos" description="Todos los pagos registrados en las cotizaciones de la empresa" />
+      <PageHeader title="Pagos recibidos" description="Pagos de los clientes registrados en las cotizaciones de la empresa" />
+
+      <FiltersBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
+        <div className="relative">
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar cliente..."
+            className="h-9 w-56 pl-9"
+            value={clientName}
+            onChange={(event) => withPageReset(setClientName)(event.target.value)}
+          />
+        </div>
+        <FilterSelect
+          aria-label="Estado"
+          allLabel="Vigentes y anulados"
+          value={statusFilter}
+          onChange={withPageReset(setStatusFilter)}
+          options={[
+            { value: 'active', label: 'Solo vigentes' },
+            { value: 'disabled', label: 'Solo anulados' },
+          ]}
+        />
+        <FilterSelect
+          aria-label="Método"
+          allLabel="Todos los métodos"
+          value={methodFilter}
+          onChange={withPageReset(setMethodFilter)}
+          options={paymentMethods.map((method) => ({ value: method.prefix_id, label: method.name }))}
+        />
+        <FilterSelect
+          aria-label="Cuenta"
+          allLabel="Todas las cuentas"
+          value={accountFilter}
+          onChange={withPageReset(setAccountFilter)}
+          options={[
+            { value: 'cash', label: 'Efectivo' },
+            ...(accountsForFilter?.data ?? []).map((row) => ({ value: String(row.id), label: row.name })),
+          ]}
+        />
+        <DateRangeFilter placeholder="Fecha de pago" value={dateRange} onChange={withPageReset(setDateRange)} />
+      </FiltersBar>
 
       <DataTable<PaymentListItem>
         columns={[
@@ -77,6 +159,8 @@ export function PaymentsPage() {
             ),
           },
           { header: 'Método', cell: (row) => methodLabel(row.method) },
+          // A qué cuenta entró el dinero (pedido explícito del usuario).
+          { header: 'Cuenta', cell: (row) => row.payment_account_name ?? 'Efectivo' },
           { header: 'N° operación', cell: (row) => row.operation_number ?? '—' },
           {
             header: 'Monto',
@@ -150,6 +234,7 @@ function EditPaymentDialog({ payment, onClose }: { payment: PaymentListItem; onC
     register,
     handleSubmit,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<UpdatePaymentFormValues>({
@@ -160,14 +245,24 @@ function EditPaymentDialog({ payment, onClose }: { payment: PaymentListItem; onC
       paid_at: payment.paid_at,
       notes: payment.notes ?? undefined,
       operation_number: payment.operation_number ?? undefined,
+      payment_account_id: payment.payment_account_id,
     },
   });
 
   const methodOptions = (methods?.data ?? []).map((item) => ({ value: item.prefix_id, label: item.name }));
+  const { data: accountsResult } = usePaymentAccounts();
+  const hasAccounts = (accountsResult?.data ?? []).some((account) => !account.is_deleted);
+  const isCash = watch('method') === CASH_PAYMENT_METHOD;
 
   const onSubmit = (values: UpdatePaymentFormValues) => {
+    // Misma regla que al registrar: si no es efectivo y la empresa tiene
+    // cuentas, hay que decir a cuál entró.
+    if (!isCash && hasAccounts && values.payment_account_id == null) {
+      setError('payment_account_id', { message: 'Indica a qué cuenta (banco, Yape o Plin) entró el pago' });
+      return;
+    }
     update(
-      { id: payment.id, dto: values },
+      { id: payment.id, dto: { ...values, payment_account_id: isCash ? null : (values.payment_account_id ?? null) } },
       {
         onSuccess: () => {
           toast.success('Pago actualizado correctamente');
@@ -210,6 +305,19 @@ function EditPaymentDialog({ payment, onClose }: { payment: PaymentListItem; onC
             />
             {errors.method && <p className="text-sm text-destructive">{errors.method.message}</p>}
           </div>
+
+          {!isCash && (
+            <div className="space-y-2">
+              <Label htmlFor="payment-account">Cuenta de destino</Label>
+              <PaymentAccountSelect
+                id="payment-account"
+                allowCash={false}
+                value={watch('payment_account_id')}
+                onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
+              />
+              {errors.payment_account_id && <p className="text-sm text-destructive">{errors.payment_account_id.message}</p>}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="payment-operation-number">N° de operación</Label>

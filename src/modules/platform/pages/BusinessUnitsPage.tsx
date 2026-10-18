@@ -18,6 +18,10 @@ import {
 import type { BusinessUnit } from '@/modules/platform/types/platform.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
+import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
@@ -66,6 +70,9 @@ export function BusinessUnitsPage() {
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  // Empresa (solo plataforma: un admin de empresa ya ve únicamente las suyas).
+  const [companyFilter, setCompanyFilter] = useState<string | undefined>(undefined);
   const canCreate = usePermissionButton('platform.businessUnit.create.button');
   const canUpdate = usePermissionButton('platform.businessUnit.update.button');
   const canDisable = usePermissionButton('platform.businessUnit.disable.button');
@@ -79,6 +86,9 @@ export function BusinessUnitsPage() {
     businessCode: columnFilters.businessCode || undefined,
     address: columnFilters.address || undefined,
     status: columnFilters.status || undefined,
+    companyId: companyFilter ? Number(companyFilter) : undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
   });
 
   const handleSortChange = (key: string, dir: 'asc' | 'desc' | undefined) => {
@@ -106,6 +116,37 @@ export function BusinessUnitsPage() {
         description="Tiendas/sucursales (business units) de cada empresa"
         action={canCreate && <BusinessUnitFormDialog />}
       />
+
+      <FiltersBar
+        hasActiveFilters={Boolean(dateRange.dateFrom || dateRange.dateTo || companyFilter)}
+        onClear={() => {
+          setDateRange({});
+          setCompanyFilter(undefined);
+          setPage(1);
+        }}
+      >
+        {access?.isSystem && (
+          <FilterSelect
+            aria-label="Empresa"
+            allLabel="Todas las empresas"
+            className="w-56"
+            value={companyFilter}
+            onChange={(value) => {
+              setCompanyFilter(value);
+              setPage(1);
+            }}
+            options={(companies?.data ?? []).map((company) => ({ value: String(company.id), label: company.business_name }))}
+          />
+        )}
+        <DateRangeFilter
+          placeholder="Fecha de registro"
+          value={dateRange}
+          onChange={(value) => {
+            setDateRange(value);
+            setPage(1);
+          }}
+        />
+      </FiltersBar>
 
       <DataTable
         columns={[
@@ -143,6 +184,8 @@ export function BusinessUnitsPage() {
             header: 'Estado',
             filterable: true,
             filterKey: 'status',
+            filterType: 'multiselect',
+            filterOptions: ACTIVE_STATUS_FILTER_OPTIONS,
             cell: (businessUnit) =>
               businessUnit.is_deleted ? (
                 <Badge variant="destructive">Deshabilitada</Badge>

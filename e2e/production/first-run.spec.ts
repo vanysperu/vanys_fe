@@ -134,7 +134,7 @@ test('primer día en producción: plataforma, empresa, logo, cotización con PDF
 
     await page.click('button[title="Nueva técnica"]');
     await page.fill('#quick-technique-name', `Bordado Produccion ${suffix}`);
-    await page.fill('#quick-technique-value', '5');
+    await page.fill('#quick-technique-price-unit', '5');
     await page.click('div[role="dialog"] button:has-text("Crear técnica")');
     await expect(page.locator('text=Técnica creada')).toBeVisible();
 
@@ -149,7 +149,7 @@ test('primer día en producción: plataforma, empresa, logo, cotización con PDF
   const detail = page.getByRole('dialog', { name: /^Cotización #/ });
 
   await test.step('genera el PDF: vista previa y descarga (con fuente y logo embebidos)', async () => {
-    await page.click('button:has-text("Lista")');
+    await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
     await expect(detail).toBeVisible();
 
