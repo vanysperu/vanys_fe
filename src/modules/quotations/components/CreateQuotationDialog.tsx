@@ -206,6 +206,14 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
   // cada vez que se abría este diálogo (es global: botón flotante siempre visible).
   const canPickBusinessUnit = !access?.isSystem && Boolean(access?.modules.includes('platform'));
   const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: canPickBusinessUnit });
+  // Tienda: si el usuario tiene tienda propia y no puede ver las demás, el
+  // backend fuerza esa tienda aunque se elija otra (resolveBusinessUnitFilter).
+  // Antes salía un selector vacío que se ignoraba; ahora se muestra fija. Si
+  // sí puede elegir, arranca preseleccionada su propia tienda.
+  const canViewAllStores =
+    Boolean(access?.isSystem) || Boolean(access?.buttons.includes('roles_access.viewAllBusinessUnits.button'));
+  const fixedStoreName = access?.businessUnitId && !canViewAllStores ? access.businessUnitName : null;
+  const defaultStoreId = access?.businessUnitId ?? undefined;
   const { data: products } = useProducts({ page: 1, limit: 100, status: 'active' });
   const { data: techniques } = useTechniques({ page: 1, limit: 100, status: 'active' });
   const { mutate: create, isPending, error } = useCreateQuotation();
@@ -278,7 +286,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
       {
         company_id: companyId,
         client_id: values.client_id,
-        business_unit_id: values.business_unit_id,
+        business_unit_id: values.business_unit_id ?? defaultStoreId,
         notes: values.notes,
         billing_name: values.billing_enabled ? values.billing_name : undefined,
         billing_document_number: values.billing_enabled ? values.billing_document_number : undefined,
@@ -362,6 +370,16 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                   }))}
                 />
               </div>
+            ) : fixedStoreName ? (
+              <div className="space-y-2">
+                <Label>Tienda</Label>
+                <p
+                  className="flex h-9 items-center rounded-md border bg-muted/60 px-3 text-sm"
+                  data-testid="quotation-fixed-store"
+                >
+                  {fixedStoreName}
+                </p>
+              </div>
             ) : (
               // La empresa nunca se elige (siempre es la propia, forzada
               // server-side) — solo la tienda, y solo si hay más de una.
@@ -369,7 +387,13 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                 <div className="space-y-2">
                   <Label>Tienda</Label>
                   <Select
-                    value={watch('business_unit_id') ? String(watch('business_unit_id')) : undefined}
+                    value={
+                      watch('business_unit_id')
+                        ? String(watch('business_unit_id'))
+                        : defaultStoreId
+                          ? String(defaultStoreId)
+                          : undefined
+                    }
                     onValueChange={(value) => setValue('business_unit_id', Number(value))}
                   >
                     <SelectTrigger>
@@ -579,12 +603,42 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="w-full space-y-1 sm:w-48">
                       <Label className="text-xs">Modo de precio</Label>
+                      {/* Sin producto elegido no hay precios: antes el campo
+                          quedaba en blanco (el modo por defecto no estaba
+                          entre las opciones). Ahora pide elegir el producto. */}
                       <Select
                         value={pricingMode}
-                        onValueChange={(value) => setValue(`items.${index}.pricing_mode`, value as QuotationItemPricingMode)}
+                        disabled={!product}
+                        onValueChange={(value) => {
+                          const nextMode = value as QuotationItemPricingMode;
+                          setValue(`items.${index}.pricing_mode`, nextMode);
+                          if (nextMode !== 'custom') return;
+                          // Al pasar a "Personalizado", los precios arrancan con
+                          // los del catálogo (del modo que estaba elegido) para
+                          // editarlos, en vez de quedar vacíos.
+                          const fromMode = pricingMode === 'custom' ? 'unit' : pricingMode;
+                          const hasCustomPrice = item?.custom_price != null && !Number.isNaN(item.custom_price);
+                          const productPrice = resolveTierPrice(product, fromMode) ?? resolveTierPrice(product, 'unit');
+                          if (!hasCustomPrice && productPrice != null) {
+                            setValue(`items.${index}.custom_price`, productPrice);
+                          }
+                          if (!technique) return;
+                          const hasTechniquePrice =
+                            item?.custom_technique_price != null && !Number.isNaN(item.custom_technique_price);
+                          const techniquePrice = resolveTierPrice(technique, fromMode) ?? resolveTierPrice(technique, 'unit');
+                          if (!hasTechniquePrice && techniquePrice != null) {
+                            setValue(`items.${index}.custom_technique_price`, techniquePrice);
+                          }
+                        }}
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          {/* Etiqueta explícita: Radix dejaba el campo en blanco
+                              mientras el modo no estaba entre las opciones, y al
+                              aparecer la opción (ej. tras crear el producto con
+                              el "+") seguía mostrando el texto de ayuda. */}
+                          <SelectValue>
+                            {product ? QUOTATION_ITEM_PRICING_MODE_LABEL[pricingMode] : 'Elige un producto'}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {modes.map((mode) => (

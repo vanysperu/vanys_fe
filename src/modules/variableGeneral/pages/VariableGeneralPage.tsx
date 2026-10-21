@@ -243,6 +243,20 @@ interface VariableGeneralFormDialogProps {
 
 // Un solo diálogo cubre crear y editar: en modo edición viene precargado
 // con la fila y abierto de entrada (controlado por el padre vía `variable`).
+// Categorías que guardan datos propios en ref1/ref2. Antes el formulario no
+// mostraba esos campos: al editar no se veían (ni se podían corregir) el
+// número de una cuenta de pago, el color de una etapa de producción, etc.
+// (pedido explícito del usuario: "que los campos tomen la info que deben").
+// El QR de una cuenta (también en ref2) se maneja en Documentos de la empresa.
+const REF_FIELDS: Record<string, { ref1?: string; ref2?: string; note?: string }> = {
+  payment_account: {
+    ref1: 'Número de cuenta / teléfono',
+    note: 'El QR de la cuenta se cambia en Documentos de la empresa.',
+  },
+  production_stage: { ref1: 'Color (hex, ej. #1F5FC0)', ref2: 'Orden en el tablero' },
+  cash_movement_type: { ref2: 'Orden en la lista' },
+};
+
 function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDialogProps) {
   const isEditing = Boolean(variable);
   const [open, setOpen] = useState(isEditing);
@@ -276,10 +290,14 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
         prefix_id: variable.prefix_id,
         name: variable.name,
         description: variable.description ?? '',
+        ref1: variable.ref1 ?? undefined,
+        ref2: variable.ref2 ?? undefined,
         company_id: variable.company_id ?? undefined,
       });
     }
   }, [variable, reset]);
+
+  const refFields = REF_FIELDS[watch('category') ?? ''];
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -366,6 +384,28 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
             <Label htmlFor="description">Descripción</Label>
             <Input id="description" {...register('description')} />
           </div>
+
+          {refFields && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {refFields.ref1 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ref1">{refFields.ref1}</Label>
+                    <Input id="ref1" {...register('ref1')} />
+                    {errors.ref1 && <p className="text-sm text-destructive">{errors.ref1.message}</p>}
+                  </div>
+                )}
+                {refFields.ref2 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="ref2">{refFields.ref2}</Label>
+                    <Input id="ref2" {...register('ref2')} />
+                    {errors.ref2 && <p className="text-sm text-destructive">{errors.ref2.message}</p>}
+                  </div>
+                )}
+              </div>
+              {refFields.note && <p className="text-xs text-muted-foreground">{refFields.note}</p>}
+            </div>
+          )}
 
           {/* Un admin de empresa SIEMPRE crea para la suya (el backend ya lo
               fuerza, sin importar lo que se mande) — mostrarle este selector

@@ -39,6 +39,9 @@ export interface MyAccess {
   roleName: string | null;
   // Nombre de la tienda (business_unit) asignada al usuario, si tiene una.
   businessUnitName: string | null;
+  // Id de esa tienda (null si no tiene): la nueva cotización la muestra fija
+  // o preseleccionada. El backend igual decide el alcance real.
+  businessUnitId: number | null;
   // Nombre de la empresa del usuario, usado como fallback cuando no tiene
   // tienda asignada.
   companyName: string | null;

@@ -142,6 +142,17 @@ export interface Quotation {
   client?: QuotationClient;
 }
 
+// Espejo de QuotationListSummary (grulla_be: quotation/services/find):
+// totales de TODO lo filtrado, calculados en la base (no solo la página).
+export interface QuotationListSummary {
+  // Mismo criterio que "Por cobrar": aceptadas en adelante y con saldo.
+  receivable_balance: number;
+  receivable_count: number;
+  // Vencidas sin respuesta del cliente.
+  expired_balance: number;
+  expired_count: number;
+}
+
 // "stage" es una fila de general_variable (category="production_stage",
 // ver Variables Generales) — name = nombre de la etapa, ref1 = color hex,
 // ref2 = posición/orden (string numérico, define adyacencia permitida).

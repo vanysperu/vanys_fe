@@ -106,8 +106,13 @@ export function BusinessUnitsPage() {
   const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: access?.isSystem });
   const { mutate: toggleStatus, isPending: isToggling } = useToggleBusinessUnitStatus();
 
+  // Un admin de empresa no lista empresas: para las tiendas de la suya se usa
+  // el nombre que trae /access/me (mismo criterio que VariableGeneralPage).
+  // Antes salía "Empresa #1" en vez del nombre.
   const companyName = (companyId: number) =>
-    companies?.data.find((company) => company.id === companyId)?.business_name ?? `Empresa #${companyId}`;
+    companies?.data.find((company) => company.id === companyId)?.business_name ??
+    (companyId === access?.companyId ? access?.companyName : null) ??
+    `Empresa #${companyId}`;
 
   return (
     <div className="space-y-6">

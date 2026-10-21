@@ -8,13 +8,16 @@ import type {
   QuotationDetail,
   QuotationExpense,
   QuotationListParams,
+  QuotationListSummary,
   QuotationPayment,
   QuotationStatus,
   UpdateQuotationDto,
 } from '@/modules/quotations/types/quotation.types';
 
-export async function getQuotations(params: QuotationListParams): Promise<PagedListResult<Quotation>> {
-  const response = await apiClient.get<ApiResponse<PagedListResult<Quotation>>>('/quotation/list', { params });
+type QuotationListResult = PagedListResult<Quotation> & { summary: QuotationListSummary };
+
+export async function getQuotations(params: QuotationListParams): Promise<QuotationListResult> {
+  const response = await apiClient.get<ApiResponse<QuotationListResult>>('/quotation/list', { params });
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

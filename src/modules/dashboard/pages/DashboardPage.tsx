@@ -9,6 +9,7 @@ import { QuotationsKanbanBoard } from '@/modules/quotations/components/Quotation
 import { useQuotations } from '@/modules/quotations/hooks/useQuotations';
 import { MyPurchaseOrdersWidget } from '@/modules/purchaseOrders/components/MyPurchaseOrdersWidget';
 import type { Quotation } from '@/modules/quotations/types/quotation.types';
+import { RECEIVABLE_STATUSES } from '@/modules/receivables/types/receivable.types';
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
 import { useAccess, usePermission, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { cn } from '@/lib/utils';
@@ -26,7 +27,9 @@ const TABS: { key: TabKey; label: string }[] = [
 function matchesTab(quotation: Quotation, tab: TabKey): boolean {
   const balance = Number(quotation.total) - Number(quotation.total_paid);
   if (tab === 'accion') return ['pending', 'design_pending', 'expired'].includes(quotation.status);
-  if (tab === 'cobrar') return balance > 0 && !['rejected', 'expired'].includes(quotation.status);
+  // Mismo criterio que la pantalla "Por cobrar": aceptadas en adelante y con
+  // saldo. Una cotización pendiente todavía no es una deuda.
+  if (tab === 'cobrar') return balance >= 0.01 && RECEIVABLE_STATUSES.includes(quotation.status);
   if (tab === 'produccion') return ['design_pending', 'in_process', 'ready'].includes(quotation.status);
   return true;
 }
@@ -52,21 +55,18 @@ export function DashboardPage() {
   const quotations = data?.data ?? [];
   const filtered = quotations.filter((quotation) => matchesTab(quotation, tab));
 
-  const totalPorCobrar = quotations
-    .filter((quotation) => !['rejected', 'expired'].includes(quotation.status))
-    .reduce((sum, quotation) => sum + (Number(quotation.total) - Number(quotation.total_paid)), 0);
-  const conSaldoCount = quotations.filter(
-    (quotation) =>
-      !['rejected', 'expired'].includes(quotation.status) && Number(quotation.total) - Number(quotation.total_paid) > 0,
-  ).length;
+  // Los totales salen del resumen que calcula el backend sobre TODAS las
+  // cotizaciones (no solo las 100 cargadas acá), con el mismo criterio que
+  // "Por cobrar" y "Estadísticas". Antes se sumaban en el navegador e incluían
+  // las pendientes, así que el Panel mostraba otra cifra (bug reportado).
+  const totalPorCobrar = data?.summary.receivable_balance ?? 0;
+  const conSaldoCount = data?.summary.receivable_count ?? 0;
+  const vencido = data?.summary.expired_balance ?? 0;
+  const vencidoCount = data?.summary.expired_count ?? 0;
 
-  const vencido = quotations
-    .filter((quotation) => quotation.status === 'expired')
-    .reduce((sum, quotation) => sum + (Number(quotation.total) - Number(quotation.total_paid)), 0);
-  const vencidoCount = quotations.filter((quotation) => quotation.status === 'expired').length;
-
+  // Con céntimos: la misma cifra exacta que muestra "Por cobrar".
   const money = (n: number) =>
-    'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    'S/ ' + n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   if (!canSeeQuotations) {
     return (
@@ -115,8 +115,8 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {[
-          { label: 'Total por cobrar', value: totalPorCobrar, note: `${conSaldoCount} cotizaciones con saldo`, color: 'var(--primary)' },
-          { label: 'Vencido', value: vencido, note: `${vencidoCount} sin respuesta`, color: '#B4231F' },
+          { label: 'Total por cobrar', value: totalPorCobrar, note: `${conSaldoCount} cotizaciones con saldo`, color: 'var(--primary)', testId: 'dashboard-receivable' },
+          { label: 'Vencido', value: vencido, note: `${vencidoCount} sin respuesta`, color: '#B4231F', testId: 'dashboard-expired' },
         ].map((kpi, index) => (
           <motion.div
             key={kpi.label}
@@ -131,7 +131,7 @@ export function DashboardPage() {
                 {kpi.label}
               </span>
             </div>
-            <div className="font-mono-nums text-xl font-semibold" style={{ color: kpi.color }}>
+            <div className="font-mono-nums text-xl font-semibold" style={{ color: kpi.color }} data-testid={kpi.testId}>
               {isLoading ? <Skeleton className="h-6 w-24" /> : money(kpi.value)}
             </div>
             <span className="text-[10.5px] font-semibold text-muted-foreground">{kpi.note}</span>
