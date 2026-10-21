@@ -25,6 +25,7 @@ const COMPANY_VIEWS: { path: string; heading: string }[] = [
   { path: '/deudas-personal', heading: 'Deudas a personal' },
   { path: '/por-cobrar', heading: 'Por cobrar' },
   { path: '/recordatorios', heading: 'Recordatorios' },
+  { path: '/estadisticas', heading: 'Estadísticas' },
 ];
 
 for (const view of COMPANY_VIEWS) {

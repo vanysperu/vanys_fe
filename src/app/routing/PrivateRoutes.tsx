@@ -51,6 +51,11 @@ const EmployeeDebtsPage = lazy(() =>
 const ReceivablesPage = lazy(() =>
   import('@/modules/receivables/pages/ReceivablesPage').then((m) => ({ default: m.ReceivablesPage })),
 );
+// Estadísticas carga Recharts: va en su propio chunk, solo se descarga al
+// entrar a la pantalla.
+const StatisticsPage = lazy(() =>
+  import('@/modules/statistics/pages/StatisticsPage').then((m) => ({ default: m.StatisticsPage })),
+);
 const RemindersPage = lazy(() =>
   import('@/modules/reminders/pages/RemindersPage').then((m) => ({ default: m.RemindersPage })),
 );
@@ -97,6 +102,7 @@ export default function PrivateRoutes() {
           <Route path="/deudas-personal" element={<EmployeeDebtsPage />} />
           <Route path="/por-cobrar" element={<ReceivablesPage />} />
           <Route path="/recordatorios" element={<RemindersPage />} />
+          <Route path="/estadisticas" element={<StatisticsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

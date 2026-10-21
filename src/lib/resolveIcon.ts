@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Bell,
   Boxes,
   Building2,
@@ -58,6 +59,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'hand-coins': HandCoins,
   receipt: Receipt,
   bell: Bell,
+  chart: BarChart3,
 };
 
 // Si un ícono no está mapeado, se usa uno de "falta configurar" (signo de

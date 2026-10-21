@@ -9,6 +9,9 @@ test.describe('Roles y accesos', () => {
   test('la vista se ve bien y lista los roles de plantilla + los propios de la empresa', async ({ page }) => {
     await page.goto('/seguridad/roles-accesos');
     await expect(page.locator('table')).toBeVisible();
+    // Por nombre: con muchos roles de prueba acumulados, la plantilla puede
+    // quedar fuera de la primera página.
+    await page.getByPlaceholder('Filtrar...').first().fill('Administrador');
     await expect(page.locator('td', { hasText: 'Administrador' }).first()).toBeVisible();
     await page.waitForTimeout(500);
     // Snapshot acotado al encabezado (no página completa): la cantidad de
@@ -24,6 +27,9 @@ test.describe('Roles y accesos', () => {
     page,
   }) => {
     await page.goto('/seguridad/roles-accesos');
+    // Se busca por nombre: con muchos roles de prueba acumulados, la plantilla
+    // puede quedar fuera de la primera página.
+    await page.getByPlaceholder('Filtrar...').first().fill('Especialista');
     const templateRow = page.locator('tr', { hasText: 'Especialista' }).first();
     await expect(templateRow).toBeVisible();
     // Solo debe quedar el botón de "Gestionar accesos" (KeyRound) — nunca
@@ -34,6 +40,9 @@ test.describe('Roles y accesos', () => {
 
   test('ver accesos (solo lectura) de un rol de plantilla', async ({ page }) => {
     await page.goto('/seguridad/roles-accesos');
+    // Se busca por nombre: con muchos roles de prueba acumulados, la plantilla
+    // puede quedar fuera de la primera página.
+    await page.getByPlaceholder('Filtrar...').first().fill('Especialista');
     const templateRow = page.locator('tr', { hasText: 'Especialista' }).first();
     await templateRow.locator('button').first().click();
     await expect(page.locator('div[role="dialog"]')).toBeVisible();
@@ -50,6 +59,8 @@ test.describe('Roles y accesos', () => {
     await page.click('div[role="dialog"] button:has-text("Crear rol")');
     await expect(page.locator('text=Rol creado correctamente')).toBeVisible({ timeout: 10_000 });
 
+    // Se filtra por el nombre (también encuentra la versión "editado").
+    await page.getByPlaceholder('Filtrar...').first().fill(roleName);
     const row = page.locator('tr', { hasText: roleName });
     await expect(row).toBeVisible();
 
