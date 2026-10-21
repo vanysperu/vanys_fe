@@ -21,7 +21,10 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        'scrollbar-thin bg-muted text-muted-foreground inline-flex h-9 w-fit max-w-full items-center justify-center gap-0.5 overflow-x-auto rounded-lg p-1',
+        // justify-start (no center): con justify-center, cuando la fila se
+        // desborda (celular) la primera pestaña queda cortada a la izquierda
+        // y el scroll no llega a ella. Con w-fit no cambia nada si caben.
+        'scrollbar-thin bg-muted text-muted-foreground inline-flex h-9 w-fit max-w-full items-center justify-start gap-0.5 overflow-x-auto rounded-lg p-1',
         className,
       )}
       {...props}

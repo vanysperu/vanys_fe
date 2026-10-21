@@ -3,8 +3,9 @@ import { useEffect } from 'react';
 import { useThemes } from '@/modules/platform/hooks/useCompanies';
 import { useAccess } from '@/presentation/hooks/shared/useAccess';
 
-// Código de la paleta por defecto (grulla_be: seeders/20260912233650-seed-themes.js
-// -> "blue"/"Azul (por defecto)"), la misma que ya define index.css como
+// Código de la paleta por defecto: "blue", que desde la marca Vanys es el azul
+// marino + naranja de Vanys (grulla_be: seeders/20261021140000-vanys-default-theme.js),
+// la misma que ya define index.css como
 // valor estático — cuando la empresa usa esta paleta (o no tiene ninguna
 // seteada) no hace falta sobreescribir nada, se deja el CSS tal cual.
 const DEFAULT_THEME_CODE = 'blue';

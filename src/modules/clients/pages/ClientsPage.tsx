@@ -82,12 +82,12 @@ export function ClientsPage() {
         title="Clientes"
         description="Datos de contacto e historial de cotizaciones"
         action={
-          <div className="flex items-center gap-3">
-            <div className="relative">
+          <div className="flex w-full items-center gap-3 sm:w-auto">
+            <div className="relative min-w-0 flex-1 sm:flex-none">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar..."
-                className="w-64 pl-9"
+                className="w-full pl-9 sm:w-64"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -328,7 +328,7 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" {...register('email')} />
@@ -349,7 +349,7 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="document_number">Documento</Label>
               <Input id="document_number" {...register('document_number')} />

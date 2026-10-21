@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { chooseSearchableSelect, chooseSelect, chooseSelectExact, stamp, wordStamp } from '../helpers';
+import { chooseSearchableSelect, chooseSelect, chooseSelectExact, openMenuGroup, stamp, wordStamp } from '../helpers';
 
 // "Primer día" en producción, de punta a punta y con clics reales: lo que
 // hace una persona apenas termina de publicar el sistema. Corre contra el
@@ -51,7 +51,11 @@ test('primer día en producción: plataforma, empresa, logo, cotización con PDF
   await test.step('el Super Administrador entra con su contraseña temporal y está obligado a cambiarla', async () => {
     await login(page, SUPERADMIN_EMAIL, SUPERADMIN_TEMP_PASSWORD);
     await changeTemporaryPassword(page, SUPERADMIN_TEMP_PASSWORD, SUPERADMIN_NEW_PASSWORD);
-    await expect(page.locator('[data-slot="sidebar"]', { hasText: 'Empresas' })).toBeVisible();
+    // "Empresas" vive en el grupo "Configuración" del menú (cerrado al entrar).
+    await openMenuGroup(page, 'Configuración');
+    await expect(
+      page.locator('[data-slot="sidebar"]').getByRole('link', { name: 'Empresas', exact: true }),
+    ).toBeVisible();
   });
 
   await test.step('crea la empresa y su tienda', async () => {

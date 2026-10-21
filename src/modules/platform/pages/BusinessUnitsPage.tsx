@@ -403,7 +403,7 @@ function BusinessUnitFormDialog({ businessUnit, onClose }: BusinessUnitFormDialo
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="opens_at">Hora de apertura</Label>
               <Input id="opens_at" type="time" {...register('opens_at')} />

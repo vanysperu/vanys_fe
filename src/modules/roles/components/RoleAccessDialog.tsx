@@ -39,14 +39,14 @@ export function RoleAccessDialog({ role, onClose }: RoleAccessDialogProps) {
   const { data, isLoading } = useRoleResourceTree(role?.id ?? 0, open);
   const { mutate: save, isPending } = useSetRoleResources(role?.id ?? 0);
 
-  // Los roles de plantilla (Administrador/Especialista/Gestor, company_id
-  // NULL) son una sola fila compartida por todas las empresas — el backend
-  // ya rechaza el guardado para estos (CLAUDE.md sección 10: una empresa
-  // solo otorga/quita accesos sobre SUS PROPIOS roles), así que acá se
-  // deshabilita la edición en vez de dejar que el usuario marque cosas y
-  // reciba un 403 confuso al guardar.
+  // Esta pantalla es exclusiva del Super Administrador (el backend lo exige
+  // con requireSystemRole), así que puede editar también los roles de
+  // plantilla (Administrador/Especialista/Gestor, company_id NULL). Son una
+  // sola fila compartida por todas las empresas: se avisa que el cambio
+  // alcanza a todas. Solo un rol de plataforma queda de solo lectura (ya
+  // tiene todo otorgado).
   const isSharedTemplate = Boolean(role) && !role!.is_system && role!.company_id == null;
-  const readOnly = Boolean(role?.is_system) || isSharedTemplate;
+  const readOnly = Boolean(role?.is_system);
 
   const [granted, setGranted] = useState<Set<number>>(new Set());
   const [initialGranted, setInitialGranted] = useState<Set<number>>(new Set());
@@ -99,7 +99,7 @@ export function RoleAccessDialog({ role, onClose }: RoleAccessDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent expandable className="max-w-2xl overflow-hidden p-0">
+      <DialogContent expandable className="max-w-2xl overflow-hidden p-0 sm:p-0">
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Accesos de {role?.name}</DialogTitle>
           <DialogDescription>
@@ -117,8 +117,8 @@ export function RoleAccessDialog({ role, onClose }: RoleAccessDialogProps) {
 
           {isSharedTemplate && (
             <p className="mb-4 rounded-lg bg-accent px-3 py-2 text-sm text-accent-foreground">
-              Este es un rol de plantilla compartido con todas las empresas — solo puede consultarse acá,
-              no editarse, porque un cambio afectaría a las demás empresas que también lo usan.
+              Este es un rol de plantilla compartido con todas las empresas: lo que cambies aquí se aplica a
+              todos los usuarios de todas las empresas que tengan este rol.
             </p>
           )}
 

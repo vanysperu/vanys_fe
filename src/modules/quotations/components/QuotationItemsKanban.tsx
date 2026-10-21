@@ -1,4 +1,4 @@
-import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useState } from 'react';
@@ -34,7 +34,13 @@ export function QuotationItemsKanban({ quotationId, items, companyId, canMoveSta
     ignorePagination: true,
   });
   const { mutate: changeStage } = useChangeQuotationItemStage(quotationId);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse: arrastra tras moverse 6 px (igual que antes). Dedo: arrastra solo
+  // con pulsación larga (250 ms), así deslizar sobre una tarjeta sigue
+  // desplazando el tablero/la página en vez de agarrar la tarjeta.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  );
 
   if (isLoading) {
     return <Skeleton className="h-40 w-full" />;
@@ -153,10 +159,10 @@ function DraggableItemCard({ item, draggable }: { item: QuotationItem; draggable
   return (
     <div
       ref={setNodeRef}
-      // touch-action: none — sin esto, un gesto de arrastre horizontal
-      // puede interpretarse como "scrollear la página" en vez de "empezar
-      // a arrastrar la tarjeta" (recomendación oficial de dnd-kit).
-      style={{ transform: CSS.Translate.toString(transform), touchAction: 'none' }}
+      // touch-action: manipulation (no 'none'): con 'none' un dedo sobre la
+      // tarjeta no podía desplazar la página ni el tablero en el celular. El
+      // arrastre táctil lo resuelve el TouchSensor con pulsación larga.
+      style={{ transform: CSS.Translate.toString(transform), touchAction: 'manipulation' }}
       {...(draggable ? { ...listeners, ...attributes } : {})}
       className={cn(isDragging && 'opacity-30')}
     >

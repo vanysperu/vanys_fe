@@ -65,7 +65,12 @@ function DialogContent({
           // se queda oculto acá arriba a propósito, el scroll horizontal
           // vive únicamente donde se pidió explícitamente (ver
           // QuotationsKanbanBoard/QuotationItemsKanban).
-          'scrollbar-thin bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid min-w-0 max-h-[85vh] w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-x-hidden overflow-y-auto rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
+          'scrollbar-thin bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid min-w-0 max-h-[85vh] w-[calc(100%-1rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-x-hidden overflow-y-auto rounded-lg border p-4 shadow-lg duration-200 sm:max-w-lg sm:p-6',
+          // Celular: el modal deja 0.5rem de aire a cada lado (antes w-full
+          // pegaba los bordes a la pantalla) y usa menos relleno interno para
+          // que los campos no queden angostos. Un caller que pida otro
+          // relleno debe pasar también su variante sm: (ej. "p-0 sm:p-0"),
+          // porque tailwind-merge no reemplaza sm:p-6 con un p-* sin prefijo.
           // className (el max-w-* que cada diálogo pide, ej. "sm:max-w-3xl")
           // va ANTES que `expanded`: si quedara después, tailwind-merge se
           // queda con la última clase en conflicto y el ancho fijo del

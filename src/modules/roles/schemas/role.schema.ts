@@ -11,6 +11,8 @@ export const createRoleSchema = z.object({
     .max(255, 'Máximo 255 caracteres')
     .regex(ROLE_NAME_REGEX, 'El nombre solo puede tener letras, números, espacios y guiones'),
   description: z.string().optional(),
+  // Empresa dueña (solo al crear). Sin valor = plantilla para todas las empresas.
+  company_id: z.number().int().positive().optional(),
 });
 
 export type CreateRoleFormValues = z.infer<typeof createRoleSchema>;

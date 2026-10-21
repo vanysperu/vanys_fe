@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
-import { chooseSearchableSelect, chooseSelectNear, stamp, wordStamp } from '../helpers';
+import { chooseSearchableSelect, chooseSelectNear, openMenuGroup, stamp, wordStamp } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -121,6 +121,10 @@ test.describe('Cambios pedidos: precios, compras, clientes y menú', () => {
   test('el menú usa los nuevos nombres', async ({ page }) => {
     await page.goto('/');
     const sidebar = page.locator('[data-slot="sidebar"]');
+    // Los ítems viven dentro de los grupos del menú (cerrados en el inicio).
+    for (const group of ['Ventas', 'Finanzas', 'Configuración']) {
+      await openMenuGroup(page, group);
+    }
     for (const label of ['Generales', 'Usuarios', 'Lista de precios', 'Pagos recibidos']) {
       await expect(sidebar.getByText(label, { exact: true }).first()).toBeVisible();
     }

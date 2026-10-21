@@ -116,7 +116,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister }:
                   <CharCounter value={watch('description')} max={300} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="expense-amount">Monto (S/)</Label>
                   <Input

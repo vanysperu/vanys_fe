@@ -64,7 +64,9 @@ export function QuotationsPage() {
         title="Cotizaciones"
         description="Flujo completo: pendiente → aceptada → diseño → producción → entrega"
         action={
-          <div className="flex items-center gap-3">
+          // flex-wrap: en el celular Lista/Tablero + estado + crear no entran
+          // en una fila y se salían de la pantalla.
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center rounded-lg border p-0.5">
               <button
                 type="button"
@@ -92,7 +94,7 @@ export function QuotationsPage() {
                 value={status ?? ALL_STATUS_VALUE}
                 onValueChange={(value) => setStatus(value === ALL_STATUS_VALUE ? undefined : (value as QuotationStatus))}
               >
-                <SelectTrigger className="w-56">
+                <SelectTrigger className="w-44 sm:w-56">
                   <SelectValue placeholder="Todos los estados" />
                 </SelectTrigger>
                 <SelectContent>

@@ -12,6 +12,7 @@ import {
 } from '@/modules/quotations/types/quotation.types';
 import { EmptyState } from '@/presentation/components/shared/EmptyState';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useIsMobile } from '@/presentation/hooks/use-mobile';
 import type { ApiClientError } from '@/config/api.types';
 
 function money(n: number) {
@@ -53,6 +54,7 @@ export function QuotationsByStatus({ quotations, onSelect, onQuickAction, onPrev
   // cotización que ya puedes ver en esta lista no depende de un permiso de
   // botón aparte (el backend igual lo revalida en /quotation/:id/pdf).
   const showActionsColumn = true;
+  const isMobile = useIsMobile();
 
   const handleDirectDownload = (quotation: Quotation) => {
     downloadPdf(quotation.id, {
@@ -66,6 +68,15 @@ export function QuotationsByStatus({ quotations, onSelect, onQuickAction, onPrev
       },
       onError: (error) => toast.error((error as ApiClientError).message),
     });
+  };
+
+  const actionProps: Omit<QuotationRowActionsProps, 'quotation'> = {
+    canRegisterPayment,
+    canRegisterExpense,
+    canCreatePurchaseOrder,
+    onQuickAction,
+    onPreviewPdf,
+    onDownload: handleDirectDownload,
   };
 
   // Se muestran SIEMPRE los 10 estados (aunque un grupo esté vacío) — antes
@@ -119,14 +130,27 @@ export function QuotationsByStatus({ quotations, onSelect, onQuickAction, onPrev
               >
                 {quotes.length}
               </span>
-              <span className="ml-auto text-[11px] font-medium whitespace-nowrap" style={{ color: color.fg }}>
+              {/* En el celular no entra la etiqueta junto al estado y al monto. */}
+              <span className="ml-auto hidden text-[11px] font-medium whitespace-nowrap sm:inline" style={{ color: color.fg }}>
                 Saldo del grupo
               </span>
-              <span className="font-mono-nums min-w-24 shrink-0 text-right text-[13px] font-bold" style={{ color: color.fg }}>
+              <span className="font-mono-nums ml-auto min-w-24 shrink-0 text-right text-[13px] font-bold sm:ml-0" style={{ color: color.fg }}>
                 {money(groupBalance)}
               </span>
             </button>
 
+            {isMobile && isOpen && (
+              <div className="bg-card">
+                {quotes.length === 0 && (
+                  <div className="px-4 py-3 text-[12px] text-muted-foreground">Sin cotizaciones en este estado.</div>
+                )}
+                {quotes.map((quotation) => (
+                  <QuotationMobileRow key={quotation.id} quotation={quotation} onSelect={onSelect} actionProps={actionProps} />
+                ))}
+              </div>
+            )}
+
+            {!isMobile && (
             <div className="scrollbar-thin overflow-x-auto">
               <div
                 className="grid min-w-[900px] gap-2.5 border-b bg-muted/30 px-4 py-1.5 text-[9.5px] font-bold tracking-wide text-muted-foreground uppercase"
@@ -181,52 +205,7 @@ export function QuotationsByStatus({ quotations, onSelect, onQuickAction, onPrev
                         </span>
                         {showActionsColumn && (
                           <div className="flex items-center justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>
-                            {canRegisterPayment && (
-                              <button
-                                type="button"
-                                title="Añadir pago"
-                                onClick={() => onQuickAction(quotation.id, 'payments')}
-                                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[var(--success)]/10 hover:text-[var(--success)]"
-                              >
-                                <CircleDollarSign className="size-4" />
-                              </button>
-                            )}
-                            {canRegisterExpense && (
-                              <button
-                                type="button"
-                                title="Añadir gasto"
-                                onClick={() => onQuickAction(quotation.id, 'expenses')}
-                                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                              >
-                                <Receipt className="size-4" />
-                              </button>
-                            )}
-                            {canCreatePurchaseOrder && (
-                              <button
-                                type="button"
-                                title="Orden de compra"
-                                onClick={() => onQuickAction(quotation.id, 'purchase-orders')}
-                                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                              >
-                                <ShoppingCart className="size-4" />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              title="Vista previa del PDF"
-                              onClick={() => onPreviewPdf(quotation.id)}
-                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            >
-                              <Eye className="size-4" />
-                            </button>
-                            <button
-                              type="button"
-                              title="Descargar PDF"
-                              onClick={() => handleDirectDownload(quotation)}
-                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            >
-                              <Download className="size-4" />
-                            </button>
+                            <QuotationRowActions {...actionProps} quotation={quotation} />
                           </div>
                         )}
                       </div>
@@ -235,9 +214,134 @@ export function QuotationsByStatus({ quotations, onSelect, onQuickAction, onPrev
                 </div>
               )}
             </div>
+            )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+interface QuotationRowActionsProps {
+  quotation: Quotation;
+  canRegisterPayment: boolean;
+  canRegisterExpense: boolean;
+  canCreatePurchaseOrder: boolean;
+  onQuickAction: (id: number, tab: QuotationQuickActionTab) => void;
+  onPreviewPdf: (id: number) => void;
+  onDownload: (quotation: Quotation) => void;
+}
+
+// Botones de acción rápida de una cotización (pago, gasto, compra, PDF): los
+// mismos en la fila de escritorio y en la tarjeta del celular.
+function QuotationRowActions({
+  quotation,
+  canRegisterPayment,
+  canRegisterExpense,
+  canCreatePurchaseOrder,
+  onQuickAction,
+  onPreviewPdf,
+  onDownload,
+}: QuotationRowActionsProps) {
+  return (
+    <>
+      {canRegisterPayment && (
+        <button
+          type="button"
+          title="Añadir pago"
+          onClick={() => onQuickAction(quotation.id, 'payments')}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-[var(--success)]/10 hover:text-[var(--success)]"
+        >
+          <CircleDollarSign className="size-4" />
+        </button>
+      )}
+      {canRegisterExpense && (
+        <button
+          type="button"
+          title="Añadir gasto"
+          onClick={() => onQuickAction(quotation.id, 'expenses')}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Receipt className="size-4" />
+        </button>
+      )}
+      {canCreatePurchaseOrder && (
+        <button
+          type="button"
+          title="Orden de compra"
+          onClick={() => onQuickAction(quotation.id, 'purchase-orders')}
+          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+        >
+          <ShoppingCart className="size-4" />
+        </button>
+      )}
+      <button
+        type="button"
+        title="Vista previa del PDF"
+        onClick={() => onPreviewPdf(quotation.id)}
+        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Eye className="size-4" />
+      </button>
+      <button
+        type="button"
+        title="Descargar PDF"
+        onClick={() => onDownload(quotation)}
+        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Download className="size-4" />
+      </button>
+    </>
+  );
+}
+
+// Celular: la fila de 7 columnas (mínimo 900 px) obligaba a deslizar de lado
+// para ver el saldo o las acciones. Acá cada cotización es un bloque de dos
+// líneas — número y cliente arriba con el saldo a la derecha; total/pagado
+// abajo — con las mismas acciones al pie. El estado no se repite: ya lo dice
+// el encabezado del grupo.
+function QuotationMobileRow({
+  quotation,
+  onSelect,
+  actionProps,
+}: {
+  quotation: Quotation;
+  onSelect: (id: number) => void;
+  actionProps: Omit<QuotationRowActionsProps, 'quotation'>;
+}) {
+  const balance = Number(quotation.total) - Number(quotation.total_paid);
+
+  return (
+    <div
+      onClick={() => onSelect(quotation.id)}
+      className="cursor-pointer space-y-1.5 border-b px-4 py-3 transition-colors last:border-0 active:bg-accent/60"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono-nums text-[11.5px] font-semibold text-primary">
+            COT-{String(quotation.id).padStart(4, '0')}
+          </p>
+          <p className="truncate text-sm font-semibold">{quotation.client?.name ?? '—'}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[10px] text-muted-foreground uppercase">Saldo</p>
+          <p
+            className={cn(
+              'font-mono-nums text-sm font-semibold',
+              balance > 0 ? 'text-destructive' : 'text-muted-foreground',
+            )}
+          >
+            {money(balance)}
+          </p>
+        </div>
+      </div>
+      <p className="font-mono-nums text-xs text-muted-foreground">
+        Total {money(quotation.total)} ·{' '}
+        <span className="text-[var(--success)]">Pagado {money(quotation.total_paid)}</span>
+      </p>
+      <div className="-mr-1.5 flex items-center justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>
+        <QuotationRowActions {...actionProps} quotation={quotation} />
+      </div>
     </div>
   );
 }

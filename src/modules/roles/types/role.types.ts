@@ -8,14 +8,20 @@ export interface Role {
   is_system: boolean;
   key_code: string | null;
   created_at: string;
+  // Nombre de la empresa dueña (solo en el listado); null en plantillas y en
+  // roles de plataforma.
+  company_name?: string | null;
 }
 
 export interface CreateRoleDto {
   name: string;
   description?: string | null;
+  // Empresa dueña del rol; sin empresa queda como plantilla de todas.
+  company_id?: number;
 }
 
-export type UpdateRoleDto = Partial<CreateRoleDto>;
+// La empresa no se cambia al editar (el backend la ignora).
+export type UpdateRoleDto = Partial<Omit<CreateRoleDto, 'company_id'>>;
 
 // Filtros por columna de la tabla de roles (CLAUDE.md sección 7 —
 // "consistencia entre vistas"): se agregan a CountedListParams, nunca lo

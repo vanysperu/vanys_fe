@@ -42,7 +42,7 @@ export function PaymentFormFields({ form, idPrefix = 'payment' }: PaymentFormFie
 
   return (
     <>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-amount`}>Monto (S/)</Label>
           <Input id={`${idPrefix}-amount`} type="number" step="0.01" {...register('amount', { valueAsNumber: true })} />

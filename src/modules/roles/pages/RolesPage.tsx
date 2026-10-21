@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Check, KeyRound, Pencil, Plus, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -21,21 +21,22 @@ import {
 } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/presentation/components/shared/ui/tooltip';
-import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useCompanies } from '@/modules/platform/hooks/useCompanies';
 import { RoleAccessDialog } from '@/modules/roles/components/RoleAccessDialog';
 import { useCreateRole, useRoles, useToggleRoleStatus, useUpdateRole } from '@/modules/roles/hooks/useRoles';
 import { createRoleSchema, type CreateRoleFormValues } from '@/modules/roles/schemas/role.schema';
 import type { Role } from '@/modules/roles/types/role.types';
 import type { ApiClientError } from '@/config/api.types';
 
-// Un rol de plantilla (company_id NULL) es una sola fila compartida por
-// todas las empresas (CLAUDE.md sección 10) — distinto de `is_system`
-// (plataforma), que YA se excluye aparte en cada condición de abajo.
-function isSharedTemplateRole(role: Role): boolean {
-  return role.company_id == null;
-}
+// Valor del selector de empresa para "sin empresa" (Radix Select no admite
+// un valor vacío): el rol queda como plantilla de todas las empresas.
+const TEMPLATE_COMPANY_VALUE = 'template';
 
+// Pantalla exclusiva del Super Administrador (el backend lo exige con
+// requireSystemRole y no la incluye en el menú de un usuario de empresa).
 export function RolesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -51,7 +52,6 @@ export function RolesPage() {
   const canUpdate = usePermissionButton('roles_access.role.update.button');
   const canDisable = usePermissionButton('roles_access.role.disable.button');
   const canAssign = usePermissionButton('roles_access.assign.button');
-  const { data: access } = useAccess();
 
   const handleSortChange = (key: string, dir: 'asc' | 'desc' | undefined) => {
     setOrderBy(dir ? key : undefined);
@@ -101,6 +101,17 @@ export function RolesPage() {
             cell: (role) => <span className="text-muted-foreground">{role.description ?? '—'}</span>,
           },
           {
+            header: 'Empresa',
+            cell: (role) =>
+              role.is_system ? (
+                <span className="text-muted-foreground">—</span>
+              ) : (
+                <span className={role.company_name ? undefined : 'text-muted-foreground'}>
+                  {role.company_name ?? 'Todas (plantilla)'}
+                </span>
+              ),
+          },
+          {
             header: 'Tipo',
             filterable: true,
             filterKey: 'isSystem',
@@ -141,19 +152,14 @@ export function RolesPage() {
                     <TooltipContent>Gestionar accesos</TooltipContent>
                   </Tooltip>
                 )}
-                {/* Un rol de plantilla (Administrador/Especialista/Gestor:
-                    company_id NULL, compartido por todas las empresas) no
-                    es editable/deshabilitable por un admin de empresa — el
-                    backend filtra por company_id y nunca matchea esa fila,
-                    así que renombrarlo o deshabilitarlo ahí no hacía nada
-                    pese a mostrar un toast de "éxito" (mismo criterio que
-                    RoleAccessDialog: solo is_system edita un rol compartido). */}
-                {canUpdate && !role.is_system && (!isSharedTemplateRole(role) || access?.isSystem) && (
+                {/* El rol de plataforma (Super Administrador) no se edita ni
+                    se deshabilita: dejaría el sistema sin quién lo administre. */}
+                {canUpdate && !role.is_system && (
                   <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditRole(role)}>
                     <Pencil className="size-4" />
                   </Button>
                 )}
-                {canDisable && !role.is_system && (!isSharedTemplateRole(role) || access?.isSystem) && (
+                {canDisable && !role.is_system && (
                   <ToggleStatusButton
                     active={role.status}
                     entityLabel="rol"
@@ -209,13 +215,18 @@ function RoleFormDialog({ role, onClose }: RoleFormDialogProps) {
   const [open, setOpen] = useState(isEditing);
   const { mutate: create, isPending: isCreating, error: createError } = useCreateRole();
   const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateRole();
+  // Solo al crear: la empresa de un rol no cambia después.
+  const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: open && !isEditing });
 
   const {
     register,
     handleSubmit,
     reset,
+    control,
+    setValue,
     formState: { errors },
   } = useForm<CreateRoleFormValues>({ resolver: zodResolver(createRoleSchema) });
+  const selectedCompanyId = useWatch({ control, name: 'company_id' });
 
   useEffect(() => {
     if (role) reset({ name: role.name, description: role.description ?? '' });
@@ -278,6 +289,37 @@ function RoleFormDialog({ role, onClose }: RoleFormDialogProps) {
             <Label htmlFor="description">Descripción</Label>
             <Input id="description" {...register('description')} />
           </div>
+
+          {!isEditing && (
+            <div className="space-y-2">
+              <Label htmlFor="role-company">Empresa</Label>
+              <Select
+                value={selectedCompanyId ? String(selectedCompanyId) : TEMPLATE_COMPANY_VALUE}
+                onValueChange={(value) =>
+                  setValue('company_id', value === TEMPLATE_COMPANY_VALUE ? undefined : Number(value), {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                <SelectTrigger id="role-company">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TEMPLATE_COMPANY_VALUE}>Todas las empresas (plantilla)</SelectItem>
+                  {companies?.data.map((company) => (
+                    <SelectItem key={company.id} value={String(company.id)}>
+                      {company.business_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {selectedCompanyId
+                  ? 'Solo esa empresa podrá asignar este rol a sus usuarios.'
+                  : 'Todas las empresas podrán asignar este rol; sus accesos son los mismos para todas.'}
+              </p>
+            </div>
+          )}
 
           {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
 

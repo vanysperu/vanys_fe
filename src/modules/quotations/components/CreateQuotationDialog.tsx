@@ -267,7 +267,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Cliente</Label>
               <div className="flex items-center gap-1">
@@ -346,7 +346,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
               Emitir a nombre de otra persona o empresa
             </label>
             {watch('billing_enabled') && (
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="billing_name" className="text-xs">
                     Nombre a facturar
@@ -411,7 +411,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                 return (
                   <div key={field.id} className="space-y-2 rounded-md border border-transparent p-1 [&:not(:last-child)]:border-b-muted">
                   <div className="grid grid-cols-12 items-end gap-2">
-                    <div className="col-span-5 min-w-0 space-y-1">
+                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-5">
                       <Label className="text-xs">Producto</Label>
                       <div className="flex items-center gap-1">
                         <SearchableSelect
@@ -448,7 +448,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                       </div>
                     </div>
 
-                    <div className="col-span-4 min-w-0 space-y-1">
+                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-4">
                       <Label className="text-xs">Técnica</Label>
                       {!usesTechnique && (
                         <p className="flex h-9 items-center text-xs text-muted-foreground" data-testid={`item-no-customization-${index}`}>
@@ -496,9 +496,9 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                       )}
                     </div>
 
-                    <div className="col-span-2 text-sm font-semibold text-primary">S/ {(price?.total ?? 0).toFixed(2)}</div>
+                    <div className="col-span-10 text-sm font-semibold text-primary sm:col-span-2">S/ {(price?.total ?? 0).toFixed(2)}</div>
 
-                    <div className="col-span-1">
+                    <div className="col-span-2 flex justify-end sm:col-span-1 sm:block">
                       <Button
                         type="button"
                         variant="ghost"
@@ -511,8 +511,8 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                     </div>
                   </div>
 
-                  <div className="flex items-end gap-2">
-                    <div className="w-48 space-y-1">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="w-full space-y-1 sm:w-48">
                       <Label className="text-xs">Modo de precio</Label>
                       <Select
                         value={pricingMode}

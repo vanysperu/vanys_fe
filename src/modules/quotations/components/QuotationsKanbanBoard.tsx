@@ -1,4 +1,4 @@
-import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useState } from 'react';
@@ -44,7 +44,13 @@ export function QuotationsKanbanBoard({ quotations, onSelect, canChangeStatus }:
   const canRegisterPayment = usePermissionButton('cotizacion.payment.create.button');
   // Tarjeta soltada en "Aceptada": primero se pregunta por el adelanto.
   const [accepting, setAccepting] = useState<AcceptQuotationTarget | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse: arrastra tras moverse 6 px (igual que antes). Dedo: arrastra solo
+  // con pulsación larga (250 ms), así deslizar sobre una tarjeta sigue
+  // desplazando el tablero/la página en vez de agarrar la tarjeta.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+  );
 
   const columns = QUOTATION_MAIN_CHAIN.map((status) => ({
     status,
@@ -187,7 +193,7 @@ function DraggableQuotationCard({
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), touchAction: 'none' }}
+      style={{ transform: CSS.Translate.toString(transform), touchAction: 'manipulation' }}
       {...(draggable ? { ...listeners, ...attributes } : {})}
       className={cn(isDragging && 'opacity-30')}
     >

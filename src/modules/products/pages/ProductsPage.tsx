@@ -379,7 +379,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
               un producto que se registra con precios diferentes"). */}
           <div className="space-y-2">
             <Label>Precios de catálogo (carga los que apliquen)</Label>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="space-y-1">
                 <Label htmlFor="price_unit" className="text-xs font-normal text-muted-foreground">
                   Por unidad (S/)
@@ -715,7 +715,7 @@ function TechniqueFormDialog({
               modo × cantidad (pedido explícito del usuario). */}
           <div className="space-y-2">
               <Label>Precio por unidad según volumen (carga el/los que apliquen)</Label>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="space-y-1">
                   <Label htmlFor="tech_price_unit" className="text-xs font-normal text-muted-foreground">
                     Por unidad (S/)

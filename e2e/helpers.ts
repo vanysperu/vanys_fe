@@ -104,3 +104,13 @@ export async function expectNoConsoleErrors(page: Page, allowList: RegExp[] = []
   });
   return () => expect(errors, `Errores de consola inesperados: ${errors.join(' | ')}`).toHaveLength(0);
 }
+
+// El menú lateral agrupa los módulos (Ventas, Finanzas, Configuración) y cada
+// grupo arranca cerrado, salvo el que contiene la pantalla actual: se abre
+// antes de buscar un ítem adentro (src/app/navigation/menuConfig.ts).
+export async function openMenuGroup(page: Page, groupLabel: string) {
+  const header = page.locator('[data-slot="sidebar"]').getByRole('button', { name: groupLabel, exact: true });
+  if ((await header.getAttribute('aria-expanded')) === 'true') return;
+  await header.click();
+  await expect(header).toHaveAttribute('aria-expanded', 'true');
+}

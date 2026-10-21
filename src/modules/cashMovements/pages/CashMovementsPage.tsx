@@ -163,7 +163,7 @@ export function CashMovementsPage() {
         <DateRangeFilter placeholder="Fecha" value={dateRange} onChange={withPageReset(setDateRange)} />
       </FiltersBar>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
           <ArrowUpCircle className="size-8 text-[var(--success)]" />
           <div>
@@ -340,7 +340,7 @@ function CreateCashMovementDialog() {
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Tipo</Label>
               <Select
@@ -369,7 +369,7 @@ function CreateCashMovementDialog() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cash-movement-amount">Monto (S/)</Label>
               <Input id="cash-movement-amount" type="number" step="0.01" {...register('amount', { valueAsNumber: true })} />
@@ -407,7 +407,7 @@ function CreateCashMovementDialog() {
               explícito del usuario) — NUNCA reemplaza el registro de Pagos/
               Gastos propio de la cotización, solo da contexto a un
               movimiento manual relacionado a ese trabajo puntual. */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Cotización (opcional)</Label>
               <SearchableSelect

@@ -1,61 +1,62 @@
 import { expect, test } from '@playwright/test';
 
-import { ADMIN_STATE } from '../auth';
-import { stamp } from '../helpers';
+import { ADMIN_STATE, SUPERADMIN_STATE } from '../auth';
+import { chooseSelect, openMenuGroup, stamp } from '../helpers';
 
-test.use({ storageState: ADMIN_STATE });
+// "Roles y accesos" es exclusivo del Super Administrador (pedido explícito
+// del usuario): el backend lo exige con requireSystemRole y no lo incluye en
+// el menú de un usuario de empresa.
+test.describe('Roles y accesos (Super Administrador)', () => {
+  test.use({ storageState: SUPERADMIN_STATE });
 
-test.describe('Roles y accesos', () => {
-  test('la vista se ve bien y lista los roles de plantilla + los propios de la empresa', async ({ page }) => {
+  test('la vista se ve bien y lista los roles con su empresa', async ({ page }) => {
     await page.goto('/seguridad/roles-accesos');
     await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('th', { hasText: 'Empresa' })).toBeVisible();
     // Por nombre: con muchos roles de prueba acumulados, la plantilla puede
     // quedar fuera de la primera página.
-    await page.getByPlaceholder('Filtrar...').first().fill('Administrador');
-    await expect(page.locator('td', { hasText: 'Administrador' }).first()).toBeVisible();
+    await page.getByPlaceholder('Filtrar...').first().fill('Especialista');
+    const templateRow = page.locator('tr', { hasText: 'Especialista' }).first();
+    await expect(templateRow).toContainText('Todas (plantilla)');
     await page.waitForTimeout(500);
     // Snapshot acotado al encabezado (no página completa): la cantidad de
-    // filas crece entre corridas (roles QA que quedan de pruebas previas),
-    // lo que desplaza todo lo que va debajo de la tabla (paginación) aunque
-    // el tbody esté enmascarado — mismo criterio que el resto de vistas.
+    // filas crece entre corridas (roles QA que quedan de pruebas previas).
     await expect(page.locator('h1', { hasText: 'Roles y accesos' }).locator('xpath=../..')).toHaveScreenshot(
       'roles-header.png',
     );
   });
 
-  test('un rol de plantilla compartido (Administrador/Especialista/Gestor) no muestra editar/deshabilitar', async ({
-    page,
-  }) => {
+  test('el rol de plataforma no se edita ni se deshabilita', async ({ page }) => {
     await page.goto('/seguridad/roles-accesos');
-    // Se busca por nombre: con muchos roles de prueba acumulados, la plantilla
-    // puede quedar fuera de la primera página.
-    await page.getByPlaceholder('Filtrar...').first().fill('Especialista');
-    const templateRow = page.locator('tr', { hasText: 'Especialista' }).first();
-    await expect(templateRow).toBeVisible();
-    // Solo debe quedar el botón de "Gestionar accesos" (KeyRound) — nunca
-    // lápiz de editar ni el toggle de deshabilitar (CLAUDE.md sección 10:
-    // un admin de empresa no edita/deshabilita un rol compartido).
-    await expect(templateRow.getByRole('button', { name: /Deshabilitar rol|Habilitar rol/ })).toHaveCount(0);
+    await page.getByPlaceholder('Filtrar...').first().fill('Super Administrador');
+    const systemRow = page.locator('tr', { hasText: 'Super Administrador' }).first();
+    await expect(systemRow).toBeVisible();
+    await expect(systemRow.getByRole('button', { name: /Deshabilitar rol|Habilitar rol/ })).toHaveCount(0);
+    // Solo queda "Gestionar accesos" (todo otorgado, de solo lectura).
+    await expect(systemRow.locator('button')).toHaveCount(1);
   });
 
-  test('ver accesos (solo lectura) de un rol de plantilla', async ({ page }) => {
+  test('una plantilla compartida se puede editar, avisando que alcanza a todas las empresas', async ({ page }) => {
     await page.goto('/seguridad/roles-accesos');
-    // Se busca por nombre: con muchos roles de prueba acumulados, la plantilla
-    // puede quedar fuera de la primera página.
     await page.getByPlaceholder('Filtrar...').first().fill('Especialista');
     const templateRow = page.locator('tr', { hasText: 'Especialista' }).first();
     await templateRow.locator('button').first().click();
-    await expect(page.locator('div[role="dialog"]')).toBeVisible();
-    await expect(page.locator('div[role="dialog"] button:has-text("Guardar cambios")')).toHaveCount(0);
+
+    const dialog = page.locator('div[role="dialog"]');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('se aplica a todos los usuarios de todas las empresas');
+    // Editable: aparece "Guardar cambios" (deshabilitado hasta que se marque algo).
+    await expect(dialog.getByRole('button', { name: 'Guardar cambios' })).toBeDisabled();
   });
 
-  test('crear un rol propio de la empresa, editarlo y deshabilitarlo/habilitarlo', async ({ page }) => {
+  test('crear un rol para una empresa, editarlo y deshabilitarlo/habilitarlo', async ({ page }) => {
     const roleName = `QA Rol ${stamp()}`;
 
     await page.goto('/seguridad/roles-accesos');
     await page.click('button:has-text("Nuevo rol")');
     await page.fill('#name', roleName);
     await page.fill('#description', 'Rol creado por la suite automatizada');
+    await chooseSelect(page, 'Empresa', 'Acme Corp QA');
     await page.click('div[role="dialog"] button:has-text("Crear rol")');
     await expect(page.locator('text=Rol creado correctamente')).toBeVisible({ timeout: 10_000 });
 
@@ -63,6 +64,7 @@ test.describe('Roles y accesos', () => {
     await page.getByPlaceholder('Filtrar...').first().fill(roleName);
     const row = page.locator('tr', { hasText: roleName });
     await expect(row).toBeVisible();
+    await expect(row).toContainText('Acme Corp QA');
 
     // Editar.
     await row.locator('button').nth(1).click();
@@ -82,5 +84,33 @@ test.describe('Roles y accesos', () => {
     await editedRow.getByRole('button', { name: 'Habilitar rol' }).click();
     await expect(page.locator('text=Rol habilitado')).toBeVisible({ timeout: 10_000 });
     await expect(editedRow).toContainText('Activo');
+  });
+});
+
+test.describe('Roles y accesos — fuera del alcance de un Administrador de empresa', () => {
+  test.use({ storageState: ADMIN_STATE });
+
+  test('no aparece en su menú y la URL directa lo devuelve al inicio', async ({ page }) => {
+    await page.goto('/');
+    await openMenuGroup(page, 'Configuración');
+    const sidebar = page.locator('[data-slot="sidebar"]');
+    // Control positivo: el grupo está abierto y muestra lo que sí administra.
+    await expect(sidebar.getByRole('link', { name: 'Usuarios', exact: true })).toBeVisible();
+    await expect(sidebar.getByRole('link', { name: 'Roles y accesos' })).toHaveCount(0);
+
+    await page.goto('/seguridad/roles-accesos');
+    await expect(page).toHaveURL('/');
+  });
+
+  test('sigue pudiendo elegir el rol al crear un usuario', async ({ page }) => {
+    await page.goto('/seguridad/usuarios');
+    await page.click('button:has-text("Nuevo usuario")');
+    const dialog = page.locator('div[role="dialog"]');
+    await expect(dialog).toBeVisible();
+    // GET /role/list ahora cuelga del módulo Usuarios (users.roleOptions.endpoint).
+    await dialog.getByRole('combobox').filter({ hasText: 'Selecciona un rol' }).click();
+    await expect(page.locator('[role="option"]', { hasText: 'Gestor' }).first()).toBeVisible();
+    // Nunca el rol de plataforma.
+    await expect(page.locator('[role="option"]', { hasText: 'Super Administrador' })).toHaveCount(0);
   });
 });

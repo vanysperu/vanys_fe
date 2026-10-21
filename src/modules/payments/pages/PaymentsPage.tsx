@@ -282,7 +282,7 @@ function EditPaymentDialog({ payment, onClose }: { payment: PaymentListItem; onC
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="payment-amount">Monto (S/)</Label>
               <Input id="payment-amount" type="number" step="0.01" {...register('amount', { valueAsNumber: true })} />

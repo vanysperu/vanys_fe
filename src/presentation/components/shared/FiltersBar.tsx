@@ -14,7 +14,9 @@ interface FiltersBarProps {
 // layout en todas las listas para que se usen igual en cualquier pantalla.
 export function FiltersBar({ children, hasActiveFilters = false, onClear }: FiltersBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2" data-testid="filters-bar">
+    // Celular: cada filtro ocupa todo el ancho (max-sm:*:w-full) — con sus
+    // anchos fijos de escritorio quedaban apilados en columnas desparejas.
+    <div className="flex flex-wrap items-center gap-2 max-sm:*:w-full" data-testid="filters-bar">
       {children}
       {hasActiveFilters && onClear && (
         <Button type="button" variant="ghost" size="sm" onClick={onClear}>

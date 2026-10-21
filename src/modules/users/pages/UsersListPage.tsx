@@ -98,12 +98,12 @@ export function UsersListPage() {
         title="Usuarios"
         description="Gestiona los usuarios del sistema"
         action={
-          <div className="flex items-center gap-3">
-            <div className="relative">
+          <div className="flex w-full items-center gap-3 sm:w-auto">
+            <div className="relative min-w-0 flex-1 sm:flex-none">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar..."
-                className="w-64 pl-9"
+                className="w-full pl-9 sm:w-64"
                 value={searchTerm}
                 onChange={(event) => {
                   setSearchTerm(event.target.value);
@@ -334,7 +334,7 @@ function CreateUserDialog() {
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Nombre</Label>
               <Input id="name" maxLength={255} {...withInputFilter(register('name'), lettersFilter(255))} />
@@ -349,7 +349,7 @@ function CreateUserDialog() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="maternal_lastname">Apellido materno</Label>
               <Input id="maternal_lastname" maxLength={255} {...withInputFilter(register('maternal_lastname'), lettersFilter(255))} />
@@ -374,7 +374,7 @@ function CreateUserDialog() {
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Tipo de documento</Label>
               <Select
@@ -421,7 +421,7 @@ function CreateUserDialog() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Género</Label>
               <Select
@@ -458,7 +458,7 @@ function CreateUserDialog() {
               tienda propia); un admin de empresa nunca elige empresa
               (siempre la suya, forzada server-side) pero SÍ debe elegir
               tienda (obligatoria) — pedido explícito del usuario. */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {isSystem && (
               <div className="space-y-2">
                 <Label>Empresa</Label>
@@ -614,7 +614,7 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Nombre</Label>
               <Input id="edit-name" maxLength={255} {...withInputFilter(register('name'), lettersFilter(255))} />
@@ -640,7 +640,7 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Tipo de documento</Label>
               <Select
@@ -678,7 +678,7 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Género</Label>
               <Select

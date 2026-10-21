@@ -1,15 +1,18 @@
 import { expect, test } from '@playwright/test';
 
 import { SUPERADMIN_STATE } from '../auth';
-import { chooseSelect, stamp } from '../helpers';
+import { chooseSelect, openMenuGroup, stamp } from '../helpers';
 
 test.use({ storageState: SUPERADMIN_STATE });
 
 test.describe('Plataforma (Super Administrador) — Empresas y Tiendas', () => {
-  test('el sidebar muestra Empresas y Tiendas (exclusivo de plataforma)', async ({ page }) => {
+  test('el menú muestra Empresas, Tiendas y Roles y accesos (dentro de Configuración)', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('[data-slot="sidebar"]', { hasText: 'Empresas' })).toBeVisible();
-    await expect(page.locator('[data-slot="sidebar"]', { hasText: 'Tiendas' })).toBeVisible();
+    await openMenuGroup(page, 'Configuración');
+    const sidebar = page.locator('[data-slot="sidebar"]');
+    for (const label of ['Empresas', 'Tiendas', 'Roles y accesos']) {
+      await expect(sidebar.getByRole('link', { name: label, exact: true })).toBeVisible();
+    }
   });
 
   test('la vista de Empresas se ve bien (snapshot del encabezado)', async ({ page }) => {

@@ -275,7 +275,7 @@ function PaymentAccountsCard() {
             onSubmit={handleSubmit((values) => onSubmit(values))}
             className="space-y-2 rounded-lg border p-3"
           >
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label>Tipo</Label>
                 <Select value={watch('prefix_id')} onValueChange={(value) => setValue('prefix_id', value as 'bank' | 'yape' | 'plin')}>

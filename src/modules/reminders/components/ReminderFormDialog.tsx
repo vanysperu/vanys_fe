@@ -131,7 +131,7 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
         {errors.message && <p className="text-xs text-destructive">{errors.message.message}</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="reminder-date">Fecha</Label>
           <DateField

@@ -142,14 +142,15 @@ export function DashboardPage() {
       <MyPurchaseOrdersWidget />
 
       {view === 'list' && (
-        <nav className="flex gap-1 border-b">
+        // Celular: las pestañas no entran; se deslizan de lado sin partirse.
+        <nav className="scrollbar-thin flex gap-1 overflow-x-auto border-b">
           {TABS.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
               className={cn(
-                'flex items-center gap-1.5 px-2.5 pb-2.5 text-[12.5px] font-medium text-muted-foreground transition-colors',
+                'flex shrink-0 items-center gap-1.5 px-2.5 pb-2.5 text-[12.5px] font-medium whitespace-nowrap text-muted-foreground transition-colors',
                 tab === t.key && 'font-bold text-foreground shadow-[inset_0_-2px_0_var(--primary)]',
               )}
             >

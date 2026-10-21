@@ -1,9 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, LogOut } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
+import { buildMenu } from '@/app/navigation/menuConfig';
+import type { MenuNode } from '@/app/navigation/menuConfig';
+import vanysIcon from '@/assets/branding/vanys-icon.webp';
+import vanysLogoInverse from '@/assets/branding/vanys-logo-inverse.png';
 import { resolveIcon } from '@/lib/resolveIcon';
 import { cn } from '@/lib/utils';
 import { logout } from '@/modules/auth/api/auth.api';
@@ -31,10 +36,12 @@ import { getStoreOrCompanyLabel, useAccess } from '@/presentation/hooks/shared/u
 // mostrar: una sola vista de menú para todos los roles, solo cambia qué
 // nodos llegan en la respuesta (CLAUDE.md sección 7 - Menú dinámico).
 //
-// Cada módulo aporta su(s) vista(s) de nivel raíz directamente a la lista
-// (sin envolver cada módulo en una tarjeta/caja) — si una vista tiene
-// hijos (ej. "Productos" -> "Técnicas de personalización") se convierte en
-// un grupo colapsable, si no, es un link plano de una sola línea.
+// Los módulos se ordenan en grupos colapsables (Ventas, Finanzas,
+// Configuración) según app/navigation/menuConfig.ts; Inicio, Estadísticas y
+// Recordatorios van sueltos. Un grupo arranca abierto solo si contiene la
+// pantalla actual. Con el menú colapsado (solo íconos) no hay lugar para el
+// título del grupo: sus ítems se muestran como íconos, separados por una
+// línea.
 //
 // El colapsado/expandido se maneja con el primitivo shadcn (SidebarProvider
 // en Shell.tsx, sección 7 CLAUDE.md) — este componente solo consume
@@ -47,13 +54,21 @@ export function AppSidebar() {
   const { data: access } = useAccess();
   const clearToken = useAuthStore((state) => state.clearToken);
   const user = useAuthStore((state) => state.user);
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
+  const { pathname } = useLocation();
+  const { state, isMobile, setOpenMobile } = useSidebar();
+  // En el celular el menú es un panel deslizable (Sheet) que siempre se
+  // muestra completo: el estado "colapsado" (solo íconos) es de escritorio y
+  // viene guardado en cookie, así que sin este corte el panel del celular
+  // podía abrirse con solo íconos si en la PC se había dejado colapsado.
+  const isCollapsed = state === 'collapsed' && !isMobile;
 
-  const rootViews = useMemo(
-    () => (access?.views ?? []).flatMap((module) => module.views.filter((view) => view.show_in_menu)),
-    [access],
-  );
+  // Al elegir una pantalla en el celular se cierra el panel: si no, queda
+  // tapando el contenido y hay que cerrarlo a mano después de cada toque.
+  useEffect(() => {
+    setOpenMobile(false);
+  }, [pathname, setOpenMobile]);
+
+  const menu = useMemo(() => buildMenu(access?.views ?? []), [access]);
 
   const { mutate: signOut, isPending } = useMutation({
     mutationFn: logout,
@@ -82,15 +97,25 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader className="p-0">
-        <div className="flex items-center gap-2.5 px-5 py-5">
+        {/* Colapsado (48 px de ancho): ícono y botón de colapsar apilados; en
+            fila no entran y el ícono desaparecía. */}
+        <div className={cn('flex items-center gap-2.5 px-5 py-5', isCollapsed && 'flex-col gap-3 px-2 py-4')}>
+          {/* Marca Vanys: el logo en versión invertida (letras blancas, "A"
+              naranja) para que se lea sobre el azul marino del menú; con el
+              menú colapsado, solo el ícono de la mascota. */}
           <NavLink
             to="/"
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg transition-opacity hover:opacity-80"
+            aria-label="Vanys — ir al inicio"
+            className={cn(
+              'flex min-w-0 items-center gap-2.5 rounded-lg transition-opacity hover:opacity-80',
+              !isCollapsed && 'flex-1',
+            )}
           >
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-sidebar-accent text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30">
-              G
-            </div>
-            {!isCollapsed && <span className="text-lg font-semibold tracking-tight">Grulla</span>}
+            {isCollapsed ? (
+              <img src={vanysIcon} alt="Vanys" className="size-8 shrink-0 rounded-lg bg-white object-cover" />
+            ) : (
+              <img src={vanysLogoInverse} alt="Vanys" className="h-6 w-auto max-w-full" />
+            )}
           </NavLink>
           <SidebarTrigger className="shrink-0" />
         </div>
@@ -98,9 +123,30 @@ export function AppSidebar() {
 
       <SidebarContent className="scrollbar-thin gap-0.5 px-3 pb-4">
         <AnimatePresence>
-          {rootViews.map((view, index) => (
-            <RootViewItem key={view.id} view={view} index={index} isCollapsed={isCollapsed} />
-          ))}
+          {menu.map((node, index) => {
+            // Colapsado: una línea antes y después de cada grupo, sin repetirla
+            // entre dos grupos seguidos.
+            const previous = menu[index - 1];
+            const dividerBefore = isCollapsed && index > 0 && (node.kind === 'group' || previous?.kind === 'group');
+
+            return node.kind === 'group' ? (
+              <MenuGroupItem
+                key={node.key}
+                group={node}
+                index={index}
+                isCollapsed={isCollapsed}
+                dividerBefore={dividerBefore}
+              />
+            ) : (
+              <RootViewItem
+                key={node.key}
+                view={node.view}
+                index={index}
+                isCollapsed={isCollapsed}
+                dividerBefore={dividerBefore}
+              />
+            );
+          })}
         </AnimatePresence>
       </SidebarContent>
 
@@ -203,14 +249,100 @@ function getInitials(fullName: string | undefined): string {
   return `${parts[0]!.charAt(0)}${parts[parts.length - 1]!.charAt(0)}`.toUpperCase();
 }
 
+type MenuGroupNode = Extract<MenuNode, { kind: 'group' }>;
+
+// Ícono recibido como dato (del config del menú o de resolveIcon): se dibuja
+// acá para no declarar un componente nuevo en cada render del ítem.
+function MenuIcon({ icon: Icon, className }: { icon: LucideIcon; className?: string }) {
+  return <Icon className={className} />;
+}
+
+// Línea fina entre grupos cuando el menú está colapsado (solo íconos).
+function CollapsedDivider() {
+  return <div aria-hidden className="mx-2 my-1.5 h-px bg-white/10" />;
+}
+
+function MenuGroupItem({
+  group,
+  index,
+  isCollapsed,
+  dividerBefore,
+}: {
+  group: MenuGroupNode;
+  index: number;
+  isCollapsed: boolean;
+  dividerBefore: boolean;
+}) {
+  const { pathname } = useLocation();
+  const containsActive = group.items.some((item) => containsActiveRoute(item, pathname));
+  // null = el usuario todavía no lo abrió ni lo cerró: queda abierto solo si
+  // contiene la pantalla actual, así también se abre solo al llegar a una de
+  // sus pantallas desde otro lado (ej. un acceso del panel principal).
+  const [manualOpen, setManualOpen] = useState<boolean | null>(null);
+  const isOpen = manualOpen ?? containsActive;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2, delay: index * 0.03 }}
+    >
+      {dividerBefore && <CollapsedDivider />}
+      {isCollapsed ? (
+        <div role="group" aria-label={group.label} className="flex flex-col gap-0.5">
+          {group.items.map((item) => (
+            <ViewLink key={item.id} view={item} isCollapsed />
+          ))}
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            aria-expanded={isOpen}
+            onClick={() => setManualOpen(!isOpen)}
+            className={cn(
+              'mt-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors',
+              containsActive ? 'text-white' : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
+            )}
+          >
+            <MenuIcon icon={group.icon} className="size-4 shrink-0" />
+            <span className="flex-1 truncate text-left">{group.label}</span>
+            <ChevronDown className={cn('size-3.5 shrink-0 transition-transform', isOpen && 'rotate-180')} />
+          </button>
+          <AnimatePresence initial={false}>
+            {isOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="overflow-hidden"
+              >
+                {/* Línea conectora: marca que estos ítems son del grupo de arriba. */}
+                <div className="relative ml-4 border-l border-white/10 pl-2">
+                  {group.items.map((item) => (
+                    <ViewLink key={item.id} view={item} isCollapsed={false} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </>
+      )}
+    </motion.div>
+  );
+}
+
 function RootViewItem({
   view,
   index,
   isCollapsed,
+  dividerBefore,
 }: {
   view: MyAccessViewItem;
   index: number;
   isCollapsed: boolean;
+  dividerBefore: boolean;
 }) {
   const { pathname } = useLocation();
   const menuChildren = view.children.filter((child) => child.show_in_menu);
@@ -223,6 +355,7 @@ function RootViewItem({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.2, delay: index * 0.03 }}
     >
+      {dividerBefore && <CollapsedDivider />}
       {isGroup ? (
         <GroupHeader view={view} isOpen={isOpen} onToggle={() => setIsOpen((open) => !open)} isCollapsed={isCollapsed} />
       ) : (
@@ -264,7 +397,6 @@ function GroupHeader({
   isCollapsed: boolean;
 }) {
   const { pathname } = useLocation();
-  const Icon = resolveIcon(view.icon);
   const isActiveGroup = containsActiveRoute(view, pathname);
 
   const button = (
@@ -277,7 +409,7 @@ function GroupHeader({
         isActiveGroup ? 'text-white' : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
       )}
     >
-      <Icon className="size-4 shrink-0" />
+      <MenuIcon icon={resolveIcon(view.icon)} className="size-4 shrink-0" />
       {!isCollapsed && (
         <>
           <span className="flex-1 truncate text-left">{view.name}</span>
@@ -298,19 +430,22 @@ function GroupHeader({
 }
 
 function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: boolean }) {
-  const ViewIcon = resolveIcon(view.icon);
   if (!view.route) return null;
 
   const link = (
     <NavLink
       to={view.route}
-      end={view.route === '/'}
+      // Coincidencia exacta: cada ítem es una pantalla (no hay rutas de
+      // detalle anidadas). Por prefijo, "Lista de precios" (/productos)
+      // quedaba marcada también en /productos/tecnicas, que dentro del grupo
+      // es su ítem hermano.
+      end
       className={({ isActive }) =>
         cn(
           'relative flex items-center gap-2.5 rounded-lg py-2 pr-3 pl-2.5 text-sm font-medium transition-colors',
           isCollapsed && 'justify-center px-0',
           isActive
-            ? 'bg-primary/20 font-semibold text-white'
+            ? 'bg-white/10 font-semibold text-white'
             : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
         )
       }
@@ -324,8 +459,11 @@ function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: 
               transition={{ type: 'spring', stiffness: 400, damping: 35 }}
             />
           )}
-          <ViewIcon className={cn('size-4 shrink-0', isActive && 'text-sidebar-accent')} />
-          {!isCollapsed && <span className="truncate">{view.name}</span>}
+          <MenuIcon icon={resolveIcon(view.icon)} className={cn('size-4 shrink-0', isActive && 'text-sidebar-accent')} />
+          {/* Sin recortar: dentro de un grupo hay menos ancho y "Técnicas de
+              personalización"/"Documentos de la empresa" se cortaban; pasan a
+              una segunda línea. */}
+          {!isCollapsed && <span className="min-w-0 leading-snug">{view.name}</span>}
         </>
       )}
     </NavLink>

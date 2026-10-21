@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { ADMIN_STATE, GESTOR_STATE } from '../auth';
-import { chooseSearchableSelect, stamp, wordStamp } from '../helpers';
+import { chooseSearchableSelect, openMenuGroup, stamp, wordStamp } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -90,6 +90,9 @@ test.describe('Deudas a personal — RBAC de Gestor (exclusivo de Administrador)
 
   test('un Gestor no ve "Deudas a personal" en el sidebar y no puede entrar por URL directa', async ({ page }) => {
     await page.goto('/');
+    // Se abre "Finanzas" para que la ausencia sea real y no solo un grupo cerrado.
+    await openMenuGroup(page, 'Finanzas');
+    await expect(page.locator('[data-slot="sidebar"]').getByRole('link', { name: 'Caja', exact: true })).toBeVisible();
     await expect(page.locator('a, button', { hasText: 'Deudas a personal' })).toHaveCount(0);
 
     // Shell.tsx redirige a "/" cuando la ruta no está en las vistas

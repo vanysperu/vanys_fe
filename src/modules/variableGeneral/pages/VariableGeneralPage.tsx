@@ -102,12 +102,12 @@ export function VariableGeneralPage() {
         title="Generales"
         description="Catálogos usados en formularios de todo el sistema (tipos de documento, género, etc.)"
         action={
-          <div className="flex items-center gap-3">
-            <div className="relative">
+          <div className="flex w-full items-center gap-3 sm:w-auto">
+            <div className="relative min-w-0 flex-1 sm:flex-none">
               <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Buscar..."
-                className="w-64 pl-9"
+                className="w-full pl-9 sm:w-64"
                 value={search}
                 onChange={(event) => {
                   setSearch(event.target.value);
@@ -328,7 +328,7 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="category">Categoría</Label>
               <SearchableSelect
@@ -349,7 +349,7 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="prefix_id">Código</Label>
               <Input id="prefix_id" placeholder="ej. 7" {...register('prefix_id')} />
