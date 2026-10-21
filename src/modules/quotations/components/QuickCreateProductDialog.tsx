@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { RequiresCustomizationField } from '@/modules/products/components/RequiresCustomizationField';
 import { useCreateProduct } from '@/modules/products/hooks/useProducts';
 import { createProductSchema, type CreateProductFormValues } from '@/modules/products/schemas/product.schema';
 import { Button } from '@/presentation/components/shared/ui/button';
@@ -30,8 +31,13 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
-  } = useForm<CreateProductFormValues>({ resolver: zodResolver(createProductSchema) });
+  } = useForm<CreateProductFormValues>({
+    resolver: zodResolver(createProductSchema),
+    defaultValues: { requires_customization: false },
+  });
 
   const onSubmit = (values: CreateProductFormValues) => {
     if (!companyId) return;
@@ -41,7 +47,7 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
         onSuccess: (product) => {
           toast.success('Producto creado');
           onCreated(product.id);
-          reset();
+          reset({ requires_customization: false });
           setOpen(false);
         },
         onError: (error) => toast.error((error as ApiClientError).message),
@@ -116,6 +122,11 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
             </div>
             {errors.price_unit && <p className="text-xs text-destructive">{errors.price_unit.message}</p>}
           </div>
+          <RequiresCustomizationField
+            id="quick-product-requires-customization"
+            checked={watch('requires_customization') ?? false}
+            onChange={(checked) => setValue('requires_customization', checked)}
+          />
           <DialogFooter>
             <Button type="submit" size="sm" disabled={isPending}>
               <Check className="size-4" />

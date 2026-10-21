@@ -72,7 +72,10 @@ function resolveTierPrice(row: TierPriced | undefined, pricingMode: QuotationIte
 // "personalizado" (siempre disponible) — igual que el backend, que rechaza
 // un modo sin precio en cualquiera de los dos. Si todavía no se eligió
 // técnica, se filtra solo por el producto.
-function availablePricingModes(product: Product | undefined, technique: TierPriced | undefined): QuotationItemPricingMode[] {
+function availablePricingModes(
+  product: Product | undefined,
+  technique: TierPriced | null | undefined,
+): QuotationItemPricingMode[] {
   const catalogModes = (Object.keys(TIER_FIELD) as Exclude<QuotationItemPricingMode, 'custom'>[]).filter(
     (mode) => resolveTierPrice(product, mode) != null && (!technique || resolveTierPrice(technique, mode) != null),
   );
@@ -95,9 +98,16 @@ const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100)
 // ciento S/0.90 + serigrafía ciento S/0.95 = S/1.85 × 10 = S/18.50.
 // Devuelve null mientras falte algún dato (NaN incluido: un input numérico
 // vacío entrega NaN, no undefined).
+// Técnica que cuenta para el precio: solo si el producto se personaliza.
+// null = el producto no lleva técnica; undefined = falta elegirla.
+function effectiveTechnique(product: Product | undefined, technique: TierPriced | undefined): TierPriced | null | undefined {
+  if (product && !product.requires_customization) return null;
+  return technique;
+}
+
 function computeItemPrice(
   product: Product | undefined,
-  technique: TierPriced | undefined,
+  technique: TierPriced | null | undefined,
   quantity: number | undefined,
   pricingMode: QuotationItemPricingMode | undefined,
   customPrice: number | undefined,
@@ -105,8 +115,11 @@ function computeItemPrice(
 ): ItemPriceBreakdown | null {
   const mode = pricingMode ?? 'unit';
   const productPrice = mode === 'custom' ? customPrice : resolveTierPrice(product, mode);
+  // Producto sin personalización: el precio es solo el del producto.
   const techniquePrice =
-    mode === 'custom'
+    technique === null
+      ? 0
+      : mode === 'custom'
       ? customTechniquePrice != null && !Number.isNaN(customTechniquePrice)
         ? customTechniquePrice
         : technique?.price_unit != null
@@ -155,6 +168,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
     handleSubmit,
     reset,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<CreateQuotationFormValues>({
@@ -170,7 +184,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
 
   const subtotal = watchedItems.reduce((sum, item) => {
     const product = products?.data.find((row) => row.id === item.product_id);
-    const technique = techniques?.data.find((row) => row.id === item.technique_id);
+    const technique = effectiveTechnique(product, techniques?.data.find((row) => row.id === item.technique_id));
     return (
       sum +
       (computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price)
@@ -189,9 +203,21 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
     if (!next) reset({ items: [{ product_id: undefined, technique_id: undefined, pricing_mode: 'unit', quantity: 1 }] });
   };
 
+  const requiresCustomization = (productId: number | undefined) =>
+    Boolean(products?.data.find((row) => row.id === productId)?.requires_customization);
+
   const onSubmit = (values: CreateQuotationFormValues) => {
     const companyId = access?.isSystem ? values.company_id : access?.companyId;
     if (!companyId) return;
+
+    // La técnica es obligatoria solo en productos que se personalizan.
+    const missingTechnique = values.items.findIndex(
+      (item) => requiresCustomization(item.product_id) && !item.technique_id,
+    );
+    if (missingTechnique >= 0) {
+      setError(`items.${missingTechnique}.technique_id`, { message: 'Selecciona una técnica de personalización' });
+      return;
+    }
 
     create(
       {
@@ -204,7 +230,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
         production_days: values.production_days,
         items: values.items.map((item) => ({
           product_id: item.product_id,
-          technique_id: item.technique_id,
+          technique_id: requiresCustomization(item.product_id) ? item.technique_id : null,
           pricing_mode: item.pricing_mode,
           quantity: item.quantity,
           custom_price: item.pricing_mode === 'custom' ? item.custom_price : undefined,
@@ -351,7 +377,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                 onClick={() =>
                   append({
                     product_id: undefined as unknown as number,
-                    technique_id: undefined as unknown as number,
+                    technique_id: undefined,
                     pricing_mode: 'unit',
                     quantity: 1,
                   })
@@ -366,7 +392,11 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
               {fields.map((field, index) => {
                 const item = watchedItems[index];
                 const product = products?.data.find((row) => row.id === item?.product_id);
-                const technique = techniques?.data.find((row) => row.id === item?.technique_id);
+                const usesTechnique = !product || product.requires_customization;
+                const technique = effectiveTechnique(
+                  product,
+                  techniques?.data.find((row) => row.id === item?.technique_id),
+                );
                 const pricingMode = item?.pricing_mode ?? 'unit';
                 const price = computeItemPrice(
                   product,
@@ -395,7 +425,16 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                             // nuevo no) — vuelve a "por unidad" si eso pasa, o
                             // se queda como "personalizado" si ya estaba así.
                             const newProduct = products?.data.find((row) => row.id === Number(value));
-                            const newModes = availablePricingModes(newProduct, technique);
+                            // Un producto sin personalización no lleva técnica:
+                            // se descarta la que hubiera quedado elegida.
+                            if (newProduct && !newProduct.requires_customization) {
+                              setValue(`items.${index}.technique_id`, undefined);
+                            }
+                            const newTechnique = effectiveTechnique(
+                              newProduct,
+                              techniques?.data.find((row) => row.id === item?.technique_id),
+                            );
+                            const newModes = availablePricingModes(newProduct, newTechnique);
                             if (!newModes.includes(pricingMode)) {
                               setValue(`items.${index}.pricing_mode`, newModes[0] ?? 'custom');
                             }
@@ -411,7 +450,12 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
 
                     <div className="col-span-4 min-w-0 space-y-1">
                       <Label className="text-xs">Técnica</Label>
-                      <div className="flex items-center gap-1">
+                      {!usesTechnique && (
+                        <p className="flex h-9 items-center text-xs text-muted-foreground" data-testid={`item-no-customization-${index}`}>
+                          Sin personalización
+                        </p>
+                      )}
+                      <div className={usesTechnique ? 'flex items-center gap-1' : 'hidden'}>
                         {/* SearchableSelect (no el <Select> nativo de Radix):
                             el nativo tiene un bug real confirmado — cuando la
                             técnica recién se crea con el "+" de al lado, su
@@ -516,7 +560,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                         técnica (pedido explícito del usuario: "cuando se le
                         da personalizado debe darte para colocar el precio
                         del producto y de la técnica"). */}
-                    {pricingMode === 'custom' && technique && (
+                    {pricingMode === 'custom' && usesTechnique && technique && (
                       <div className="w-36 space-y-1">
                         <Label className="text-xs">Precio técnica (S/)</Label>
                         <Input
@@ -536,8 +580,10 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                   {/* Desglose visible: de dónde sale el total del item. */}
                   {price && (
                     <p className="text-xs text-muted-foreground" data-testid={`item-price-breakdown-${index}`}>
-                      Producto S/ {price.productPrice.toFixed(2)} + técnica S/ {price.techniquePrice.toFixed(2)} = S/{' '}
-                      {price.unitPrice.toFixed(2)} c/u × {item?.quantity} = S/ {price.total.toFixed(2)}
+                      {technique === null
+                        ? `Producto S/ ${price.productPrice.toFixed(2)} c/u`
+                        : `Producto S/ ${price.productPrice.toFixed(2)} + técnica S/ ${price.techniquePrice.toFixed(2)} = S/ ${price.unitPrice.toFixed(2)} c/u`}{' '}
+                      × {item?.quantity} = S/ {price.total.toFixed(2)}
                     </p>
                   )}
                   </div>

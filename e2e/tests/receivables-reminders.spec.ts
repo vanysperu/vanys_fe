@@ -21,6 +21,8 @@ async function createQuotationAndOpenDetail(page: Page): Promise<string> {
   await page.click('button[title="Nuevo producto"]');
   await page.fill('#quick-product-name', `QA Producto Cobro ${suffix}`);
   await page.fill('#quick-product-price-unit', '20');
+  // Estos productos se cotizan con técnica: hay que marcarlos.
+  await page.click('#quick-product-requires-customization');
   await page.click('div[role="dialog"] button:has-text("Crear producto")');
   await expect(page.locator('text=Producto creado')).toBeVisible({ timeout: 10_000 });
 

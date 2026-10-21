@@ -13,6 +13,9 @@ export interface Product {
   price_hundred: number | null;
   price_half_thousand: number | null;
   price_thousand: number | null;
+  // false = se cotiza sin técnica de personalización (ni en la cotización ni
+  // en el PDF). Apagado por defecto en productos nuevos.
+  requires_customization: boolean;
   is_deleted: boolean;
   created_at: string;
 }
@@ -26,6 +29,7 @@ export interface CreateProductDto {
   price_hundred?: number | null;
   price_half_thousand?: number | null;
   price_thousand?: number | null;
+  requires_customization?: boolean;
 }
 
 export type UpdateProductDto = Partial<Omit<CreateProductDto, 'company_id'>>;

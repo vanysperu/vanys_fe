@@ -17,6 +17,8 @@ export const createProductSchema = z
     price_hundred: z.number().min(0, 'Debe ser un número positivo').optional(),
     price_half_thousand: z.number().min(0, 'Debe ser un número positivo').optional(),
     price_thousand: z.number().min(0, 'Debe ser un número positivo').optional(),
+    // Apagado por defecto (decisión del usuario): la mayoría no se personaliza.
+    requires_customization: z.boolean().optional(),
     company_id: z.number().optional(),
   })
   .refine(

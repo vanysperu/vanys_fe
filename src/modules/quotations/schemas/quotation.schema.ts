@@ -9,9 +9,10 @@ import { NOTES_MAX_LENGTH } from '@/lib/constants';
 export const quotationItemSchema = z
   .object({
     product_id: z.number({ error: 'Selecciona un producto' }),
-    // Obligatoria (pedido explícito del usuario: "tipo de personalización
-    // es obligatorio para cada producto") — ya no hay "sin técnica".
-    technique_id: z.number({ error: 'Selecciona una técnica de personalización' }),
+    // Obligatoria solo si el producto requiere personalización — eso lo
+    // revisa el formulario al enviar (depende del producto elegido) y lo
+    // revalida el backend.
+    technique_id: z.number().optional(),
     quantity: z.number({ error: 'La cantidad es obligatoria' }).int().min(1, 'Mínimo 1'),
     pricing_mode: z.enum(['unit', 'hundred', 'half_thousand', 'thousand', 'custom'], {
       error: 'Selecciona un modo de precio',

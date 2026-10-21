@@ -263,8 +263,8 @@ export interface CreateQuotationExpenseDto {
 
 export interface CreateQuotationItemDto {
   product_id: number;
-  // Obligatoria (pedido explícito del usuario) — el backend la exige.
-  technique_id: number;
+  // Solo para productos que requieren personalización (null si no).
+  technique_id?: number | null;
   // Solo se manda (y es obligatoria) cuando pricing_mode="custom" — en los
   // modos de catálogo la cantidad la define el lote, el backend la ignora.
   quantity?: number | null;

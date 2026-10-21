@@ -18,6 +18,7 @@ import {
   type CreateProductFormValues,
   type CreateTechniqueFormValues,
 } from '@/modules/products/schemas/product.schema';
+import { RequiresCustomizationField } from '@/modules/products/components/RequiresCustomizationField';
 import type { CustomizationTechnique, Product } from '@/modules/products/types/product.types';
 import { toOptionalNumber } from '@/lib/inputRestrictions';
 import { DataTable } from '@/presentation/components/shared/DataTable';
@@ -197,6 +198,15 @@ function ProductsTab() {
             ),
           },
           {
+            header: 'Personalización',
+            cell: (product) =>
+              product.requires_customization ? (
+                <Badge variant="secondary">Sí</Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground">No</span>
+              ),
+          },
+          {
             header: 'Estado',
             filterable: true,
             filterKey: 'status',
@@ -272,8 +282,13 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
-  } = useForm<CreateProductFormValues>({ resolver: zodResolver(createProductSchema) });
+  } = useForm<CreateProductFormValues>({
+    resolver: zodResolver(createProductSchema),
+    defaultValues: { requires_customization: false },
+  });
 
   useEffect(() => {
     if (product) {
@@ -285,6 +300,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
         price_hundred: product.price_hundred != null ? Number(product.price_hundred) : undefined,
         price_half_thousand: product.price_half_thousand != null ? Number(product.price_half_thousand) : undefined,
         price_thousand: product.price_thousand != null ? Number(product.price_thousand) : undefined,
+        requires_customization: product.requires_customization,
       });
     }
   }, [product, reset]);
@@ -320,7 +336,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
       {
         onSuccess: () => {
           toast.success('Producto creado correctamente');
-          reset();
+          reset({ requires_customization: false });
           handleOpenChange(false);
         },
       },
@@ -411,6 +427,12 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
               ella.
             </p>
           </div>
+
+          <RequiresCustomizationField
+            id="requires_customization"
+            checked={watch('requires_customization') ?? false}
+            onChange={(checked) => setValue('requires_customization', checked)}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="description">Descripción</Label>

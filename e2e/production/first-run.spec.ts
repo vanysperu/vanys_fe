@@ -129,6 +129,8 @@ test('primer día en producción: plataforma, empresa, logo, cotización con PDF
     await page.click('button[title="Nuevo producto"]');
     await page.fill('#quick-product-name', `Polo Produccion ${suffix}`);
     await page.fill('#quick-product-price-unit', '19.99');
+    // Estos productos se cotizan con técnica: hay que marcarlos.
+    await page.click('#quick-product-requires-customization');
     await page.click('div[role="dialog"] button:has-text("Crear producto")');
     await expect(page.locator('text=Producto creado')).toBeVisible();
 
