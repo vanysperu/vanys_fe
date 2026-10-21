@@ -432,7 +432,7 @@ function GroupHeader({
 
 function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: boolean }) {
   // Coincidencia exacta: cada ítem es una pantalla (no hay rutas de detalle
-  // anidadas). Por prefijo, "Lista de precios" (/productos) quedaba marcada
+  // anidadas). Por prefijo, "Productos" (/productos) quedaba marcada
   // también en /productos/tecnicas, que dentro del grupo es su ítem hermano.
   //
   // El estado activo se calcula acá y no con la función className/children de

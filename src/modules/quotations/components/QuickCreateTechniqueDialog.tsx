@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import type { ApiClientError } from '@/config/api.types';
-import { toOptionalNumber } from '@/lib/inputRestrictions';
+import { toOptionalNumber, DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 interface QuickCreateTechniqueDialogProps {
   companyId?: number;
@@ -81,7 +81,7 @@ export function QuickCreateTechniqueDialog({ companyId, onCreated }: QuickCreate
                   <Label htmlFor={id} className="text-[11px] font-normal text-muted-foreground">
                     {label}
                   </Label>
-                  <Input id={id} type="number" step="0.01" min="0" {...register(field, { setValueAs: toOptionalNumber })} />
+                  <Input id={id} type="number" step={DECIMAL_INPUT_STEP} min="0" {...register(field, { setValueAs: toOptionalNumber })} />
                 </div>
               ))}
             </div>

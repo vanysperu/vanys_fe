@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { ADMIN_STATE, GESTOR_STATE } from '../auth';
-import { stamp, wordStamp } from '../helpers';
+import { stamp, wordStamp, waitForToastsToClear } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -46,6 +46,7 @@ test.describe('Pagos', () => {
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
     // Abrir el detalle y registrar un pago en la pestaña "Pagos".
+    await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
     await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { ADMIN_STATE, GESTOR_STATE } from '../auth';
-import { chooseSearchableSelect, openMenuGroup, stamp, wordStamp } from '../helpers';
+import { chooseSearchableSelect, openMenuGroup, stamp, wordStamp, waitForToastsToClear } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -37,6 +37,7 @@ test.describe('Origen de fondos de una compra y Deudas a personal', () => {
     await page.click('div[role="dialog"] button:has-text("Crear cotización")');
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
+    await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
     await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();

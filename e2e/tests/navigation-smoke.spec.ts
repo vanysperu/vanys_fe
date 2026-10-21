@@ -16,8 +16,8 @@ const COMPANY_VIEWS: { path: string; heading: string }[] = [
   { path: '/configuracion/tiendas', heading: 'Tiendas' },
   { path: '/configuracion/variables-generales', heading: 'Generales' },
   { path: '/clientes', heading: 'Clientes' },
-  { path: '/productos', heading: 'Lista de precios' },
-  { path: '/productos/tecnicas', heading: 'Lista de precios' },
+  { path: '/productos', heading: 'Productos' },
+  { path: '/productos/tecnicas', heading: 'Productos' },
   { path: '/cotizaciones', heading: 'Cotizaciones' },
   { path: '/ordenes-compra', heading: 'Órdenes de compra' },
   { path: '/configuracion/documentos', heading: 'Documentos de la empresa' },
@@ -86,7 +86,7 @@ test('el menú agrupa los módulos y abre solo el grupo de la pantalla actual', 
   // Un ítem y su sub-pantalla son hermanos dentro del grupo: solo se marca la actual.
   await page.goto('/productos/tecnicas');
   await expect(sidebar.getByRole('link', { name: 'Técnicas de personalización' })).toHaveAttribute('aria-current', 'page');
-  await expect(sidebar.getByRole('link', { name: 'Lista de precios', exact: true })).not.toHaveAttribute(
+  await expect(sidebar.getByRole('link', { name: 'Productos', exact: true })).not.toHaveAttribute(
     'aria-current',
     'page',
   );
@@ -116,12 +116,17 @@ test('el menú colapsado alinea los íconos con el botón de colapsar', async ({
     if (!box) throw new Error('Elemento sin caja visible');
     return box.x + box.width / 2;
   };
-  const triggerCenter = await centerX(sidebar.locator('[data-slot="sidebar-trigger"] svg'));
-  const icons = await sidebar.locator('[data-slot="sidebar-content"] a svg').all();
-  expect(icons.length).toBeGreaterThan(3);
-  for (const icon of icons) {
-    expect(Math.abs((await centerX(icon)) - triggerCenter)).toBeLessThan(1);
-  }
+  // Se mide hasta que termina la animación de colapsar (~200 ms): durante la
+  // transición el ancho cambia y los centros todavía no coinciden.
+  const icons = sidebar.locator('[data-slot="sidebar-content"] a svg');
+  await expect(icons).not.toHaveCount(0);
+  await expect
+    .poll(async () => {
+      const triggerCenter = await centerX(sidebar.locator('[data-slot="sidebar-trigger"] svg'));
+      const centers = await Promise.all((await icons.all()).map(centerX));
+      return Math.max(...centers.map((center) => Math.abs(center - triggerCenter)));
+    })
+    .toBeLessThan(1);
 
   // Sin texto visible, cada enlace conserva su nombre (aria-label) y la
   // pantalla actual sigue marcada.

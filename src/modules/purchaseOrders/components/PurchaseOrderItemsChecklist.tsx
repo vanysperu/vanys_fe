@@ -25,6 +25,7 @@ import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import type { ApiClientError } from '@/config/api.types';
+import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 function money(n: number) {
   return 'S/ ' + Number(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -226,8 +227,11 @@ function RegisterPurchaseForm({
     defaultValues: { quantity: remaining > 0 ? remaining : 1, funding_source: 'company' },
   });
 
+  // Panel del formulario un tono más oscuro que la tarjeta que lo contiene,
+  // para que los campos blancos se distingan (pedido explícito del usuario:
+  // "blanco dentro de más blanco").
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 rounded-md border bg-muted/30 p-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 rounded-md border bg-muted/60 p-2">
       <p className="text-xs text-muted-foreground">
         Faltan {remaining} — si lo compraste en varios lugares, registra cada compra por separado.
       </p>
@@ -243,7 +247,7 @@ function RegisterPurchaseForm({
           <Label htmlFor="purchase-amount" className="text-xs">
             Monto pagado (S/)
           </Label>
-          <Input id="purchase-amount" type="number" step="0.01" {...register('amount', { valueAsNumber: true })} />
+          <Input id="purchase-amount" type="number" step={DECIMAL_INPUT_STEP} {...register('amount', { valueAsNumber: true })} />
           {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
         </div>
       </div>

@@ -11,7 +11,13 @@
    naranja queda en ~3:1, por eso no se usa en todos los botones. */
 :root {
   --radius: 0.75rem;
-  --background: #f4f4f1;
+  /* Superficies en capas (pedido explícito del usuario: se veía "blanco
+     dentro de más blanco"). Fondo de página y de diálogos gris azulado claro,
+     tarjetas y campos en blanco, paneles internos (muted) en un tono que sí
+     se distingue del blanco, bordes visibles y texto secundario ≥ 4.5:1
+     (#5f6573: 5.8:1 sobre blanco, 4.6:1 sobre muted). Tonos fríos para ir
+     con el azul marino de Vanys. */
+  --background: #edf0f5;
   --foreground: #1b1c22;
   --card: #ffffff;
   --card-foreground: #1b1c22;
@@ -24,18 +30,18 @@
      mismas variables cuando la empresa elige otra paleta de marca). */
   --primary: #002e77;
   --primary-foreground: #ffffff;
-  --secondary: #f1f0ee;
+  --secondary: #e6eaf1;
   --secondary-foreground: #41424d;
-  --muted: #fbfbfa;
-  --muted-foreground: #7b7d88;
+  --muted: #dfe5ee;
+  --muted-foreground: #5f6573;
   --accent: #e6ecf7;
   --accent-foreground: #002e77;
   --destructive: #b4231f;
   --destructive-foreground: #ffffff;
   --success: #1f8a5f;
   --success-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.08);
-  --input: rgba(0, 0, 0, 0.1);
+  --border: #d9dfe8;
+  --input: #b8c2d0;
   --ring: rgba(0, 46, 119, 0.45);
   --sidebar: #001d52;
   --sidebar-foreground: #eceaf6;

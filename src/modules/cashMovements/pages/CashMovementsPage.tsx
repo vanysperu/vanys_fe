@@ -46,6 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
+import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -372,7 +373,7 @@ function CreateCashMovementDialog() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="cash-movement-amount">Monto (S/)</Label>
-              <Input id="cash-movement-amount" type="number" step="0.01" {...register('amount', { valueAsNumber: true })} />
+              <Input id="cash-movement-amount" type="number" step={DECIMAL_INPUT_STEP} {...register('amount', { valueAsNumber: true })} />
               {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
             </div>
             <div className="space-y-2">

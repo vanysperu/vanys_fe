@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import type { ApiClientError } from '@/config/api.types';
-import { toOptionalNumber } from '@/lib/inputRestrictions';
+import { toOptionalNumber, DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 interface QuickCreateProductDialogProps {
   companyId?: number;
@@ -82,7 +82,7 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
                 <Input
                   id="quick-product-price-unit"
                   type="number"
-                  step="0.01"
+                  step={DECIMAL_INPUT_STEP}
                   {...register('price_unit', { setValueAs: toOptionalNumber })}
                 />
               </div>
@@ -93,7 +93,7 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
                 <Input
                   id="quick-product-price-hundred"
                   type="number"
-                  step="0.01"
+                  step={DECIMAL_INPUT_STEP}
                   {...register('price_hundred', { setValueAs: toOptionalNumber })}
                 />
               </div>
@@ -104,7 +104,7 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
                 <Input
                   id="quick-product-price-half-thousand"
                   type="number"
-                  step="0.01"
+                  step={DECIMAL_INPUT_STEP}
                   {...register('price_half_thousand', { setValueAs: toOptionalNumber })}
                 />
               </div>
@@ -115,7 +115,7 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
                 <Input
                   id="quick-product-price-thousand"
                   type="number"
-                  step="0.01"
+                  step={DECIMAL_INPUT_STEP}
                   {...register('price_thousand', { setValueAs: toOptionalNumber })}
                 />
               </div>

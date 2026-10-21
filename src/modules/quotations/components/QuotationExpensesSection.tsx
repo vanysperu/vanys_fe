@@ -19,6 +19,7 @@ import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import type { ApiClientError } from '@/config/api.types';
 import { todayLocalDateString } from '@/lib/dateUtils';
+import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 function money(n: number) {
   return 'S/ ' + Number(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -122,7 +123,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister }:
                   <Input
                     id="expense-amount"
                     type="number"
-                    step="0.01"
+                    step={DECIMAL_INPUT_STEP}
                     {...register('amount', { valueAsNumber: true })}
                   />
                   {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}

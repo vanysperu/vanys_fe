@@ -58,7 +58,7 @@ export const MENU_LAYOUT: readonly MenuLayoutEntry[] = [
 // - 'view': una vista suelta de primer nivel (si tiene hijas en el menú, se
 //   dibuja como antes: colapsable con sus sub-vistas).
 // - 'group': un grupo con sus vistas ya aplanadas (una vista con hijas, ej.
-//   "Lista de precios" → "Técnicas de personalización", aporta ambas como
+//   "Productos" → "Técnicas de personalización", aporta ambas como
 //   ítems hermanos: tres niveles de menú dentro de un grupo no se leen bien).
 export type MenuNode =
   | { kind: 'view'; key: string; view: MyAccessViewItem }

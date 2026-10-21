@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
-import { chooseSearchableSelect, chooseSelectNear, openMenuGroup, stamp, wordStamp } from '../helpers';
+import { chooseSearchableSelect, chooseSelectNear, openMenuGroup, stamp, wordStamp, waitForToastsToClear } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -50,6 +50,15 @@ test.describe('Cambios pedidos: precios, compras, clientes y menú', () => {
 
     const breakdown = page.getByTestId('item-price-breakdown-0');
     await expect(breakdown).toHaveText('Producto S/ 0.90 + técnica S/ 0.95 = S/ 1.85 c/u × 10 = S/ 18.50');
+    // Montos del ítem a la vista: sin IGV y, al marcarlo, con su IGV por ítem.
+    await expect(page.getByTestId('item-igv-0')).toHaveText('No incluido');
+    await expect(page.getByTestId('item-total-0')).toHaveText('S/ 18.50');
+    await page.locator('div[role="dialog"] label', { hasText: 'Incluye IGV' }).click();
+    await expect(page.getByTestId('item-subtotal-0')).toHaveText('S/ 18.50');
+    await expect(page.getByTestId('item-igv-0')).toHaveText('S/ 3.33');
+    await expect(page.getByTestId('item-total-0')).toHaveText('S/ 21.83');
+    await expect(page.getByTestId('quotation-totals')).toContainText('Total a pagar');
+    await expect(page.getByTestId('quotation-totals')).toContainText('S/ 21.83');
 
     await page.click('div[role="dialog"] button:has-text("Crear cotización")');
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
@@ -61,6 +70,7 @@ test.describe('Cambios pedidos: precios, compras, clientes y menú', () => {
     await page.click('div[role="dialog"] button:has-text("Crear cotización")');
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
+    await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
     await page.click('div[role="dialog"] [role="tab"]:has-text("Compras")');
@@ -125,7 +135,7 @@ test.describe('Cambios pedidos: precios, compras, clientes y menú', () => {
     for (const group of ['Ventas', 'Finanzas', 'Configuración']) {
       await openMenuGroup(page, group);
     }
-    for (const label of ['Generales', 'Usuarios', 'Lista de precios', 'Pagos recibidos']) {
+    for (const label of ['Generales', 'Usuarios', 'Productos', 'Pagos recibidos']) {
       await expect(sidebar.getByText(label, { exact: true }).first()).toBeVisible();
     }
   });

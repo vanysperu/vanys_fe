@@ -5,15 +5,33 @@ import { stamp } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
-test.describe('Lista de precios', () => {
+test.describe('Productos', () => {
   test('la vista se ve bien, con sus dos pestañas (Productos / Técnicas)', async ({ page }) => {
     await page.goto('/productos');
     await expect(page.locator('[role="tab"]', { hasText: 'Productos' })).toBeVisible();
     await expect(page.locator('[role="tab"]', { hasText: 'Técnicas de personalización' })).toBeVisible();
     await page.waitForTimeout(500);
-    await expect(page.locator('h1', { hasText: 'Lista de precios' }).locator('xpath=../..')).toHaveScreenshot(
+    await expect(page.locator('h1', { hasText: 'Productos' }).locator('xpath=../..')).toHaveScreenshot(
       'products-header.png',
     );
+  });
+
+  // Pedido explícito del usuario: las flechas de los campos numéricos suben y
+  // bajan de a 1 (de 1 a 2 y de vuelta a 1), sin dejar de aceptar decimales.
+  test('las flechas de los precios van de a 1 y se pueden escribir decimales', async ({ page }) => {
+    await page.goto('/productos');
+    await page.click('button:has-text("Nuevo producto")');
+    const price = page.locator('#price_unit');
+    await price.fill('1');
+    await price.press('ArrowUp');
+    await expect(price).toHaveValue('2');
+    await price.press('ArrowDown');
+    await expect(price).toHaveValue('1');
+    await price.fill('18.5');
+    await price.press('ArrowUp');
+    await expect(price).toHaveValue('19.5');
+    // Con step="1" el navegador marcaría el decimal como inválido al guardar.
+    expect(await price.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true);
   });
 
   test('crear, editar y deshabilitar/habilitar un producto', async ({ page }) => {

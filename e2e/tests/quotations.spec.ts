@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-import { ADMIN_STATE } from '../auth';
-import { chooseSearchableSelect, stamp, wordStamp } from '../helpers';
+import { ADMIN_STATE, GESTOR_STATE } from '../auth';
+import { chooseSearchableSelect, stamp, wordStamp, waitForToastsToClear } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -12,6 +12,7 @@ test.describe('Cotizaciones', () => {
     // Vista por defecto: tablero.
     await expect(page.locator('text=Pendiente').first()).toBeVisible();
 
+    await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     // Puede no haber ninguna cotización todavía (empresa recién creada) — en
     // ese caso la vista de Lista muestra su propio empty-state en vez de la
@@ -68,6 +69,7 @@ test.describe('Cotizaciones', () => {
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
     // Confirmar que aparece en la vista de Lista.
+    await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await expect(page.locator('span', { hasText: clientName })).toBeVisible();
   });
@@ -105,6 +107,7 @@ test.describe('Cotizaciones', () => {
     await page.click('div[role="dialog"] button:has-text("Crear cotización")');
     await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
+    await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
     await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();
@@ -130,5 +133,21 @@ test.describe('Cotizaciones', () => {
     await page.click('div[role="dialog"] button:has-text("Crear orden")');
     await expect(page.locator('text=Orden de compra creada')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('div[role="dialog"]')).toContainText('Ana Acme');
+  });
+});
+
+// Los "+" de creación rápida siguen los permisos del rol: un Gestor no
+// administra el catálogo (no crea productos ni técnicas), sí clientes. Antes
+// veía el "+" de producto y al guardar le salía "no tiene permisos".
+test.describe('Cotizaciones — creación rápida según permisos (Gestor)', () => {
+  test.use({ storageState: GESTOR_STATE });
+
+  test('un Gestor no ve los "+" de crear producto y técnica, sí el de cliente', async ({ page }) => {
+    await page.goto('/cotizaciones');
+    await page.click('button:has-text("Nueva cotización")');
+    const dialog = page.locator('div[role="dialog"]');
+    await expect(dialog.locator('button[title="Nuevo cliente"]')).toBeVisible();
+    await expect(dialog.locator('button[title="Nuevo producto"]')).toHaveCount(0);
+    await expect(dialog.locator('button[title="Nueva técnica"]')).toHaveCount(0);
   });
 });

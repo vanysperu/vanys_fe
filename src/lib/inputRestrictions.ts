@@ -48,3 +48,9 @@ export function withInputFilter(fieldProps: UseFormRegisterReturn, filter: Input
 export function toOptionalNumber(raw: string): number | undefined {
   return raw === '' ? undefined : Number(raw);
 }
+
+// `step` de todo campo numérico con decimales (precios, montos): las flechas
+// del campo suben y bajan de a 1 (pedido explícito del usuario: de 1 a 2 y de
+// 2 a 1, no de 1 a 1.01), pero igual se pueden escribir decimales como 18.50.
+// Con step="1" el navegador marcaría 18.50 como inválido al guardar.
+export const DECIMAL_INPUT_STEP = 'any';

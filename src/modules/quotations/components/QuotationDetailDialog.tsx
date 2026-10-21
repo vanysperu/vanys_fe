@@ -15,6 +15,7 @@ import {
   QUOTATION_ITEM_PRICING_MODE_LABEL,
   QUOTATION_STATUS_LABEL,
   getForwardTransitions,
+  type QuotationItem,
   type QuotationStatus,
 } from '@/modules/quotations/types/quotation.types';
 import { Badge } from '@/presentation/components/shared/ui/badge';
@@ -28,10 +29,61 @@ import {
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useIsMobile } from '@/presentation/hooks/use-mobile';
 import type { ApiClientError } from '@/config/api.types';
 
 function money(n: number) {
   return 'S/ ' + Number(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Ítems de la cotización como tarjetas (celular): nombre y técnica arriba,
+// cantidad/modo/precio en una línea y los montos abajo, con el total a la
+// vista sin tener que deslizar una tabla de lado.
+function QuotationItemCards({
+  items,
+  includesIgv,
+  itemIgv,
+}: {
+  items: QuotationItem[];
+  includesIgv: boolean;
+  itemIgv: (subtotal: number) => number;
+}) {
+  return (
+    <ul className="space-y-2" data-testid="quotation-item-cards">
+      {items.map((item) => {
+        const subtotal = Number(item.subtotal);
+        const igv = itemIgv(subtotal);
+        return (
+          <li key={item.id} className="rounded-lg border bg-card p-3 text-sm">
+            <p className="font-medium">{item.product?.name}</p>
+            <p className="text-xs text-muted-foreground">{item.technique?.name ?? 'Sin personalización'}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Cant. <span className="font-mono-nums text-foreground">{item.quantity}</span> ·{' '}
+              {QUOTATION_ITEM_PRICING_MODE_LABEL[item.pricing_mode]} · S/ {Number(item.unit_price).toFixed(2)} c/u
+            </p>
+            <dl className="mt-2 space-y-0.5 rounded-md bg-muted/60 px-3 py-2 text-xs">
+              {includesIgv && (
+                <>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Subtotal</dt>
+                    <dd className="font-mono-nums">S/ {subtotal.toFixed(2)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">IGV</dt>
+                    <dd className="font-mono-nums">S/ {igv.toFixed(2)}</dd>
+                  </div>
+                </>
+              )}
+              <div className="flex items-baseline justify-between">
+                <dt className="font-medium">{includesIgv ? 'Total' : 'Total (sin IGV)'}</dt>
+                <dd className="font-mono-nums text-sm font-semibold text-primary">S/ {(subtotal + igv).toFixed(2)}</dd>
+              </div>
+            </dl>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 // Botones que llevan a un estado "de salida/excepción" (rojo) vs. flujo
@@ -111,6 +163,17 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
 
   const allowedNext = quotation ? getForwardTransitions(quotation.status) : [];
   const balance = quotation ? Number(quotation.total) - Number(quotation.total_paid) : 0;
+  // IGV de cada ítem (pedido explícito del usuario: "no se ve claro cuánto
+  // hay que pagar ni su IGV por fila"). La tasa sale de la propia cotización
+  // (total vs. subtotal), igual que el resumen: así coincide con lo que se
+  // cobró aunque el % configurado cambie después.
+  const quotationSubtotal = Number(quotation?.subtotal ?? 0);
+  const itemIgvRate =
+    quotation?.includes_igv && quotationSubtotal > 0 ? (Number(quotation.total) - quotationSubtotal) / quotationSubtotal : 0;
+  const itemIgv = (subtotal: number) => Math.round(subtotal * itemIgvRate * 100) / 100;
+  // En el celular los ítems van como tarjetas: en la tabla los nombres se
+  // partían en varias líneas y el total quedaba fuera de la vista.
+  const isMobile = useIsMobile();
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -250,7 +313,16 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
               </TabsList>
 
               <TabsContent value="products" className="space-y-4">
-                <div className="overflow-hidden rounded-lg border">
+                {isMobile ? (
+                  <QuotationItemCards
+                    items={quotation.items}
+                    includesIgv={Boolean(quotation.includes_igv)}
+                    itemIgv={itemIgv}
+                  />
+                ) : (
+                /* overflow-x-auto: si la ventana es angosta, la tabla se
+                   desliza de lado sin ensanchar el modal. */
+                <div className="overflow-x-auto rounded-lg border">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 text-left">
                       <tr>
@@ -258,8 +330,16 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                         <th className="px-3 py-2">Técnica</th>
                         <th className="px-3 py-2 text-right">Cant.</th>
                         <th className="px-3 py-2 text-right">Modo</th>
-                        <th className="px-3 py-2 text-right">P. unit.</th>
-                        <th className="px-3 py-2 text-right">Subtotal</th>
+                        <th className="px-3 py-2 text-right whitespace-nowrap">P. unit.</th>
+                        {quotation.includes_igv ? (
+                          <>
+                            <th className="px-3 py-2 text-right">Subtotal</th>
+                            <th className="px-3 py-2 text-right">IGV</th>
+                            <th className="px-3 py-2 text-right">Total</th>
+                          </>
+                        ) : (
+                          <th className="px-3 py-2 text-right whitespace-nowrap">Total (sin IGV)</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -272,21 +352,32 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                               texto de millar o unidad") — el modo de precio
                               ahora tiene su propia columna. */}
                           <td className="px-3 py-2 text-right font-mono-nums">{item.quantity}</td>
-                          <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                          <td className="px-3 py-2 text-right text-xs whitespace-nowrap text-muted-foreground">
                             {QUOTATION_ITEM_PRICING_MODE_LABEL[item.pricing_mode]}
                           </td>
-                          <td className="px-3 py-2 text-right">S/ {Number(item.unit_price).toFixed(2)}</td>
-                          {/* Resultado por línea en el color de marca de la
-                              empresa (--primary, ver useBrandTheme.ts) para
-                              que destaque frente al resto de la fila. */}
-                          <td className="px-3 py-2 text-right font-semibold text-primary">
-                            S/ {Number(item.subtotal).toFixed(2)}
+                          <td className="px-3 py-2 text-right whitespace-nowrap">S/ {Number(item.unit_price).toFixed(2)}</td>
+                          {quotation.includes_igv && (
+                            <>
+                              <td className="px-3 py-2 text-right whitespace-nowrap text-muted-foreground">
+                                S/ {Number(item.subtotal).toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2 text-right whitespace-nowrap text-muted-foreground">
+                                S/ {itemIgv(Number(item.subtotal)).toFixed(2)}
+                              </td>
+                            </>
+                          )}
+                          {/* Lo que se cobra por el ítem, en el color de marca
+                              de la empresa (--primary, ver useBrandTheme.ts)
+                              para que destaque frente al resto de la fila. */}
+                          <td className="px-3 py-2 text-right font-semibold whitespace-nowrap text-primary">
+                            S/ {(Number(item.subtotal) + itemIgv(Number(item.subtotal))).toFixed(2)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                )}
 
                 <div>
                   <p className="mb-2 text-sm font-medium">Avance por etapa de producción</p>

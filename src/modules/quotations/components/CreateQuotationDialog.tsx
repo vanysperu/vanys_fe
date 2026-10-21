@@ -34,9 +34,10 @@ import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
-import { useAccess } from '@/presentation/hooks/shared/useAccess';
+import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { cn } from '@/lib/utils';
 import type { ApiClientError } from '@/config/api.types';
-import { toOptionalNumber } from '@/lib/inputRestrictions';
+import { toOptionalNumber, DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 // Qué precios de catálogo tiene cargados el producto para el modo elegido
 // — "custom" siempre está disponible (no depende del catálogo). MySQL/
@@ -135,6 +136,53 @@ function computeItemPrice(
   return { productPrice, techniquePrice, unitPrice, total: roundMoney(unitPrice * quantity) };
 }
 
+// Montos de un ítem: subtotal, IGV y lo que se cobra por ese ítem. El IGV por
+// ítem es referencial: el backend lo calcula sobre el subtotal de toda la
+// cotización (computeQuotationTotal), así que la suma de los ítems puede
+// diferir en un céntimo del "Total a pagar" del resumen, que es el que vale.
+function ItemAmounts({
+  subtotal,
+  igvRate,
+  includesIgv,
+  index,
+}: {
+  subtotal: number;
+  igvRate: number;
+  includesIgv: boolean;
+  index: number;
+}) {
+  const igv = includesIgv ? roundMoney(subtotal * igvRate) : 0;
+  const total = roundMoney(subtotal + igv);
+
+  // En el celular: Subtotal e IGV en una fila y el total del ítem debajo, a lo
+  // ancho (con montos de 5 cifras, tres columnas de ~100 px se apretaban).
+  return (
+    <dl className="grid grid-cols-2 gap-2 rounded-md bg-muted/60 px-3 py-2 text-xs sm:grid-cols-3">
+      <div className="min-w-0">
+        <dt className="text-muted-foreground">Subtotal</dt>
+        <dd className="font-mono-nums text-sm" data-testid={`item-subtotal-${index}`}>
+          S/ {subtotal.toFixed(2)}
+        </dd>
+      </div>
+      <div className="min-w-0">
+        <dt className="text-muted-foreground">IGV ({(igvRate * 100).toFixed(0)}%)</dt>
+        <dd
+          className={cn('font-mono-nums text-sm', !includesIgv && 'text-muted-foreground')}
+          data-testid={`item-igv-${index}`}
+        >
+          {includesIgv ? `S/ ${igv.toFixed(2)}` : 'No incluido'}
+        </dd>
+      </div>
+      <div className="col-span-2 flex min-w-0 items-baseline justify-between border-t pt-1.5 sm:col-span-1 sm:block sm:border-t-0 sm:pt-0 sm:text-right">
+        <dt className="font-medium">Total del ítem</dt>
+        <dd className="font-mono-nums text-base font-semibold text-primary" data-testid={`item-total-${index}`}>
+          S/ {total.toFixed(2)}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
 interface CreateQuotationDialogProps {
   // Trigger opcional (CLAUDE.md sección 12: prop opcional con default que
   // preserva el comportamiento anterior) — permite reusar el mismo diálogo
@@ -161,6 +209,13 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
   const { data: products } = useProducts({ page: 1, limit: 100, status: 'active' });
   const { data: techniques } = useTechniques({ page: 1, limit: 100, status: 'active' });
   const { mutate: create, isPending, error } = useCreateQuotation();
+  // Los "+" de creación rápida aparecen solo si el rol puede crear eso. Antes
+  // un Gestor veía el "+" de producto y al guardar recibía "no tiene
+  // permisos": el Gestor no administra el catálogo (CLAUDE.md sección 11.1),
+  // salvo que el Super Administrador se lo otorgue en Roles y accesos.
+  const canQuickCreateClient = usePermissionButton('cliente.create.button');
+  const canQuickCreateProduct = usePermissionButton('producto.create.button');
+  const canQuickCreateTechnique = usePermissionButton('producto.technique.create.button');
 
   const {
     register,
@@ -278,16 +333,18 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                   onChange={(value) => setValue('client_id', Number(value), { shouldValidate: true })}
                   options={(clients?.data ?? []).map((client) => ({ value: String(client.id), label: client.name }))}
                 />
-                <QuickCreateClientDialog
-                  companyId={resolvedCompanyId}
-                  // shouldValidate: true — sin esto, el error "Selecciona un
-                  // cliente" (si ya se había mostrado) se quedaba pegado en
-                  // pantalla aunque el cliente recién creado sí quedara
-                  // guardado en el formulario (bug reportado por el usuario:
-                  // "creé un usuario desde la cotización y siempre salió el
-                  // mensaje de debe seleccionar un cliente").
-                  onCreated={(id) => setValue('client_id', id, { shouldValidate: true })}
-                />
+                {canQuickCreateClient && (
+                  <QuickCreateClientDialog
+                    companyId={resolvedCompanyId}
+                    // shouldValidate: true — sin esto, el error "Selecciona un
+                    // cliente" (si ya se había mostrado) se quedaba pegado en
+                    // pantalla aunque el cliente recién creado sí quedara
+                    // guardado en el formulario (bug reportado por el usuario:
+                    // "creé un usuario desde la cotización y siempre salió el
+                    // mensaje de debe seleccionar un cliente").
+                    onCreated={(id) => setValue('client_id', id, { shouldValidate: true })}
+                  />
+                )}
               </div>
               {errors.client_id && <p className="text-sm text-destructive">{errors.client_id.message}</p>}
             </div>
@@ -388,7 +445,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
               </Button>
             </div>
 
-            <div className="space-y-3 rounded-lg border p-3">
+            <div className="space-y-3">
               {fields.map((field, index) => {
                 const item = watchedItems[index];
                 const product = products?.data.find((row) => row.id === item?.product_id);
@@ -409,9 +466,26 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                 const modes = availablePricingModes(product, technique);
 
                 return (
-                  <div key={field.id} className="space-y-2 rounded-md border border-transparent p-1 [&:not(:last-child)]:border-b-muted">
+                  <div key={field.id} className="space-y-2 rounded-lg border bg-card p-3">
+                  {/* Encabezado del ítem: número y botón de quitar (en el
+                      celular ya no ocupa una fila propia). */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-muted-foreground">Ítem {index + 1}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7"
+                      disabled={fields.length === 1}
+                      onClick={() => remove(index)}
+                      aria-label={`Quitar ítem ${index + 1}`}
+                      title="Quitar ítem"
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-12 items-end gap-2">
-                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-5">
+                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-6">
                       <Label className="text-xs">Producto</Label>
                       <div className="flex items-center gap-1">
                         <SearchableSelect
@@ -441,14 +515,16 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                           }}
                           options={(products?.data ?? []).map((row) => ({ value: String(row.id), label: row.name }))}
                         />
-                        <QuickCreateProductDialog
-                          companyId={resolvedCompanyId}
-                          onCreated={(id) => setValue(`items.${index}.product_id`, id, { shouldValidate: true })}
-                        />
+                        {canQuickCreateProduct && (
+                          <QuickCreateProductDialog
+                            companyId={resolvedCompanyId}
+                            onCreated={(id) => setValue(`items.${index}.product_id`, id, { shouldValidate: true })}
+                          />
+                        )}
                       </div>
                     </div>
 
-                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-4">
+                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-6">
                       <Label className="text-xs">Técnica</Label>
                       {!usesTechnique && (
                         <p className="flex h-9 items-center text-xs text-muted-foreground" data-testid={`item-no-customization-${index}`}>
@@ -484,10 +560,12 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                           }}
                           options={(techniques?.data ?? []).map((row) => ({ value: String(row.id), label: row.name }))}
                         />
-                        <QuickCreateTechniqueDialog
-                          companyId={resolvedCompanyId}
-                          onCreated={(id) => setValue(`items.${index}.technique_id`, id, { shouldValidate: true })}
-                        />
+                        {canQuickCreateTechnique && (
+                          <QuickCreateTechniqueDialog
+                            companyId={resolvedCompanyId}
+                            onCreated={(id) => setValue(`items.${index}.technique_id`, id, { shouldValidate: true })}
+                          />
+                        )}
                       </div>
                       {errors.items?.[index] && 'technique_id' in errors.items[index]! && (
                         <p className="text-[11px] text-destructive">
@@ -496,19 +574,6 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                       )}
                     </div>
 
-                    <div className="col-span-10 text-sm font-semibold text-primary sm:col-span-2">S/ {(price?.total ?? 0).toFixed(2)}</div>
-
-                    <div className="col-span-2 flex justify-end sm:col-span-1 sm:block">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={fields.length === 1}
-                        onClick={() => remove(index)}
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-end gap-2">
@@ -546,7 +611,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                         <Label className="text-xs">Precio producto (S/)</Label>
                         <Input
                           type="number"
-                          step="0.01"
+                          step={DECIMAL_INPUT_STEP}
                           {...register(`items.${index}.custom_price`, { setValueAs: toOptionalNumber })}
                         />
                         {errors.items?.[index] && 'custom_price' in errors.items[index]! && (
@@ -565,7 +630,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                         <Label className="text-xs">Precio técnica (S/)</Label>
                         <Input
                           type="number"
-                          step="0.01"
+                          step={DECIMAL_INPUT_STEP}
                           placeholder={technique.price_unit != null ? Number(technique.price_unit).toFixed(2) : '0.00'}
                           {...register(`items.${index}.custom_technique_price`, { setValueAs: toOptionalNumber })}
                         />
@@ -577,13 +642,23 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                       </div>
                     )}
                   </div>
-                  {/* Desglose visible: de dónde sale el total del item. */}
-                  {price && (
-                    <p className="text-xs text-muted-foreground" data-testid={`item-price-breakdown-${index}`}>
-                      {technique === null
-                        ? `Producto S/ ${price.productPrice.toFixed(2)} c/u`
-                        : `Producto S/ ${price.productPrice.toFixed(2)} + técnica S/ ${price.techniquePrice.toFixed(2)} = S/ ${price.unitPrice.toFixed(2)} c/u`}{' '}
-                      × {item?.quantity} = S/ {price.total.toFixed(2)}
+                  {/* La nota con el desglose (de dónde sale el monto) queda
+                      igual; debajo, los montos del ítem bien a la vista
+                      (pedido explícito del usuario: "no se ve claro cuánto
+                      hay que pagar ni su IGV por fila"). */}
+                  {price ? (
+                    <div className="space-y-2 border-t border-dashed pt-2">
+                      <p className="text-xs text-muted-foreground" data-testid={`item-price-breakdown-${index}`}>
+                        {technique === null
+                          ? `Producto S/ ${price.productPrice.toFixed(2)} c/u`
+                          : `Producto S/ ${price.productPrice.toFixed(2)} + técnica S/ ${price.techniquePrice.toFixed(2)} = S/ ${price.unitPrice.toFixed(2)} c/u`}{' '}
+                        × {item?.quantity} = S/ {price.total.toFixed(2)}
+                      </p>
+                      <ItemAmounts subtotal={price.total} igvRate={igvRate} includesIgv={Boolean(includesIgv)} index={index} />
+                    </div>
+                  ) : (
+                    <p className="border-t border-dashed pt-2 text-xs text-muted-foreground">
+                      Elige el producto{usesTechnique ? ', la técnica' : ''} y la cantidad para ver el monto de este ítem.
                     </p>
                   )}
                   </div>
@@ -617,22 +692,24 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
             </label>
           </div>
 
-          <div className="space-y-1 rounded-lg bg-muted/50 px-4 py-2.5">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Subtotal</span>
-              <span>S/ {subtotal.toFixed(2)}</span>
-            </div>
-            {includesIgv && (
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>IGV ({(igvRate * 100).toFixed(0)}%)</span>
-                <span>S/ {igvAmount.toFixed(2)}</span>
-              </div>
-            )}
+          {/* Resumen: lo que el cliente paga por toda la cotización. El IGV
+              se muestra siempre, aunque no se incluya, para que quede claro. */}
+          <dl className="space-y-1.5 rounded-lg border bg-muted/40 px-4 py-3 text-sm" data-testid="quotation-totals">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Total</span>
-              <span className="text-lg font-semibold">S/ {grandTotal.toFixed(2)}</span>
+              <dt className="text-muted-foreground">Subtotal{fields.length > 1 ? ` (${fields.length} ítems)` : ''}</dt>
+              <dd className="font-mono-nums">S/ {subtotal.toFixed(2)}</dd>
             </div>
-          </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">IGV ({(igvRate * 100).toFixed(0)}%)</dt>
+              <dd className={cn('font-mono-nums', !includesIgv && 'text-muted-foreground')}>
+                {includesIgv ? `S/ ${igvAmount.toFixed(2)}` : 'No incluido'}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between border-t pt-2">
+              <dt className="font-semibold">Total a pagar</dt>
+              <dd className="font-mono-nums text-xl font-semibold text-primary">S/ {grandTotal.toFixed(2)}</dd>
+            </div>
+          </dl>
 
           <div className="space-y-2">
             <Label htmlFor="production_days">Días hábiles de producción (opcional)</Label>

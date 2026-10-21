@@ -114,3 +114,11 @@ export async function openMenuGroup(page: Page, groupLabel: string) {
   await header.click();
   await expect(header).toHaveAttribute('aria-expanded', 'true');
 }
+
+// Las notificaciones (sonner) aparecen arriba a la derecha, encima de los
+// botones del encabezado ("Lista"/"Tablero", "Nuevo …"). Si el puntero pasa
+// sobre una, sonner pausa su cierre y el clic queda bloqueado hasta que la
+// prueba vence: se espera a que se vayan solas antes de tocar esos botones.
+export async function waitForToastsToClear(page: Page) {
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 15_000 });
+}

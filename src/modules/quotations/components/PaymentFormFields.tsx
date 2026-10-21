@@ -14,6 +14,7 @@ import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { Textarea } from '@/presentation/components/shared/ui/textarea';
+import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 type PaymentForm = UseFormReturn<CreateQuotationPaymentFormValues>;
 
@@ -45,7 +46,7 @@ export function PaymentFormFields({ form, idPrefix = 'payment' }: PaymentFormFie
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`${idPrefix}-amount`}>Monto (S/)</Label>
-          <Input id={`${idPrefix}-amount`} type="number" step="0.01" {...register('amount', { valueAsNumber: true })} />
+          <Input id={`${idPrefix}-amount`} type="number" step={DECIMAL_INPUT_STEP} {...register('amount', { valueAsNumber: true })} />
           {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
         </div>
         <div className="space-y-1">

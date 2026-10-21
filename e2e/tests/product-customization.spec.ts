@@ -8,7 +8,7 @@ test.use({ storageState: ADMIN_STATE });
 // "Requiere personalización" por producto: apagado por defecto. Un producto
 // sin personalización se cotiza sin técnica y solo con su precio.
 test.describe('Productos con y sin personalización', () => {
-  test('en Lista de precios, un producto nuevo nace sin personalización', async ({ page }) => {
+  test('en Productos, un producto nuevo nace sin personalización', async ({ page }) => {
     const name = `QA Sin Pers ${stamp()}`;
 
     await page.goto('/productos');

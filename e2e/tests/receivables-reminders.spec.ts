@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
-import { stamp, wordStamp } from '../helpers';
+import { stamp, wordStamp, waitForToastsToClear } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -36,6 +36,7 @@ async function createQuotationAndOpenDetail(page: Page): Promise<string> {
   await page.click('div[role="dialog"] button:has-text("Crear cotización")');
   await expect(page.locator('text=Cotización creada correctamente')).toBeVisible({ timeout: 10_000 });
 
+  await waitForToastsToClear(page);
   await page.getByRole('button', { name: 'Lista', exact: true }).click();
   await page.click(`span:has-text("${clientName}")`);
   await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();

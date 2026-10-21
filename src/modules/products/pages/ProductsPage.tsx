@@ -20,7 +20,7 @@ import {
 } from '@/modules/products/schemas/product.schema';
 import { RequiresCustomizationField } from '@/modules/products/components/RequiresCustomizationField';
 import type { CustomizationTechnique, Product } from '@/modules/products/types/product.types';
-import { toOptionalNumber } from '@/lib/inputRestrictions';
+import { toOptionalNumber, DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { Pagination } from '@/presentation/components/shared/Pagination';
@@ -59,7 +59,7 @@ export function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Lista de precios" description="Productos y técnicas de personalización, con sus precios por volumen" />
+      <PageHeader title="Productos" description="Productos y técnicas de personalización, con sus precios por volumen" />
 
       <Tabs
         value={activeTab}
@@ -384,7 +384,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
                 <Label htmlFor="price_unit" className="text-xs font-normal text-muted-foreground">
                   Por unidad (S/)
                 </Label>
-                <Input id="price_unit" type="number" step="0.01" {...register('price_unit', { setValueAs: toOptionalNumber })} />
+                <Input id="price_unit" type="number" step={DECIMAL_INPUT_STEP} {...register('price_unit', { setValueAs: toOptionalNumber })} />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="price_hundred" className="text-xs font-normal text-muted-foreground">
@@ -393,7 +393,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
                 <Input
                   id="price_hundred"
                   type="number"
-                  step="0.01"
+                  step={DECIMAL_INPUT_STEP}
                   {...register('price_hundred', { setValueAs: toOptionalNumber })}
                 />
               </div>
@@ -404,7 +404,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
                 <Input
                   id="price_half_thousand"
                   type="number"
-                  step="0.01"
+                  step={DECIMAL_INPUT_STEP}
                   {...register('price_half_thousand', { setValueAs: toOptionalNumber })}
                 />
               </div>
@@ -415,7 +415,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
                 <Input
                   id="price_thousand"
                   type="number"
-                  step="0.01"
+                  step={DECIMAL_INPUT_STEP}
                   {...register('price_thousand', { setValueAs: toOptionalNumber })}
                 />
               </div>
@@ -720,7 +720,7 @@ function TechniqueFormDialog({
                   <Label htmlFor="tech_price_unit" className="text-xs font-normal text-muted-foreground">
                     Por unidad (S/)
                   </Label>
-                  <Input id="tech_price_unit" type="number" step="0.01" {...register('price_unit', { setValueAs: toOptionalNumber })} />
+                  <Input id="tech_price_unit" type="number" step={DECIMAL_INPUT_STEP} {...register('price_unit', { setValueAs: toOptionalNumber })} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="tech_price_hundred" className="text-xs font-normal text-muted-foreground">
@@ -729,7 +729,7 @@ function TechniqueFormDialog({
                   <Input
                     id="tech_price_hundred"
                     type="number"
-                    step="0.01"
+                    step={DECIMAL_INPUT_STEP}
                     {...register('price_hundred', { setValueAs: toOptionalNumber })}
                   />
                 </div>
@@ -740,7 +740,7 @@ function TechniqueFormDialog({
                   <Input
                     id="tech_price_half_thousand"
                     type="number"
-                    step="0.01"
+                    step={DECIMAL_INPUT_STEP}
                     {...register('price_half_thousand', { setValueAs: toOptionalNumber })}
                   />
                 </div>
@@ -751,7 +751,7 @@ function TechniqueFormDialog({
                   <Input
                     id="tech_price_thousand"
                     type="number"
-                    step="0.01"
+                    step={DECIMAL_INPUT_STEP}
                     {...register('price_thousand', { setValueAs: toOptionalNumber })}
                   />
                 </div>
