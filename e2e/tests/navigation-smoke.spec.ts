@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Locator, test } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
 import { openMenuGroup } from '../helpers';
@@ -98,4 +98,32 @@ test('vista Panel principal se ve bien (snapshot del encabezado)', async ({ page
   await expect(page.locator('h1', { hasText: 'Panel principal' }).locator('xpath=..')).toHaveScreenshot(
     'dashboard-header.png',
   );
+});
+
+// Con el menú colapsado (solo íconos), los íconos quedan centrados con el
+// botón de colapsar. Bug real: el Tooltip con asChild convertía en texto la
+// función className del enlace, que perdía sus estilos y se corría 6 px a la
+// derecha (el botón y las líneas divisorias parecían "más atrás").
+test('el menú colapsado alinea los íconos con el botón de colapsar', async ({ page }) => {
+  await page.goto('/caja');
+  const sidebar = page.locator('[data-slot="sidebar"]');
+  // El del menú lateral: la barra superior tiene otro (el del celular, oculto acá).
+  await sidebar.locator('[data-slot="sidebar-trigger"]').click();
+  await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
+
+  const centerX = async (locator: Locator) => {
+    const box = await locator.boundingBox();
+    if (!box) throw new Error('Elemento sin caja visible');
+    return box.x + box.width / 2;
+  };
+  const triggerCenter = await centerX(sidebar.locator('[data-slot="sidebar-trigger"] svg'));
+  const icons = await sidebar.locator('[data-slot="sidebar-content"] a svg').all();
+  expect(icons.length).toBeGreaterThan(3);
+  for (const icon of icons) {
+    expect(Math.abs((await centerX(icon)) - triggerCenter)).toBeLessThan(1);
+  }
+
+  // Sin texto visible, cada enlace conserva su nombre (aria-label) y la
+  // pantalla actual sigue marcada.
+  await expect(sidebar.getByRole('link', { name: 'Caja', exact: true })).toHaveAttribute('aria-current', 'page');
 });

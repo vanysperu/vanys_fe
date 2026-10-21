@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom';
 
 import { buildMenu } from '@/app/navigation/menuConfig';
 import type { MenuNode } from '@/app/navigation/menuConfig';
@@ -257,9 +257,10 @@ function MenuIcon({ icon: Icon, className }: { icon: LucideIcon; className?: str
   return <Icon className={className} />;
 }
 
-// Línea fina entre grupos cuando el menú está colapsado (solo íconos).
+// Línea fina entre grupos cuando el menú está colapsado (solo íconos): ocupa
+// todo el ancho de la columna de íconos (antes medía 7 px y se perdía).
 function CollapsedDivider() {
-  return <div aria-hidden className="mx-2 my-1.5 h-px bg-white/10" />;
+  return <div aria-hidden className="my-1.5 h-px bg-white/15" />;
 }
 
 function MenuGroupItem({
@@ -430,42 +431,43 @@ function GroupHeader({
 }
 
 function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: boolean }) {
+  // Coincidencia exacta: cada ítem es una pantalla (no hay rutas de detalle
+  // anidadas). Por prefijo, "Lista de precios" (/productos) quedaba marcada
+  // también en /productos/tecnicas, que dentro del grupo es su ítem hermano.
+  //
+  // El estado activo se calcula acá y no con la función className/children de
+  // NavLink: con el menú colapsado el enlace va dentro de un Tooltip con
+  // asChild, que fusiona las props como texto y convertía esa función en el
+  // propio atributo class. El enlace perdía sus estilos (quedaba con el
+  // relleno del menú expandido, corrido 6 px a la derecha del botón de
+  // colapsar y de las líneas divisorias).
+  const isActive = Boolean(useMatch({ path: view.route ?? '', end: true })) && Boolean(view.route);
   if (!view.route) return null;
 
   const link = (
     <NavLink
       to={view.route}
-      // Coincidencia exacta: cada ítem es una pantalla (no hay rutas de
-      // detalle anidadas). Por prefijo, "Lista de precios" (/productos)
-      // quedaba marcada también en /productos/tecnicas, que dentro del grupo
-      // es su ítem hermano.
       end
-      className={({ isActive }) =>
-        cn(
-          'relative flex items-center gap-2.5 rounded-lg py-2 pr-3 pl-2.5 text-sm font-medium transition-colors',
-          isCollapsed && 'justify-center px-0',
-          isActive
-            ? 'bg-white/10 font-semibold text-white'
-            : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {isActive && !isCollapsed && (
-            <motion.span
-              layoutId="sidebar-active-pill"
-              className="absolute inset-y-1 left-0 w-1 rounded-full bg-sidebar-accent"
-              transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-            />
-          )}
-          <MenuIcon icon={resolveIcon(view.icon)} className={cn('size-4 shrink-0', isActive && 'text-sidebar-accent')} />
-          {/* Sin recortar: dentro de un grupo hay menos ancho y "Técnicas de
-              personalización"/"Documentos de la empresa" se cortaban; pasan a
-              una segunda línea. */}
-          {!isCollapsed && <span className="min-w-0 leading-snug">{view.name}</span>}
-        </>
+      // Colapsado no hay texto visible: el nombre lo da aria-label.
+      aria-label={isCollapsed ? view.name : undefined}
+      className={cn(
+        'relative flex items-center gap-2.5 rounded-lg py-2 text-sm font-medium transition-colors',
+        isCollapsed ? 'justify-center px-0' : 'pr-3 pl-2.5',
+        isActive ? 'bg-white/10 font-semibold text-white' : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
       )}
+    >
+      {isActive && !isCollapsed && (
+        <motion.span
+          layoutId="sidebar-active-pill"
+          className="absolute inset-y-1 left-0 w-1 rounded-full bg-sidebar-accent"
+          transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+        />
+      )}
+      <MenuIcon icon={resolveIcon(view.icon)} className={cn('size-4 shrink-0', isActive && 'text-sidebar-accent')} />
+      {/* Sin recortar: dentro de un grupo hay menos ancho y "Técnicas de
+          personalización"/"Documentos de la empresa" se cortaban; pasan a
+          una segunda línea. */}
+      {!isCollapsed && <span className="min-w-0 leading-snug">{view.name}</span>}
     </NavLink>
   );
 
