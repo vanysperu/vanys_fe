@@ -2,11 +2,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Pantalla de al menos 768px de ancho y no más alta que ancha: ahí entra el
-   póster 2:3 del login sin recortar el texto de los costados. En una tablet
-   vertical (más alta que ancha) el login se ve como en el celular. */
-@custom-variant wide-landscape (@media (width >= 48rem) and (min-aspect-ratio: 1/1));
-
 /* Paleta y tokens de Vanys — hex directos en vez de oklch para poder
    cotejarlos 1:1 con la marca. Los colores de marca se midieron de los
    píxeles del logo oficial (promedio): azul marino #001d52 (de #001645 a

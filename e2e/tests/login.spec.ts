@@ -6,15 +6,14 @@ import { LOGIN_FLOW_USER } from '../auth';
 // arrancar SIN sesión, es justo lo que valida.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const POSTER_NAME = 'Vanys Gestor — Gestiona tu negocio en un solo lugar';
-
 test.describe('Login', () => {
   test('se ve bien y permite iniciar sesión con credenciales válidas', async ({ page }) => {
     await page.goto('/login');
     await expect(page.locator('h1', { hasText: 'Bienvenido de vuelta' })).toBeVisible();
-    // Marca Vanys: título de la pestaña y póster del login (ya no Grulla).
+    // Marca Vanys en el título de la pestaña. El login va sin póster (se
+    // quitó a pedido del usuario): solo el formulario sobre azul marino.
     await expect(page).toHaveTitle('Vanys');
-    await expect(page.getByRole('img', { name: POSTER_NAME })).toBeVisible();
+    await expect(page.getByRole('img', { name: /Gestiona tu negocio/ })).toHaveCount(0);
     await page.waitForTimeout(500); // deja terminar la animación de entrada (framer-motion)
     await expect(page).toHaveScreenshot('login-page.png');
 
@@ -25,13 +24,6 @@ test.describe('Login', () => {
     await expect(page.locator('text=Bienvenido,')).toBeVisible();
     // Logo de Vanys en el menú.
     await expect(page.locator('[data-slot="sidebar"]').getByRole('img', { name: 'Vanys' })).toBeVisible();
-  });
-
-  test('en una tablet vertical se ve solo el formulario, sin el póster recortado', async ({ page }) => {
-    await page.setViewportSize({ width: 820, height: 1180 });
-    await page.goto('/login');
-    await expect(page.locator('h1', { hasText: 'Bienvenido de vuelta' })).toBeVisible();
-    await expect(page.getByRole('img', { name: POSTER_NAME })).toBeHidden();
   });
 
   test('credenciales inválidas muestran un mensaje de error claro, sin navegar', async ({ page }) => {
