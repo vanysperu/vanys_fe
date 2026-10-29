@@ -38,4 +38,7 @@ export interface EmployeeDebtListParams {
 export interface PayEmployeeDebtDto {
   // Cuenta desde la que se le repone (null = efectivo).
   payment_account_id: number | null;
+  // Monto a abonar ahora (pagos parciales): puede ser menor al total
+  // pendiente, nunca mayor (el backend lo revalida).
+  amount: number;
 }

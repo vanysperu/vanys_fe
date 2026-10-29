@@ -8,7 +8,12 @@ import { ReminderBell } from '@/modules/reminders/components/ReminderBell';
 import { ThemeToggle } from '@/presentation/components/shared/ThemeToggle';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { SidebarProvider, SidebarTrigger } from '@/presentation/components/shared/ui/sidebar';
-import { flattenViewRoutes, usePermissionButton, useAccess } from '@/presentation/hooks/shared/useAccess';
+import {
+  flattenViewRoutes,
+  getVisibleAccessModules,
+  usePermissionButton,
+  useAccess,
+} from '@/presentation/hooks/shared/useAccess';
 import { useBrandTheme } from '@/presentation/hooks/shared/useBrandTheme';
 
 // Shell de la app autenticada: valida en cada navegación que la ruta actual
@@ -22,7 +27,7 @@ export function Shell() {
 
   if (isLoading) return <ShellSkeleton />;
 
-  const allowedRoutes = access ? flattenViewRoutes(access.views) : [];
+  const allowedRoutes = access ? flattenViewRoutes(getVisibleAccessModules(access)) : [];
   const isRouteAllowed = location.pathname === '/' || allowedRoutes.includes(location.pathname);
 
   if (access && !isRouteAllowed) return <Navigate to="/" replace />;

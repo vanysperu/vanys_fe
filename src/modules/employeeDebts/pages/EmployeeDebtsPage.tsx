@@ -179,19 +179,28 @@ export function EmployeeDebtsPage() {
 // "pagado por <trabajador> · repuesto el <fecha> desde <cuenta>".
 function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClose: () => void }) {
   const [accountId, setAccountId] = useState<number | null>(null);
+  // Por defecto se ofrece saldar todo; el input queda editable para un
+  // abono parcial (ej. S/50 de una deuda de S/200) — pedido de QA: antes
+  // solo se podía cancelar el total.
+  const [amountInput, setAmountInput] = useState(debt.pending_amount.toFixed(2));
   const { mutate: payDebt, isPending } = usePayEmployeeDebt();
 
-  const confirm = () =>
+  const amount = Number(amountInput);
+  const isAmountValid = Number.isFinite(amount) && amount > 0 && amount <= debt.pending_amount + 0.009;
+
+  const confirm = () => {
+    if (!isAmountValid) return;
     payDebt(
-      { userId: debt.user_id, dto: { payment_account_id: accountId } },
+      { userId: debt.user_id, dto: { payment_account_id: accountId, amount } },
       {
         onSuccess: () => {
-          toast.success('Deuda saldada correctamente');
+          toast.success(amount >= debt.pending_amount ? 'Deuda saldada correctamente' : 'Abono registrado correctamente');
           onClose();
         },
-        onError: (error) => toast.error((error as ApiClientError).message ?? 'No se pudo saldar la deuda'),
+        onError: (error) => toast.error((error as ApiClientError).message ?? 'No se pudo registrar el pago'),
       },
     );
+  };
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -199,10 +208,27 @@ function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClo
         <DialogHeader>
           <DialogTitle>Marcar deuda como pagada</DialogTitle>
           <DialogDescription>
-            Se marcarán como pagadas las {debt.pending_count} compra(s) pendientes de {debt.employee_name} por{' '}
-            {money(debt.pending_amount)}.
+            {debt.employee_name} tiene {debt.pending_count} compra(s) pendientes por {money(debt.pending_amount)}. Puedes
+            reponer todo o solo una parte.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="space-y-2">
+          <Label htmlFor="debt-amount">Monto a reponer (S/)</Label>
+          <input
+            id="debt-amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            max={debt.pending_amount}
+            value={amountInput}
+            onChange={(event) => setAmountInput(event.target.value)}
+            className="border-input bg-card flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+          />
+          {!isAmountValid && (
+            <p className="text-xs text-destructive">El monto debe ser mayor a 0 y no superar {money(debt.pending_amount)}.</p>
+          )}
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="debt-account">¿De dónde salió el dinero para reponerle?</Label>
@@ -214,9 +240,9 @@ function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClo
             <X className="size-4" />
             Cancelar
           </Button>
-          <Button onClick={confirm} disabled={isPending}>
+          <Button onClick={confirm} disabled={isPending || !isAmountValid}>
             {isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-            Marcar como pagado
+            {amount < debt.pending_amount ? 'Registrar abono' : 'Marcar como pagado'}
           </Button>
         </DialogFooter>
       </DialogContent>

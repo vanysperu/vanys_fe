@@ -222,8 +222,14 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
   // permisos": el Gestor no administra el catálogo (CLAUDE.md sección 11.1),
   // salvo que el Super Administrador se lo otorgue en Roles y accesos.
   const canQuickCreateClient = usePermissionButton('cliente.create.button');
-  const canQuickCreateProduct = usePermissionButton('producto.create.button');
-  const canQuickCreateTechnique = usePermissionButton('producto.technique.create.button');
+  // Producto/técnica SIEMPRE son de una empresa específica — el backend
+  // rechaza a un Super Administrador con 403 aunque el botón "exista" para
+  // su rol (is_system recibe todos los botones implícitamente, ver
+  // core/rbac/businessUnitScope.ts), así que acá se oculta explícitamente
+  // para no ofrecer una acción que siempre va a fallar (bug reportado por
+  // QA: el error del backend no se veía y el formulario quedaba "colgado").
+  const canQuickCreateProduct = usePermissionButton('producto.create.button') && !access?.isSystem;
+  const canQuickCreateTechnique = usePermissionButton('producto.technique.create.button') && !access?.isSystem;
 
   const {
     register,

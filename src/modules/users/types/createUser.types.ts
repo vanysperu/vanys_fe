@@ -21,11 +21,11 @@ export interface CreateUserDto {
   roleIds: number[];
 }
 
-// Espejo del subconjunto que updateUserController realmente lee de
-// UpdateUserDto (grulla_be: users/controllers/user.controller.ts ->
-// updateUserController). business_unit_id no forma parte del update: una
-// vez creado, el usuario no cambia de tienda desde esta pantalla.
-export type UpdateUserDto = Partial<Omit<CreateUserDto, 'business_unit_id'>>;
+// Espejo de UpdateUserDto (grulla_be: users/controllers/user.controller.ts ->
+// updateUserController). company_id/business_unit_id ahora SÍ son
+// editables: antes el backend ni los aceptaba, impidiendo corregir una
+// tienda/empresa mal asignada al crear (bug reportado por QA).
+export type UpdateUserDto = Partial<CreateUserDto>;
 
 export interface CreateUserResult {
   id: number;

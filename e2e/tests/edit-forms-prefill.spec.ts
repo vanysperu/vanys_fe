@@ -28,12 +28,16 @@ async function expectNumber(field: Locator, expected: number) {
 
 test('cliente: editar muestra todos los datos guardados', async ({ page }) => {
   const name = `QA Cliente Completo ${wordStamp()}`;
+  // Único por corrida: un documento fijo chocaba con el de una corrida
+  // anterior contra esta misma base (el backend ahora bloquea documentos
+  // duplicados en la misma empresa — bug corregido, ver client.validator.ts).
+  const documentNumber = `201${stamp()}`;
   await page.goto('/clientes');
   await page.click('button:has-text("Nuevo cliente")');
   await page.fill('#name', name);
   await page.fill('#email', `cliente.${stamp()}@example.test`);
   await page.fill('#phone', '987654321');
-  await page.fill('#document_number', '20123456789');
+  await page.fill('#document_number', documentNumber);
   await page.fill('#address', 'Av. Los Próceres 123, Lima');
   const email = await page.locator('#email').inputValue();
   await page.click('div[role="dialog"] button:has-text("Crear cliente")');
@@ -43,7 +47,7 @@ test('cliente: editar muestra todos los datos guardados', async ({ page }) => {
   await expect(form.locator('#name')).toHaveValue(name);
   await expect(form.locator('#email')).toHaveValue(email);
   await expect(form.locator('#phone')).toHaveValue('987654321');
-  await expect(form.locator('#document_number')).toHaveValue('20123456789');
+  await expect(form.locator('#document_number')).toHaveValue(documentNumber);
   await expect(form.locator('#address')).toHaveValue('Av. Los Próceres 123, Lima');
 });
 

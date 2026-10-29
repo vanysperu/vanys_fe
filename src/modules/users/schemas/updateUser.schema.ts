@@ -39,6 +39,11 @@ export const updateUserSchema = z
     address: z.string().max(255, 'Máximo 255 caracteres').optional(),
     gender: z.number().optional(),
     roleId: z.number().optional(),
+    // Editables ahora (antes el backend ni los aceptaba — bug reportado por
+    // QA: "no permite editar ni asignar Empresa/Tienda al modificar un
+    // usuario"). Omitidos = no se toca lo que ya tenía el usuario.
+    company_id: z.number().optional(),
+    business_unit_id: z.number().optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.document_type || !data.document_number) return;

@@ -18,6 +18,9 @@ export interface User {
   gender: string | null;
   gender_name: string | null;
   business_unit_id: number | null;
+  // Empresa efectiva del usuario (si tiene tienda, la de esa tienda; si no,
+  // su company_id directo) — necesaria para precargar "Editar usuario".
+  company_id: number | null;
   role_name: string | null;
   created_at: string;
 }

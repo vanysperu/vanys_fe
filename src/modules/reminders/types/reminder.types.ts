@@ -65,6 +65,8 @@ export interface ReminderDto {
   message?: string | null;
   remind_date: string;
   remind_time: string;
-  // Vacío = uno mismo.
+  // Editar: vacío = uno mismo.
   recipient_user_id?: number | null;
+  // Crear: uno o varios destinatarios (selector múltiple, pedido de QA).
+  recipient_user_ids?: number[];
 }

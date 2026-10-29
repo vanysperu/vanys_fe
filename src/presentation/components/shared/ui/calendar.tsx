@@ -211,6 +211,14 @@ export function Calendar(props: CalendarProps) {
               type="button"
               disabled={isDisabled}
               onClick={() => handleDayClick(date)}
+              // data-outside: dos celdas pueden mostrar el mismo número de
+              // día (ej. el 29 de septiembre como relleno del mes anterior Y
+              // el 29 de octubre del mes real) — sin este atributo, un
+              // locator por texto ("29") podía matchear la celda de relleno
+              // en vez de la del mes mostrado (bug detectado corriendo los
+              // e2e: un movimiento quedaba guardado un mes antes del
+              // pedido).
+              data-outside={outside || undefined}
               className={cn(
                 'mx-auto flex size-8 items-center justify-center rounded-md text-sm transition-colors hover:bg-accent hover:text-accent-foreground',
                 outside && 'text-muted-foreground/40',

@@ -488,22 +488,29 @@ function CreateUserDialog() {
             )}
             <div className="space-y-2">
               <Label>Tienda{isSystem && <span className="font-normal text-muted-foreground"> (opcional)</span>}</Label>
-              <Select
-                disabled={isSystem && !selectedCompanyId}
-                value={watch('business_unit_id') ? String(watch('business_unit_id')) : undefined}
-                onValueChange={(value) => setValue('business_unit_id', Number(value), { shouldValidate: true })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una tienda" />
-                </SelectTrigger>
-                <SelectContent>
-                  {businessUnits?.data.map((businessUnit) => (
-                    <SelectItem key={businessUnit.id} value={String(businessUnit.id)}>
-                      {businessUnit.business_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Antes el select quedaba vacío y "bloqueado" sin explicación
+                  cuando la empresa no tenía tiendas registradas (bug
+                  reportado por QA) — ahora se avisa explícitamente. */}
+              {businessUnits && businessUnits.data.length === 0 && !(isSystem && !selectedCompanyId) ? (
+                <p className="flex h-9 items-center text-sm text-muted-foreground">No hay tiendas disponibles.</p>
+              ) : (
+                <Select
+                  disabled={isSystem && !selectedCompanyId}
+                  value={watch('business_unit_id') ? String(watch('business_unit_id')) : undefined}
+                  onValueChange={(value) => setValue('business_unit_id', Number(value), { shouldValidate: true })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una tienda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businessUnits?.data.map((businessUnit) => (
+                      <SelectItem key={businessUnit.id} value={String(businessUnit.id)}>
+                        {businessUnit.business_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               {errors.business_unit_id && (
                 <p className="text-sm text-destructive">{errors.business_unit_id.message}</p>
               )}
@@ -544,16 +551,20 @@ function CreateUserDialog() {
   );
 }
 
-// business_unit_id NO es editable acá a propósito: el update del backend
-// no lo acepta (un usuario no cambia de tienda desde esta pantalla, ver
-// grulla_be: updateUserController). El roleId se precarga buscando por
-// nombre en la lista de roles, porque el listado de usuarios solo trae
-// `role_name`, no el id.
+// El roleId se precarga buscando por nombre en la lista de roles, porque el
+// listado de usuarios solo trae `role_name`, no el id.
 function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) {
   const [open, setOpen] = useState(true);
+  const { data: access } = useAccess();
+  const isSystem = access?.isSystem ?? false;
   const { data: roles } = useRoles({ page: 1, limit: 100 });
   const { data: documentTypes } = useCatalog('document_type');
   const { data: genders } = useCatalog('gender');
+  // Mismo criterio que CreateUserDialog: solo un Super Administrador elige
+  // la empresa (y recién ahí se filtra la lista de tiendas por esa
+  // empresa); un admin de empresa nunca la elige, el backend la mantiene
+  // fija en la suya sin importar lo que mande el body.
+  const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: isSystem });
   const { mutate, isPending, error } = useUpdateUser();
 
   const {
@@ -564,6 +575,13 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
     watch,
     formState: { errors },
   } = useForm<UpdateUserFormValues>({ resolver: zodResolver(updateUserSchema) });
+
+  const selectedCompanyId = watch('company_id');
+  const { data: businessUnits } = useBusinessUnits({
+    page: 1,
+    limit: 100,
+    companyId: isSystem ? selectedCompanyId : undefined,
+  });
 
   useEffect(() => {
     const currentRoleId = roles?.rows.find((role) => role.name === user.role_name)?.id;
@@ -583,6 +601,11 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
       address: user.address ?? undefined,
       gender: user.gender ? Number(user.gender) : undefined,
       roleId: currentRoleId,
+      // Antes no se precargaban (la pantalla ni los mostraba) — bug
+      // reportado por QA: "no permite editar ni asignar Empresa/Tienda al
+      // modificar un usuario".
+      company_id: user.company_id ?? undefined,
+      business_unit_id: user.business_unit_id ?? undefined,
     });
   }, [user, roles, reset]);
 
@@ -707,6 +730,64 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
           <div className="space-y-2">
             <Label htmlFor="edit-address">Dirección</Label>
             <Input id="edit-address" {...register('address')} />
+          </div>
+
+          {/* Mismo criterio que CreateUserDialog: un Super Administrador
+              puede reasignar la empresa (y recién ahí elegir tienda); un
+              admin de empresa nunca cambia la empresa (el backend la
+              mantiene fija en la suya), pero sí puede corregir la tienda. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {isSystem && (
+              <div className="space-y-2">
+                <Label>Empresa</Label>
+                <Select
+                  value={watch('company_id') ? String(watch('company_id')) : undefined}
+                  onValueChange={(value) => {
+                    setValue('company_id', Number(value), { shouldValidate: true });
+                    // Cambiar de empresa invalida la tienda elegida antes.
+                    setValue('business_unit_id', undefined);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {companies?.data.map((company) => (
+                      <SelectItem key={company.id} value={String(company.id)}>
+                        {company.business_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.company_id && <p className="text-sm text-destructive">{errors.company_id.message}</p>}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Tienda{isSystem && <span className="font-normal text-muted-foreground"> (opcional)</span>}</Label>
+              {businessUnits && businessUnits.data.length === 0 && !(isSystem && !selectedCompanyId) ? (
+                <p className="flex h-9 items-center text-sm text-muted-foreground">No hay tiendas disponibles.</p>
+              ) : (
+                <Select
+                  disabled={isSystem && !selectedCompanyId}
+                  value={watch('business_unit_id') ? String(watch('business_unit_id')) : undefined}
+                  onValueChange={(value) => setValue('business_unit_id', Number(value), { shouldValidate: true })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una tienda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businessUnits?.data.map((businessUnit) => (
+                      <SelectItem key={businessUnit.id} value={String(businessUnit.id)}>
+                        {businessUnit.business_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {errors.business_unit_id && (
+                <p className="text-sm text-destructive">{errors.business_unit_id.message}</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">

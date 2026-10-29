@@ -27,8 +27,10 @@ export async function getReminderRecipients(): Promise<ReminderRecipient[]> {
   return response.data.data;
 }
 
-export async function createReminder(dto: ReminderDto): Promise<Reminder> {
-  const response = await apiClient.post<ApiResponse<Reminder>>('/reminder/create', dto);
+// Devuelve un array: con selector múltiple, crear puede generar más de un
+// recordatorio (uno por destinatario elegido).
+export async function createReminder(dto: ReminderDto): Promise<Reminder[]> {
+  const response = await apiClient.post<ApiResponse<Reminder[]>>('/reminder/create', dto);
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

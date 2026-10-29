@@ -3,11 +3,14 @@ import { Check, Loader2, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { useEffect, useRef } from 'react';
+
 import { useCreateReminder, useReminderRecipients, useUpdateReminder } from '@/modules/reminders/hooks/useReminders';
 import { reminderSchema, type ReminderFormValues } from '@/modules/reminders/schemas/reminder.schema';
 import type { Reminder } from '@/modules/reminders/types/reminder.types';
 import { CharCounter } from '@/presentation/components/shared/CharCounter';
 import { DateField } from '@/presentation/components/shared/DateField';
+import { MultiSelect } from '@/presentation/components/shared/MultiSelect';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { disablePast } from '@/presentation/components/shared/ui/calendar';
@@ -76,7 +79,7 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
           remind_time: reminder.remind_time,
           recipient_user_id: reminder.recipient.id,
         }
-      : { remind_date: todayLocalDateString(), remind_time: nextFullHour(), recipient_user_id: null },
+      : { remind_date: todayLocalDateString(), remind_time: nextFullHour(), recipient_user_ids: [] },
   });
 
   const me = recipients?.find((recipient) => recipient.is_me);
@@ -89,6 +92,25 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
   const recipientId = watch('recipient_user_id');
   const recipientValue = recipientId == null || recipientId === me?.id ? MYSELF : String(recipientId);
 
+  // Multi-select (crear): usa ids reales, no el sentinel MYSELF — cada
+  // entrada del array debe ser un id de usuario válido (ver create.service.ts).
+  const multiRecipientOptions = (recipients ?? []).map((recipient) => ({
+    value: String(recipient.id),
+    label: recipient.is_me ? `Yo (${recipient.name})` : recipient.name,
+  }));
+  const selectedRecipientIds = (watch('recipient_user_ids') ?? []).map(String);
+
+  // Selector múltiple (solo al crear): arranca con "Yo" pre-elegido en
+  // cuanto se conoce quién es "yo" — el usuario puede sumar a otros o
+  // deseleccionarse a sí mismo. Solo corre una vez (ref), para no pisar una
+  // deselección deliberada del usuario en renders posteriores.
+  const didPreselectMyself = useRef(false);
+  useEffect(() => {
+    if (isEditing || !me || didPreselectMyself.current) return;
+    didPreselectMyself.current = true;
+    setValue('recipient_user_ids', [me.id]);
+  }, [isEditing, me, setValue]);
+
   const onSubmit = (values: ReminderFormValues) => {
     const dto = {
       title: values.title,
@@ -96,6 +118,7 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
       remind_date: values.remind_date,
       remind_time: values.remind_time,
       recipient_user_id: values.recipient_user_id ?? null,
+      recipient_user_ids: values.recipient_user_ids,
     };
     const callbacks = {
       onSuccess: () => {
@@ -151,16 +174,30 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
 
       <div className="space-y-1">
         <Label htmlFor="reminder-recipient">¿Para quién?</Label>
-        <SearchableSelect
-          id="reminder-recipient"
-          options={recipientOptions}
-          value={recipientValue}
-          onChange={(value) =>
-            setValue('recipient_user_id', value === MYSELF ? null : Number(value), { shouldValidate: true })
-          }
-          placeholder="Elige a quién avisar"
-          emptyText="No se encontró ese usuario"
-        />
+        {isEditing ? (
+          <SearchableSelect
+            id="reminder-recipient"
+            options={recipientOptions}
+            value={recipientValue}
+            onChange={(value) =>
+              setValue('recipient_user_id', value === MYSELF ? null : Number(value), { shouldValidate: true })
+            }
+            placeholder="Elige a quién avisar"
+            emptyText="No se encontró ese usuario"
+          />
+        ) : (
+          // Selector múltiple (pedido de QA): se puede avisar a varias
+          // personas a la vez sin duplicar la tarea — una fila de
+          // recordatorio por destinatario elegido.
+          <MultiSelect
+            options={multiRecipientOptions}
+            value={selectedRecipientIds}
+            onChange={(values) => setValue('recipient_user_ids', values.map(Number), { shouldValidate: true })}
+            placeholder="Elige a quién avisar"
+            emptyText="No se encontró ese usuario"
+          />
+        )}
+        {errors.recipient_user_ids && <p className="text-xs text-destructive">{errors.recipient_user_ids.message}</p>}
       </div>
 
       <DialogFooter>

@@ -353,10 +353,12 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
             <div className="space-y-2">
               <Label htmlFor="document_number">Documento</Label>
               <Input id="document_number" {...register('document_number')} />
+              {errors.document_number && <p className="text-sm text-destructive">{errors.document_number.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="address">Dirección</Label>
               <Input id="address" {...register('address')} />
+              {errors.address && <p className="text-sm text-destructive">{errors.address.message}</p>}
             </div>
           </div>
 

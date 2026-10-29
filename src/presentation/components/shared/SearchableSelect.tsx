@@ -33,6 +33,13 @@ interface SearchableSelectProps {
   // permite cargar un valor libre (ej. una categoría nueva de variable
   // general que todavía no existe en el catálogo).
   allowCustomValue?: boolean;
+  // Opcional (mismo criterio de "prop con default que preserva el
+  // comportamiento anterior"): si se manda, se agrega un primer ítem fijo
+  // en la lista para volver a "sin selección" — antes, un select opcional
+  // (ej. Cotización/Orden de compra en "Nuevo movimiento de caja") no tenía
+  // forma de deshacerse una vez elegida una opción (bug reportado por QA).
+  onClear?: () => void;
+  clearLabel?: string;
 }
 
 // Reemplazo de <Select> para listas largas cargadas de la API (clientes,
@@ -52,6 +59,8 @@ export function SearchableSelect({
   className,
   id,
   allowCustomValue = false,
+  onClear,
+  clearLabel = 'Ninguna',
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -97,6 +106,19 @@ export function SearchableSelect({
           <CommandList>
             {!showCustomValueOption && <CommandEmpty>{emptyText}</CommandEmpty>}
             <CommandGroup>
+              {onClear && (
+                <CommandItem
+                  value={`__clear__${clearLabel}`}
+                  onSelect={() => {
+                    onClear();
+                    setSearch('');
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn('size-4', !value ? 'opacity-100' : 'opacity-0')} />
+                  <span className="min-w-0 truncate text-muted-foreground">{clearLabel}</span>
+                </CommandItem>
+              )}
               {options.map((option) => (
                 <CommandItem
                   key={option.value}

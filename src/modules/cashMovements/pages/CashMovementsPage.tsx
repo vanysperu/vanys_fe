@@ -26,6 +26,7 @@ import {
 } from '@/modules/cashMovements/types/cashMovement.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateField } from '@/presentation/components/shared/DateField';
+import { disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
@@ -382,6 +383,7 @@ function CreateCashMovementDialog() {
                 id="cash-movement-date"
                 value={watch('occurred_at')}
                 onChange={(value) => setValue('occurred_at', value, { shouldValidate: true })}
+                disabled={disableFuture}
               />
               {errors.occurred_at && <p className="text-sm text-destructive">{errors.occurred_at.message}</p>}
             </div>
@@ -415,6 +417,7 @@ function CreateCashMovementDialog() {
                 placeholder="Ninguna"
                 value={watch('quotation_id') ? String(watch('quotation_id')) : undefined}
                 onChange={(value) => setValue('quotation_id', Number(value))}
+                onClear={() => setValue('quotation_id', undefined)}
                 options={(quotations?.data ?? []).map((quotation) => ({
                   value: String(quotation.id),
                   label: `COT-${String(quotation.id).padStart(4, '0')} — ${quotation.client?.name ?? 'Sin cliente'}`,
@@ -427,6 +430,7 @@ function CreateCashMovementDialog() {
                 placeholder="Ninguna"
                 value={watch('purchase_order_id') ? String(watch('purchase_order_id')) : undefined}
                 onChange={(value) => setValue('purchase_order_id', Number(value))}
+                onClear={() => setValue('purchase_order_id', undefined)}
                 options={(purchaseOrders?.data ?? []).map((order) => ({
                   value: String(order.id),
                   label: `OC-${String(order.id).padStart(4, '0')} — ${order.quotation?.client?.name ?? 'Sin cliente'}`,

@@ -65,12 +65,26 @@ export function RoleAccessDialog({ role, onClose }: RoleAccessDialogProps) {
     setInitialGranted(new Set(ids));
   }, [data]);
 
-  const toggle = (id: number) => {
+  // Un resource con hijos (ej. "Usuarios" agrupando "Crear usuario",
+  // "Actualizar usuario", etc.) actúa como "seleccionar todo" de su propio
+  // subárbol al marcarlo/desmarcarlo — antes el checkbox del padre solo se
+  // marcaba a sí mismo, sin tocar ninguno de sus hijos (bug reportado por
+  // QA: "agilizar la configuración de accesos").
+  const collectIds = (resource: ResourceTreeItem): number[] => [
+    resource.id,
+    ...resource.children.flatMap(collectIds),
+  ];
+
+  const toggle = (resource: ResourceTreeItem) => {
     if (readOnly) return;
+    const ids = collectIds(resource);
+    const willGrant = !granted.has(resource.id);
     setGranted((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      for (const id of ids) {
+        if (willGrant) next.add(id);
+        else next.delete(id);
+      }
       return next;
     });
   };
@@ -162,7 +176,7 @@ function ModuleGroup({
 }: {
   module: ModuleTreeItem;
   granted: Set<number>;
-  onToggle: (id: number) => void;
+  onToggle: (resource: ResourceTreeItem) => void;
   readOnly: boolean;
   index: number;
 }) {
@@ -197,7 +211,7 @@ function ResourceRow({
 }: {
   resource: ResourceTreeItem;
   granted: Set<number>;
-  onToggle: (id: number) => void;
+  onToggle: (resource: ResourceTreeItem) => void;
   readOnly: boolean;
   depth?: number;
 }) {
@@ -210,7 +224,7 @@ function ResourceRow({
         )}
         style={{ paddingLeft: `${16 + depth * 20}px` }}
       >
-        <Checkbox checked={granted.has(resource.id)} onCheckedChange={() => onToggle(resource.id)} disabled={readOnly} />
+        <Checkbox checked={granted.has(resource.id)} onCheckedChange={() => onToggle(resource)} disabled={readOnly} />
         <span className="flex-1">{resource.name}</span>
         <Badge variant="outline" className="text-[10px] text-muted-foreground">
           {TYPE_LABEL[resource.type]}

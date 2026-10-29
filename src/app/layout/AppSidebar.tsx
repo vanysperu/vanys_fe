@@ -15,6 +15,7 @@ import { logout } from '@/modules/auth/api/auth.api';
 import { useAuthStore } from '@/modules/auth/hooks/useAuthStore';
 import { Avatar, AvatarFallback } from '@/presentation/components/shared/ui/avatar';
 import { Badge } from '@/presentation/components/shared/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/components/shared/ui/popover';
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +30,7 @@ import {
   TooltipTrigger,
 } from '@/presentation/components/shared/ui/tooltip';
 import type { MyAccessViewItem } from '@/presentation/hooks/shared/useAccess';
-import { getStoreOrCompanyLabel, useAccess } from '@/presentation/hooks/shared/useAccess';
+import { getStoreOrCompanyLabel, getVisibleAccessModules, useAccess } from '@/presentation/hooks/shared/useAccess';
 
 // El backend arma el árbol completo (módulos -> vistas -> sub-vistas) según
 // lo que el rol tiene otorgado (GET /access/me). El front NO decide qué
@@ -68,7 +69,7 @@ export function AppSidebar() {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
 
-  const menu = useMemo(() => buildMenu(access?.views ?? []), [access]);
+  const menu = useMemo(() => buildMenu(getVisibleAccessModules(access)), [access]);
 
   const { mutate: signOut, isPending } = useMutation({
     mutationFn: logout,
@@ -151,20 +152,19 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="gap-0 border-t border-white/10 p-3">
-        {/* Bloque de sesión compacto: avatar con iniciales + nombre/rol-tienda
-            apilados a la derecha, y el botón de cerrar sesión (solo ícono)
-            alineado al final de la misma fila. En modo colapsado se reduce
-            al avatar con un tooltip disparado desde el botón de logout. */}
-        {isCollapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
+        {/* Bloque de sesión: clicar el perfil (avatar/nombre) abre un menú con
+            el nombre/rol y el botón "Salir" — antes el clic ejecutaba
+            signOut() directo, sin confirmación ni posibilidad de cancelar
+            (bug reportado por QA). En modo colapsado el trigger es solo el
+            avatar; en modo expandido, todo el bloque avatar+nombre. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            {isCollapsed ? (
               <button
                 type="button"
-                disabled={isPending}
-                onClick={() => signOut()}
-                title="Cerrar sesión"
-                aria-label="Cerrar sesión"
-                className="group flex w-full items-center justify-center rounded-lg px-0 py-2 text-sm text-sidebar-muted transition-colors hover:bg-white/5 hover:text-sidebar-foreground disabled:opacity-50"
+                title={user?.fullName ?? 'Usuario'}
+                aria-label="Abrir menú de perfil"
+                className="group flex w-full items-center justify-center rounded-lg px-0 py-2 text-sm text-sidebar-muted transition-colors hover:bg-white/5 hover:text-sidebar-foreground"
               >
                 <Avatar className="ring-1 ring-white/10">
                   <AvatarFallback className="bg-white/10 text-xs font-semibold text-sidebar-foreground">
@@ -172,56 +172,60 @@ export function AppSidebar() {
                   </AvatarFallback>
                 </Avatar>
               </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p className="font-medium">{user?.fullName ?? 'Usuario'}</p>
-              <p className="text-xs text-muted-foreground">{subtitleLabel}</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <div className="flex flex-col gap-2 px-1 py-1">
-            {/* Fila 1: avatar + nombre/rol, siguiendo el patrón que shadcn/ui
-                recomienda para el footer de sesión (SidebarMenuButton size="lg",
-                avatar a la izquierda + 2 líneas de texto a la derecha). */}
-            <div className="flex items-center gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <Avatar className="size-8 shrink-0 ring-1 ring-white/10">
-                  <AvatarFallback className="bg-white/10 text-xs font-semibold text-sidebar-foreground">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex min-w-0 flex-col leading-tight">
-                  <p className="truncate text-sm font-bold text-sidebar-foreground">
-                    {user?.fullName ?? 'Usuario'}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
-                </div>
-              </div>
+            ) : (
               <button
                 type="button"
-                disabled={isPending}
-                onClick={() => signOut()}
-                title="Cerrar sesión"
-                aria-label="Cerrar sesión"
-                className="flex size-8 shrink-0 items-center justify-center rounded-lg text-sidebar-muted transition-colors hover:bg-white/5 hover:text-sidebar-foreground disabled:opacity-50"
+                aria-label="Abrir menú de perfil"
+                className="flex flex-col gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-white/5"
               >
-                <LogOut className="size-4" />
+                {/* Fila 1: avatar + nombre/rol, siguiendo el patrón que shadcn/ui
+                    recomienda para el footer de sesión (SidebarMenuButton
+                    size="lg", avatar a la izquierda + 2 líneas de texto a la
+                    derecha). */}
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar className="size-8 shrink-0 ring-1 ring-white/10">
+                    <AvatarFallback className="bg-white/10 text-xs font-semibold text-sidebar-foreground">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <p className="truncate text-sm font-bold text-sidebar-foreground">
+                      {user?.fullName ?? 'Usuario'}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
+                  </div>
+                </div>
+                {/* Fila 2: badge de tienda/empresa en su propia línea, con ancho
+                    libre (w-fit) para que no se corte por el ancho angosto del
+                    sidebar como pasaba cuando compartía fila con el nombre. */}
+                {storeLabel && (
+                  <Badge
+                    variant="secondary"
+                    title={storeLabel}
+                    className="w-fit max-w-full truncate px-2 py-0.5 text-[11px] font-medium leading-4"
+                  >
+                    {storeLabel}
+                  </Badge>
+                )}
               </button>
-            </div>
-            {/* Fila 2: badge de tienda/empresa en su propia línea, con ancho
-                libre (w-fit) para que no se corte por el ancho angosto del
-                sidebar como pasaba cuando compartía fila con el nombre. */}
-            {storeLabel && (
-              <Badge
-                variant="secondary"
-                title={storeLabel}
-                className="w-fit max-w-full truncate px-2 py-0.5 text-[11px] font-medium leading-4"
-              >
-                {storeLabel}
-              </Badge>
             )}
-          </div>
-        )}
+          </PopoverTrigger>
+          <PopoverContent side="right" align="end" className="w-56 p-2">
+            <div className="px-2 py-1.5">
+              <p className="truncate text-sm font-semibold">{user?.fullName ?? 'Usuario'}</p>
+              <p className="truncate text-xs text-muted-foreground">{subtitleLabel}</p>
+            </div>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => signOut()}
+              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+            >
+              <LogOut className="size-4" />
+              Salir
+            </button>
+          </PopoverContent>
+        </Popover>
       </SidebarFooter>
     </Sidebar>
   );

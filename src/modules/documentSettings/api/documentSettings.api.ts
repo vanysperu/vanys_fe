@@ -23,9 +23,12 @@ export async function updateMyDocumentSettings(dto: UpdateCompanyDocumentSetting
 export async function uploadCompanyAsset(file: File): Promise<{ path: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await apiClient.post<ApiResponse<{ path: string }>>('/uploads/company-asset', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  // No fijar Content-Type a mano: ese header necesita el "boundary" que
+  // genera axios automáticamente a partir del FormData. Forzarlo a un
+  // string fijo (sin boundary) hacía que multer/busboy en el backend no
+  // pudiera parsear el archivo, y el request llegaba con req.file vacío
+  // ("No se recibió ninguna imagen") tanto para el logo como para el QR.
+  const response = await apiClient.post<ApiResponse<{ path: string }>>('/uploads/company-asset', formData);
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

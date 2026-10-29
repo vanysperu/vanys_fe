@@ -81,8 +81,11 @@ export async function pickDate(page: Page, fieldId: string, dayNumber: number) {
   await page.click(`#${fieldId}`);
   const popover = page.locator('[data-slot="popover-content"][data-state="open"]');
   await popover.waitFor({ state: 'visible' });
+  // :not([data-outside]) — el mismo número de día puede aparecer dos veces
+  // en la grilla (relleno del mes anterior/siguiente + el día real del mes
+  // mostrado); sin este filtro, `.first()` podía matchear el relleno.
   await popover
-    .locator('button', { hasText: new RegExp(`^${dayNumber}$`) })
+    .locator('button:not([data-outside])', { hasText: new RegExp(`^${dayNumber}$`) })
     .first()
     .click();
 }

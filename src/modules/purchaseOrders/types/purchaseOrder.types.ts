@@ -1,8 +1,13 @@
 export type PurchaseOrderStatus = 'pending' | 'purchased';
 
+// "purchased" = TODOS los items quedaron resueltos (comprados o marcados
+// "ya no es necesario"), no necesariamente que se haya comprado todo — la
+// etiqueta "Finalizada" (en vez de "Comprado") evita la contradicción visual
+// de una orden "Comprado" con un item tachado en 0/100 (bug reportado por
+// QA: "genera confusión sobre el estado real de la compra").
 export const PURCHASE_ORDER_STATUS_LABEL: Record<PurchaseOrderStatus, string> = {
   pending: 'Pendiente',
-  purchased: 'Comprado',
+  purchased: 'Finalizada',
 };
 
 // Estado por producto dentro de una orden (no toda la orden) — una orden
