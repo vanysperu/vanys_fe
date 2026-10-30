@@ -46,7 +46,8 @@ export function RoleAccessDialog({ role, onClose }: RoleAccessDialogProps) {
   // alcanza a todas. Solo un rol de plataforma queda de solo lectura (ya
   // tiene todo otorgado).
   const isSharedTemplate = Boolean(role) && !role!.is_system && role!.company_id == null;
-  const readOnly = Boolean(role?.is_system);
+  const isDisabledRole = role?.status === false;
+  const readOnly = Boolean(role?.is_system) || isDisabledRole;
 
   const [granted, setGranted] = useState<Set<number>>(new Set());
   const [initialGranted, setInitialGranted] = useState<Set<number>>(new Set());
@@ -133,6 +134,12 @@ export function RoleAccessDialog({ role, onClose }: RoleAccessDialogProps) {
             <p className="mb-4 rounded-lg bg-accent px-3 py-2 text-sm text-accent-foreground">
               Este es un rol de plantilla compartido con todas las empresas: lo que cambies aquí se aplica a
               todos los usuarios de todas las empresas que tengan este rol.
+            </p>
+          )}
+
+          {isDisabledRole && (
+            <p className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              Este rol está inactivo: sus accesos quedan de solo lectura hasta que lo actives de nuevo.
             </p>
           )}
 

@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 // Mismo shape que valida el backend (grulla_be: variable_general.validator.ts).
 export const createVariableGeneralSchema = z.object({
-  category: z.string().min(1, 'La categoría es obligatoria').max(255, 'Máximo 255 caracteres'),
+  // { error } en el z.string() base: category se carga con setValue()
+  // (SearchableSelect, no un <input> nativo) — sin tocarlo su valor es
+  // undefined y Zod fallaba con el mensaje crudo de Zod en vez de este
+  // (mismo caso que Caja/Pagos).
+  category: z.string({ error: 'La categoría es obligatoria' }).min(1, 'La categoría es obligatoria').max(255, 'Máximo 255 caracteres'),
   title: z.string().min(1, 'El título es obligatorio').max(255, 'Máximo 255 caracteres'),
   prefix_id: z.string().min(1, 'El código es obligatorio').max(255, 'Máximo 255 caracteres'),
   name: z.string().min(1, 'El nombre es obligatorio').max(255, 'Máximo 255 caracteres'),

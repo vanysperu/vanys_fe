@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
-import { chooseSelect, chooseSelectExact, stamp, wordStamp } from '../helpers';
+import { chooseSelect, chooseSelectExact, pickAdultBirthDate, stamp, wordStamp } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -34,13 +34,7 @@ test.describe('Usuarios', () => {
     await page.fill('#name', fullName);
     await page.fill('#paternal_lastname', 'Apellido');
     await page.fill('#email', email);
-    // Día 1 del mes actual — siempre en el pasado (nunca choca con
-    // disableFuture del DateField, a diferencia de un día fijo como "15" que
-    // puede caer después de "hoy" según la fecha real de la corrida).
-    await page.click('#date_of_birth');
-    const calendar = page.locator('[data-slot="popover-content"][data-state="open"]');
-    await calendar.waitFor({ state: 'visible' });
-    await calendar.locator('button', { hasText: /^1$/ }).first().click();
+    await pickAdultBirthDate(page, 'date_of_birth');
 
     await chooseSelect(page, 'Tipo de documento', 'DNI');
     await page.fill('#document_number', dni);

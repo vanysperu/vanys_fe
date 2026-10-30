@@ -81,9 +81,16 @@ test.describe('Roles y accesos (Super Administrador)', () => {
     await expect(page.locator('text=Rol deshabilitado')).toBeVisible({ timeout: 10_000 });
     await expect(editedRow).toContainText('Inactivo');
 
+    // Inactivo: ni editar ni gestionar accesos hasta reactivarlo (bug
+    // reportado por QA).
+    await expect(editedRow.getByRole('button', { name: 'Editar rol' })).toBeDisabled();
+    await expect(editedRow.getByRole('button', { name: 'Gestionar accesos' })).toBeDisabled();
+
     await editedRow.getByRole('button', { name: 'Habilitar rol' }).click();
     await expect(page.locator('text=Rol habilitado')).toBeVisible({ timeout: 10_000 });
     await expect(editedRow).toContainText('Activo');
+    await expect(editedRow.getByRole('button', { name: 'Editar rol' })).toBeEnabled();
+    await expect(editedRow.getByRole('button', { name: 'Gestionar accesos' })).toBeEnabled();
   });
 });
 

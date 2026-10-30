@@ -90,6 +90,25 @@ export async function pickDate(page: Page, fieldId: string, dayNumber: number) {
     .click();
 }
 
+// Fecha de nacimiento de un adulto (hoy - yearsAgo), eligiendo primero el
+// año en el selector rápido del calendario y recién ahí el día — el campo
+// ahora deshabilita cualquier fecha que no deje al usuario ser mayor de
+// edad (DateField + disableAfter(latestAdultBirthDate()) en
+// UsersListPage.tsx), así que no alcanza con clicar un día del mes actual
+// como antes.
+export async function pickAdultBirthDate(page: Page, fieldId: string, yearsAgo = 25) {
+  await page.click(`#${fieldId}`);
+  const popover = page.locator('[data-slot="popover-content"][data-state="open"]');
+  await popover.waitFor({ state: 'visible' });
+
+  const targetYear = new Date().getFullYear() - yearsAgo;
+  const yearTrigger = popover.locator('button[role="combobox"]').nth(1);
+  await yearTrigger.click();
+  await page.locator('[role="option"]', { hasText: new RegExp(`^${targetYear}$`) }).first().click();
+
+  await popover.locator('button:not([data-outside])', { hasText: /^1$/ }).first().click();
+}
+
 // Espera a que la tabla (o el empty-state) de un listado termine de cargar —
 // mismo criterio en todas las vistas de catálogo (CLAUDE.md sección 7:
 // DataTable compartido).

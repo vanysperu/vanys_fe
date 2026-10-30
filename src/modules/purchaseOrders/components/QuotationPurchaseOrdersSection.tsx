@@ -146,9 +146,14 @@ export function QuotationPurchaseOrdersSection({
                       placeholder="Selecciona una persona"
                       value={field.value ? String(field.value) : undefined}
                       onChange={(value) => field.onChange(Number(value))}
+                      // + email: dos personas de la misma empresa pueden
+                      // llamarse igual — sin un dato que las distinga, el
+                      // selector se veía con "contenido duplicado" (bug
+                      // reportado por QA) aunque cada fila fuera una
+                      // persona real distinta.
                       options={users.map((user) => ({
                         value: String(user.id),
-                        label: `${user.name} ${user.paternal_lastname}`,
+                        label: `${user.name} ${user.paternal_lastname} · ${user.email}`,
                       }))}
                     />
                   )}

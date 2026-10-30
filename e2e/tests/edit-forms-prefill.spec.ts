@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { ADMIN_STATE } from '../auth';
-import { chooseSelect, chooseSelectExact, stamp, wordStamp } from '../helpers';
+import { chooseSelect, chooseSelectExact, pickAdultBirthDate, stamp, wordStamp } from '../helpers';
 
 test.use({ storageState: ADMIN_STATE });
 
@@ -37,6 +37,9 @@ test('cliente: editar muestra todos los datos guardados', async ({ page }) => {
   await page.fill('#name', name);
   await page.fill('#email', `cliente.${stamp()}@example.test`);
   await page.fill('#phone', '987654321');
+  // Tipo y número van juntos (11 dígitos = RUC exacto) — bug corregido,
+  // ver client.schema.ts/client.validator.ts.
+  await chooseSelect(page, 'Tipo de documento', 'RUC');
   await page.fill('#document_number', documentNumber);
   await page.fill('#address', 'Av. Los Próceres 123, Lima');
   const email = await page.locator('#email').inputValue();
@@ -47,6 +50,7 @@ test('cliente: editar muestra todos los datos guardados', async ({ page }) => {
   await expect(form.locator('#name')).toHaveValue(name);
   await expect(form.locator('#email')).toHaveValue(email);
   await expect(form.locator('#phone')).toHaveValue('987654321');
+  await expect(form.locator('button', { hasText: 'RUC' })).toBeVisible();
   await expect(form.locator('#document_number')).toHaveValue(documentNumber);
   await expect(form.locator('#address')).toHaveValue('Av. Los Próceres 123, Lima');
 });
@@ -147,10 +151,7 @@ test('usuario: editar muestra nombres, documento, género, teléfono, dirección
   await page.fill('#paternal_lastname', 'Prueba');
   await page.fill('#maternal_lastname', 'Completa');
   await page.fill('#email', `usuario.completo.${suffix}@acme.test`);
-  await page.click('#date_of_birth');
-  const calendar = page.locator('[data-slot="popover-content"][data-state="open"]');
-  await calendar.waitFor({ state: 'visible' });
-  await calendar.locator('button', { hasText: /^1$/ }).first().click();
+  await pickAdultBirthDate(page, 'date_of_birth');
   await chooseSelect(page, 'Tipo de documento', 'DNI');
   await page.fill('#document_number', dni);
   await chooseSelect(page, 'Género', 'Femenino');

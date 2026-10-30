@@ -145,19 +145,46 @@ export function RolesPage() {
                 {canAssign && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => setManageRole(role)}>
+                      {/* Inactivo: se deja abrir en modo solo lectura (el
+                          dialog ya lo bloquea), pero deshabilitado acá evita
+                          el viaje de "marcar cambios y que el guardado los
+                          rechace" (bug reportado por QA). */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        disabled={!role.status}
+                        aria-label="Gestionar accesos"
+                        onClick={() => setManageRole(role)}
+                      >
                         <KeyRound className="size-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Gestionar accesos</TooltipContent>
+                    <TooltipContent>
+                      {role.status ? 'Gestionar accesos' : 'Actívalo primero para gestionar sus accesos'}
+                    </TooltipContent>
                   </Tooltip>
                 )}
                 {/* El rol de plataforma (Super Administrador) no se edita ni
-                    se deshabilita: dejaría el sistema sin quién lo administre. */}
+                    se deshabilita: dejaría el sistema sin quién lo administre.
+                    Un rol inactivo tampoco se edita hasta reactivarlo (bug
+                    reportado por QA). */}
                 {canUpdate && !role.is_system && (
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditRole(role)}>
-                    <Pencil className="size-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        disabled={!role.status}
+                        aria-label="Editar rol"
+                        onClick={() => setEditRole(role)}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{role.status ? 'Editar rol' : 'Actívalo primero para editarlo'}</TooltipContent>
+                  </Tooltip>
                 )}
                 {canDisable && !role.is_system && (
                   <ToggleStatusButton

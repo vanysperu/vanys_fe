@@ -36,4 +36,23 @@ test.describe('Caja', () => {
     await expect(page.locator('text=Movimiento registrado correctamente')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('tr', { hasText: description })).toBeVisible();
   });
+
+  test('el modal se limpia al cerrarlo sin guardar y volver a abrirlo', async ({ page }) => {
+    await page.goto('/caja');
+    await page.click('button:has-text("Nuevo movimiento")');
+    await expect(page.locator('div[role="dialog"]')).toBeVisible();
+
+    await page.fill('#cash-movement-amount', '50');
+    await page.fill('#cash-movement-description', 'drgdrg');
+    // Cerrar con la X (no "Registrar"): antes el reset() del modal no
+    // limpiaba los <input>/<textarea> nativos (amount, description), solo
+    // los campos tipo Select/DateField (bug reportado por QA).
+    await page.getByRole('button', { name: 'Cerrar' }).click();
+    await expect(page.locator('div[role="dialog"]')).toBeHidden();
+
+    await page.click('button:has-text("Nuevo movimiento")');
+    await expect(page.locator('div[role="dialog"]')).toBeVisible();
+    await expect(page.locator('#cash-movement-amount')).toHaveValue('');
+    await expect(page.locator('#cash-movement-description')).toHaveValue('');
+  });
 });

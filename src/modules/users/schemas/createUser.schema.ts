@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { addDocumentNumberIssues } from '@/lib/documentType';
+
 // Nombre propio: solo letras/acentos/espacios/guiones — mismo criterio que
 // clients (client.schema.ts) y el backend (user.validator.ts NAME_REGEX).
 const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'.-]+$/;
@@ -8,37 +10,21 @@ const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'.-]+$/;
 // aceptaban hasta 15).
 const PHONE_REGEX = /^[0-9]{6,9}$/;
 
-// Reglas EXACTAS por tipo de documento — mismo criterio que ya aplica el
-// backend (grulla_be: user.validator.ts -> createUserDtoValidator,
-// body("document_type").custom(...)). Antes el frontend solo validaba un
-// rango genérico (6-12) sin importar el tipo, así que un DNI de 7 u 11
-// dígitos pasaba el formulario y recién reventaba en el backend con un
-// error poco claro (pedido explícito del usuario: "los números de tipo de
-// documento no son acordes al documento, debe ser exacto").
-const DOCUMENT_TYPE_DNI = 1;
-const DOCUMENT_TYPE_PASSPORT = 2;
-const DOCUMENT_TYPE_CE = 3;
-const DOCUMENT_TYPE_RUC = 6;
-
-interface DocumentRule {
-  // Exacto cuando min === max (DNI/RUC); rango cuando difieren (CE/PAS,
-  // documentos extranjeros cuyo largo real varía por país).
-  min: number;
-  max: number;
-  onlyDigits: boolean;
-  label: string;
-}
-
-const DOCUMENT_RULES: Record<number, DocumentRule> = {
-  [DOCUMENT_TYPE_DNI]: { min: 8, max: 8, onlyDigits: true, label: 'El DNI debe tener exactamente 8 dígitos' },
-  [DOCUMENT_TYPE_RUC]: { min: 11, max: 11, onlyDigits: true, label: 'El RUC debe tener exactamente 11 dígitos' },
-  [DOCUMENT_TYPE_CE]: { min: 9, max: 12, onlyDigits: false, label: 'El CE debe tener entre 9 y 12 caracteres' },
-  [DOCUMENT_TYPE_PASSPORT]: { min: 6, max: 9, onlyDigits: false, label: 'El pasaporte debe tener entre 6 y 9 caracteres' },
-};
-
 function startOfToday(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+// Solo mayores de edad (pedido explícito del usuario). Se exporta para que
+// el calendario del formulario (UsersListPage.tsx) deshabilite esas fechas
+// directamente, en vez de dejar elegirlas y recién avisar al validar.
+export const MIN_AGE_YEARS = 18;
+
+// Fecha límite: el día de nacimiento que hace exactamente 18 años hoy. Una
+// fecha de nacimiento posterior a esta todavía no cumple la mayoría de edad.
+export function latestAdultBirthDate(): Date {
+  const today = startOfToday();
+  return new Date(today.getFullYear() - MIN_AGE_YEARS, today.getMonth(), today.getDate());
 }
 
 // Mismo shape que valida el backend (grulla_be: users/validators/user.validator.ts
@@ -65,6 +51,9 @@ const baseUserSchema = z
       .min(1, 'La fecha de nacimiento es obligatoria')
       .refine((value) => new Date(value).getTime() <= startOfToday().getTime(), {
         message: 'La fecha de nacimiento no puede ser una fecha futura',
+      })
+      .refine((value) => new Date(value).getTime() <= latestAdultBirthDate().getTime(), {
+        message: `El usuario debe ser mayor de edad (${MIN_AGE_YEARS} años o más)`,
       }),
     phone_number: z.string().regex(PHONE_REGEX, 'El teléfono debe tener entre 6 y 9 dígitos, solo números').optional().or(z.literal('')),
     address: z.string().max(255, 'Máximo 255 caracteres').optional(),
@@ -80,16 +69,7 @@ const baseUserSchema = z
     roleId: z.number({ error: 'Selecciona un rol' }),
   })
   .superRefine((data, ctx) => {
-    const rule = DOCUMENT_RULES[data.document_type];
-    if (!rule) return;
-
-    if (data.document_number.length < rule.min || data.document_number.length > rule.max) {
-      ctx.addIssue({ code: 'custom', message: rule.label, path: ['document_number'] });
-      return;
-    }
-    if (rule.onlyDigits && !/^\d+$/.test(data.document_number)) {
-      ctx.addIssue({ code: 'custom', message: 'Debe contener solo dígitos', path: ['document_number'] });
-    }
+    addDocumentNumberIssues(ctx, data.document_type, data.document_number, ['document_number']);
   });
 
 export const createUserSchema = (isSystem: boolean) =>

@@ -10,13 +10,14 @@ import { useRoles } from '@/modules/roles/hooks/useRoles';
 import { useCatalog, useCreateUser, useUpdateUser } from '@/modules/users/hooks/useCreateUser';
 import { useToggleUserStatus } from '@/modules/users/hooks/useToggleUserStatus';
 import { useUsers } from '@/modules/users/hooks/useUsers';
-import { createUserSchema, type CreateUserFormValues } from '@/modules/users/schemas/createUser.schema';
+import { createUserSchema, latestAdultBirthDate, type CreateUserFormValues } from '@/modules/users/schemas/createUser.schema';
 import { updateUserSchema, type UpdateUserFormValues } from '@/modules/users/schemas/updateUser.schema';
 import type { User } from '@/modules/users/types/user.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateField } from '@/presentation/components/shared/DateField';
-import { disableFuture } from '@/presentation/components/shared/ui/calendar';
+import { disableAfter } from '@/presentation/components/shared/ui/calendar';
 import { digitsFilter, lettersFilter, maxLengthFilter, withInputFilter } from '@/lib/inputRestrictions';
+import { documentNumberMaxLength, documentNumberOnlyDigits } from '@/lib/documentType';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
@@ -243,28 +244,14 @@ function toDDMMYYYY(isoDate: string): string {
   return `${day}/${month}/${year}`;
 }
 
-// Mismos códigos/largos EXACTOS que ya valida el backend (user.validator.ts)
-// y el schema de Zod (createUser.schema.ts -> DOCUMENT_RULES) — DNI/RUC son
-// siempre numéricos (se filtran en vivo), CE/Pasaporte pueden traer letras
-// (documentos de extranjería), así que solo se les tope el largo máximo.
-const DOCUMENT_TYPE_DNI = 1;
-const DOCUMENT_TYPE_PASSPORT = 2;
-const DOCUMENT_TYPE_CE = 3;
-const DOCUMENT_TYPE_RUC = 6;
-
+// Mismos códigos/largos EXACTOS que ya valida el backend
+// (core/validators/documentType.validator.ts) y el schema de Zod
+// (createUser.schema.ts) — DNI/RUC son siempre numéricos (se filtran en
+// vivo), CE/Pasaporte pueden traer letras (documentos de extranjería), así
+// que solo se les tope el largo máximo.
 function documentNumberFilter(documentType: number | undefined) {
-  switch (documentType) {
-    case DOCUMENT_TYPE_DNI:
-      return digitsFilter(8);
-    case DOCUMENT_TYPE_RUC:
-      return digitsFilter(11);
-    case DOCUMENT_TYPE_CE:
-      return maxLengthFilter(12);
-    case DOCUMENT_TYPE_PASSPORT:
-      return maxLengthFilter(9);
-    default:
-      return maxLengthFilter(12);
-  }
+  const maxLength = documentNumberMaxLength(documentType);
+  return documentNumberOnlyDigits(documentType) ? digitsFilter(maxLength) : maxLengthFilter(maxLength);
 }
 
 function CreateUserDialog() {
@@ -360,7 +347,10 @@ function CreateUserDialog() {
                 id="date_of_birth"
                 value={watch('date_of_birth')}
                 onChange={(value) => setValue('date_of_birth', value, { shouldValidate: true })}
-                disabled={disableFuture}
+                // Solo mayores de edad (pedido explícito del usuario): el
+                // calendario ya no deja elegir una fecha de menor, en vez de
+                // dejarla elegir y recién avisar al querer guardar.
+                disabled={disableAfter(latestAdultBirthDate())}
               />
               {errors.date_of_birth && (
                 <p className="text-sm text-destructive">{errors.date_of_birth.message}</p>
@@ -460,7 +450,11 @@ function CreateUserDialog() {
               tienda (obligatoria) — pedido explícito del usuario. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {isSystem && (
-              <div className="space-y-2">
+              // min-w-0: sin esto, un nombre de empresa largo no se truncaba
+              // — el grid le daba a esta columna su ancho mínimo de
+              // CONTENIDO en vez del de la grilla, y el texto se salía del
+              // input (bug reportado por QA).
+              <div className="min-w-0 space-y-2">
                 <Label>Empresa</Label>
                 <Select
                   value={watch('company_id') ? String(watch('company_id')) : undefined}
@@ -486,7 +480,7 @@ function CreateUserDialog() {
                 )}
               </div>
             )}
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label>Tienda{isSystem && <span className="font-normal text-muted-foreground"> (opcional)</span>}</Label>
               {/* Antes el select quedaba vacío y "bloqueado" sin explicación
                   cuando la empresa no tenía tiendas registradas (bug
@@ -738,7 +732,11 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
               mantiene fija en la suya), pero sí puede corregir la tienda. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {isSystem && (
-              <div className="space-y-2">
+              // min-w-0: sin esto, un nombre de empresa largo no se truncaba
+              // — el grid le daba a esta columna su ancho mínimo de
+              // CONTENIDO en vez del de la grilla, y el texto se salía del
+              // input (bug reportado por QA).
+              <div className="min-w-0 space-y-2">
                 <Label>Empresa</Label>
                 <Select
                   value={watch('company_id') ? String(watch('company_id')) : undefined}
@@ -762,7 +760,7 @@ function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) 
                 {errors.company_id && <p className="text-sm text-destructive">{errors.company_id.message}</p>}
               </div>
             )}
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label>Tienda{isSystem && <span className="font-normal text-muted-foreground"> (opcional)</span>}</Label>
               {businessUnits && businessUnits.data.length === 0 && !(isSystem && !selectedCompanyId) ? (
                 <p className="flex h-9 items-center text-sm text-muted-foreground">No hay tiendas disponibles.</p>

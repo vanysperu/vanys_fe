@@ -5,9 +5,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { useCompanies } from '@/modules/platform/hooks/useCompanies';
+import { useCatalog } from '@/modules/users/hooks/useCreateUser';
 import { useClients, useCreateClient, useToggleClientStatus, useUpdateClient } from '@/modules/clients/hooks/useClients';
 import { createClientSchema, PHONE_MAX_DIGITS, type CreateClientFormValues } from '@/modules/clients/schemas/client.schema';
-import { digitsFilter, withInputFilter } from '@/lib/inputRestrictions';
+import { digitsFilter, maxLengthFilter, withInputFilter } from '@/lib/inputRestrictions';
+import { documentNumberMaxLength, documentNumberOnlyDigits } from '@/lib/documentType';
 import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
@@ -28,6 +30,7 @@ import {
 } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
@@ -228,6 +231,7 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
   const [open, setOpen] = useState(isEditing);
   const { data: access } = useAccess();
   const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: access?.isSystem });
+  const { data: documentTypes } = useCatalog('document_type');
   const { mutate: create, isPending: isCreating, error: createError } = useCreateClient();
   const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateClient();
 
@@ -244,6 +248,7 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
     if (client) {
       reset({
         name: client.name,
+        document_type: client.document_type ? Number(client.document_type) : undefined,
         document_number: client.document_number ?? '',
         email: client.email ?? '',
         phone: client.phone ?? '',
@@ -351,15 +356,53 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="document_number">Documento</Label>
-              <Input id="document_number" {...register('document_number')} />
-              {errors.document_number && <p className="text-sm text-destructive">{errors.document_number.message}</p>}
+              <Label>Tipo de documento (opcional)</Label>
+              <Select
+                value={watch('document_type') ? String(watch('document_type')) : undefined}
+                onValueChange={(value) => {
+                  setValue('document_type', Number(value), { shouldValidate: true });
+                  // Cambiar de tipo puede dejar un número que ya no calza
+                  // con el nuevo largo exacto (ej. de RUC a DNI) — se
+                  // revalida de una.
+                  if (watch('document_number')) setValue('document_number', watch('document_number'), { shouldValidate: true });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {documentTypes?.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.document_type && <p className="text-sm text-destructive">{errors.document_type.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address">Dirección</Label>
-              <Input id="address" {...register('address')} />
-              {errors.address && <p className="text-sm text-destructive">{errors.address.message}</p>}
+              <Label htmlFor="document_number">N° de documento</Label>
+              {/* Mismas reglas EXACTAS por tipo que Usuarios (lib/documentType.ts)
+                  — antes era un texto libre sin tope real, permitía letras y
+                  más de 12 dígitos sin avisar (bug reportado por QA). */}
+              <Input
+                id="document_number"
+                maxLength={documentNumberMaxLength(watch('document_type'))}
+                {...withInputFilter(
+                  register('document_number'),
+                  documentNumberOnlyDigits(watch('document_type'))
+                    ? digitsFilter(documentNumberMaxLength(watch('document_type')))
+                    : maxLengthFilter(documentNumberMaxLength(watch('document_type'))),
+                )}
+              />
+              {errors.document_number && <p className="text-sm text-destructive">{errors.document_number.message}</p>}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address">Dirección</Label>
+            <Input id="address" {...register('address')} />
+            {errors.address && <p className="text-sm text-destructive">{errors.address.message}</p>}
           </div>
 
           {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}

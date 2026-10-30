@@ -313,14 +313,20 @@ function CreateCashMovementDialog() {
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (!next) reset({});
+    // reset() sin argumentos, NO reset({}): con un objeto vacío explícito,
+    // los <input>/<textarea> nativos (amount, description) volvían a
+    // mostrar lo último tipeado al reabrir el modal — los campos
+    // Select/DateField (controlados vía watch()) sí se limpiaban bien, pero
+    // los de registro nativo no (bug reportado por QA: "se mantienen los
+    // datos al cerrar y reabrir").
+    if (!next) reset();
   };
 
   const onSubmit = (values: CreateCashMovementFormValues) => {
     create(values, {
       onSuccess: () => {
         toast.success('Movimiento registrado correctamente');
-        reset({});
+        reset();
         handleOpenChange(false);
       },
     });

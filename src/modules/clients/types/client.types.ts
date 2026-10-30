@@ -4,6 +4,10 @@ export interface Client {
   company_id: number;
   business_unit_id: number | null;
   name: string;
+  // Catálogo global general_variable (category="document_type"), mismos
+  // códigos que usuarios: 1=DNI, 2=Pasaporte, 3=CE, 6=RUC. Viaja como
+  // string desde la BD (columna varchar), igual que en usuarios.
+  document_type: string | null;
   document_number: string | null;
   email: string | null;
   phone: string | null;
@@ -16,6 +20,7 @@ export interface CreateClientDto {
   company_id: number;
   business_unit_id?: number;
   name: string;
+  document_type?: number;
   document_number?: string;
   email?: string;
   phone?: string;
