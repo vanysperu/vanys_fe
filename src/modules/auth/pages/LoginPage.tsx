@@ -39,8 +39,15 @@ const DEV_QUICK_LOGIN_PASSWORD = 'Test1234';
 
 // Campo con ícono a la izquierda (como el diseño de marca): el input claro
 // resalta sobre el fondo azul marino.
+// !bg-white/!text-brand-navy (con important): el input compartido
+// (ui/input.tsx) trae `dark:bg-input/30` para el modo oscuro del resto de
+// la app, pero el login SIEMPRE es la tarjeta blanca sobre el fondo marca
+// (nunca debe seguir el tema claro/oscuro) — sin el important, en modo
+// oscuro esa clase le ganaba a `bg-white` y el texto (navy) quedaba casi
+// invisible sobre un fondo oscuro (bug reportado por QA, seguía
+// reproduciéndose).
 const FIELD_INPUT_CLASS =
-  'h-11 border-0 bg-white pl-10 text-brand-navy shadow-sm placeholder:text-slate-400 focus-visible:ring-brand-orange/60';
+  'h-11 border-0 !bg-white pl-10 !text-brand-navy shadow-sm placeholder:text-slate-400 focus-visible:ring-brand-orange/60';
 
 // Login con la marca Vanys: el formulario centrado sobre azul marino con la
 // franja naranja, igual que el diseño de referencia y en todos los tamaños de
