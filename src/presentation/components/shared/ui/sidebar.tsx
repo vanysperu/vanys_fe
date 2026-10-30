@@ -374,7 +374,13 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "scrollbar-thin flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        // overflow-x-hidden (no overflow-hidden a secas) en colapsado: antes
+        // bloqueaba TODO scroll, así que con más módulos de los que entraban
+        // en la altura de la pantalla, los de abajo quedaban inalcanzables
+        // sin ninguna forma de llegar a ellos (bug reportado por QA). Solo
+        // se sigue recortando el eje horizontal (evita un scrollbar lateral
+        // fantasma durante la animación de colapso).
+        "scrollbar-thin flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-x-hidden group-data-[collapsible=icon]:overflow-y-auto",
         className
       )}
       {...props}
