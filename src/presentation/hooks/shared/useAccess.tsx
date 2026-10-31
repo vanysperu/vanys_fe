@@ -60,7 +60,7 @@ export function getStoreOrCompanyLabel(access: MyAccess | undefined): string | n
   return access.businessUnitName ?? access.companyName ?? null;
 }
 
-const accessKeys = {
+export const accessKeys = {
   all: ['auth', 'my-access'] as const,
 };
 
@@ -83,25 +83,6 @@ export function usePermission(moduleCode: string): boolean {
 export function usePermissionButton(buttonCode: string): boolean {
   const { data } = useAccess();
   return Boolean(data?.buttons.includes(buttonCode));
-}
-
-// Códigos de módulo que son company_id en toda su lógica de negocio y
-// nunca aplican a un Super Administrador (rol de plataforma, sin empresa):
-// el backend ya rechaza "/company/my-document-settings" para is_system con
-// "Esta acción es solo para usuarios de una empresa" (ver
-// company.controller.ts), pero is_system recibe igual TODOS los módulos
-// implícitamente (ver core/rbac/businessUnitScope.ts), así que sin este
-// filtro el ítem igual aparecía en el menú y la ruta era accesible,
-// llevando siempre a ese error (bug reportado por QA).
-const MODULE_CODES_HIDDEN_FOR_SYSTEM = new Set(['document_settings']);
-
-// Vistas efectivas a usar tanto para armar el menú (AppSidebar) como para
-// validar rutas permitidas (PrivateRoute/Shell) — un solo lugar para no
-// repetir este filtro en cada consumidor.
-export function getVisibleAccessModules(access: MyAccess | undefined): MyAccessModuleItem[] {
-  if (!access) return [];
-  if (!access.isSystem) return access.views;
-  return access.views.filter((module) => !MODULE_CODES_HIDDEN_FOR_SYSTEM.has(module.code));
 }
 
 export function flattenViewRoutes(modules: MyAccessModuleItem[]): string[] {

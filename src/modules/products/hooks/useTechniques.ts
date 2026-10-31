@@ -4,10 +4,11 @@ import { createTechnique, getTechniques, toggleTechniqueStatus, updateTechnique 
 import { techniquesKeys } from '@/modules/products/hooks/products.keys';
 import type { CatalogListParams, UpdateTechniqueDto } from '@/modules/products/types/product.types';
 
-export function useTechniques(params: CatalogListParams) {
+export function useTechniques(params: CatalogListParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: techniquesKeys.list(params),
     queryFn: () => getTechniques(params),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }

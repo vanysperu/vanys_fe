@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 import { useClients } from '@/modules/clients/hooks/useClients';
 import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
-import { useCompanies } from '@/modules/platform/hooks/useCompanies';
+import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { useProducts } from '@/modules/products/hooks/useProducts';
 import type { Product } from '@/modules/products/types/product.types';
 import { useTechniques } from '@/modules/products/hooks/useTechniques';
@@ -194,17 +194,12 @@ interface CreateQuotationDialogProps {
 export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const { data: access } = useAccess();
-  const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: access?.isSystem });
-  // Nunca ofrecer clientes/productos/técnicas deshabilitados en una
-  // cotización nueva — sin este filtro, useX() devolvía TODO por defecto
-  // (el catálogo de productos sí necesita ver inactivos para reactivarlos,
-  // pero cotizar contra uno ya no tiene sentido).
-  const { data: clients } = useClients({ page: 1, limit: 100, status: 'active' });
+  const isSystem = access?.isSystem ?? false;
   // Solo quien administra tiendas (módulo "platform", ej. Administrador)
   // puede listar business units — un Gestor tiene su tienda fija server-side
   // y nunca la elige acá, así que pedirla igual solo generaba un 403 de fondo
   // cada vez que se abría este diálogo (es global: botón flotante siempre visible).
-  const canPickBusinessUnit = !access?.isSystem && Boolean(access?.modules.includes('platform'));
+  const canPickBusinessUnit = !isSystem && Boolean(access?.modules.includes('platform'));
   const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: canPickBusinessUnit });
   // Tienda: si el usuario tiene tienda propia y no puede ver las demás, el
   // backend fuerza esa tienda aunque se elija otra (resolveBusinessUnitFilter).
@@ -214,28 +209,21 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
     Boolean(access?.isSystem) || Boolean(access?.buttons.includes('roles_access.viewAllBusinessUnits.button'));
   const fixedStoreName = access?.businessUnitId && !canViewAllStores ? access.businessUnitName : null;
   const defaultStoreId = access?.businessUnitId ?? undefined;
-  const { data: products } = useProducts({ page: 1, limit: 100, status: 'active' });
-  const { data: techniques } = useTechniques({ page: 1, limit: 100, status: 'active' });
   const { mutate: create, isPending, error } = useCreateQuotation();
   // Los "+" de creación rápida aparecen solo si el rol puede crear eso. Antes
   // un Gestor veía el "+" de producto y al guardar recibía "no tiene
   // permisos": el Gestor no administra el catálogo (CLAUDE.md sección 11.1),
   // salvo que el Super Administrador se lo otorgue en Roles y accesos.
-  const canQuickCreateClient = usePermissionButton('cliente.create.button');
-  // Producto/técnica SIEMPRE son de una empresa específica — el backend
-  // rechaza a un Super Administrador con 403 aunque el botón "exista" para
-  // su rol (is_system recibe todos los botones implícitamente, ver
-  // core/rbac/businessUnitScope.ts), así que acá se oculta explícitamente
-  // para no ofrecer una acción que siempre va a fallar (bug reportado por
-  // QA: el error del backend no se veía y el formulario quedaba "colgado").
-  const canQuickCreateProduct = usePermissionButton('producto.create.button') && !access?.isSystem;
-  const canQuickCreateTechnique = usePermissionButton('producto.technique.create.button') && !access?.isSystem;
+  const canQuickCreateClientPermission = usePermissionButton('cliente.create.button');
+  const canQuickCreateProductPermission = usePermissionButton('producto.create.button');
+  const canQuickCreateTechniquePermission = usePermissionButton('producto.technique.create.button');
 
   const {
     register,
     control,
     handleSubmit,
     reset,
+    getValues,
     setValue,
     setError,
     watch,
@@ -249,11 +237,57 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
   const watchedItems = watch('items');
   const includesIgv = watch('includes_igv');
 
-  const resolvedCompanyId = (access?.isSystem ? watch('company_id') : access?.companyId) ?? undefined;
+  const resolvedCompanyId = (isSystem ? watch('company_id') : access?.companyId) ?? undefined;
+
+  // Super Administrador: primero la empresa, y recién ahí sus clientes,
+  // productos, técnicas y tiendas — nunca los de todas las empresas
+  // mezclados (pedido explícito del usuario). Un usuario de empresa siempre
+  // ve los suyos (el backend lo fuerza). Nunca se ofrecen inactivos: cotizar
+  // contra uno deshabilitado no tiene sentido.
+  const listCompanyId = isSystem ? resolvedCompanyId : undefined;
+  const listsEnabled = !isSystem || Boolean(resolvedCompanyId);
+  const { data: clients } = useClients(
+    { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
+    { enabled: listsEnabled },
+  );
+  const { data: products } = useProducts(
+    { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
+    { enabled: listsEnabled },
+  );
+  const { data: techniques } = useTechniques(
+    { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
+    { enabled: listsEnabled },
+  );
+  // keepPreviousData: al cambiar de empresa, que no asome ni un instante lo
+  // de la empresa anterior.
+  const ofSelectedCompany = <T extends { company_id: number }>(rows: T[] | undefined): T[] =>
+    (rows ?? []).filter((row) => !isSystem || row.company_id === resolvedCompanyId);
+  const companyClients = ofSelectedCompany(clients?.data);
+  const companyProducts = ofSelectedCompany(products?.data);
+  const companyTechniques = ofSelectedCompany(techniques?.data);
+
+  // Los "+" de creación rápida: solo si el rol puede crear eso y, para el
+  // Super Administrador, una vez elegida la empresa (se crea en esa).
+  const canQuickCreateClient = canQuickCreateClientPermission && listsEnabled;
+  const canQuickCreateProduct = canQuickCreateProductPermission && listsEnabled;
+  const canQuickCreateTechnique = canQuickCreateTechniquePermission && listsEnabled;
+
+  const handleCompanyChange = (companyId: number) => {
+    const current = getValues();
+    // Todo lo elegido antes (cliente, tienda, productos, técnicas) era de
+    // otra empresa: se descarta, se conservan cantidades/modos/notas.
+    reset({
+      ...current,
+      company_id: companyId,
+      client_id: undefined,
+      business_unit_id: undefined,
+      items: current.items.map((item) => ({ ...item, product_id: undefined, technique_id: undefined })),
+    });
+  };
 
   const subtotal = watchedItems.reduce((sum, item) => {
-    const product = products?.data.find((row) => row.id === item.product_id);
-    const technique = effectiveTechnique(product, techniques?.data.find((row) => row.id === item.technique_id));
+    const product = companyProducts.find((row) => row.id === item.product_id);
+    const technique = effectiveTechnique(product, companyTechniques.find((row) => row.id === item.technique_id));
     return (
       sum +
       (computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price)
@@ -273,11 +307,14 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
   };
 
   const requiresCustomization = (productId: number | undefined) =>
-    Boolean(products?.data.find((row) => row.id === productId)?.requires_customization);
+    Boolean(companyProducts.find((row) => row.id === productId)?.requires_customization);
 
   const onSubmit = (values: CreateQuotationFormValues) => {
-    const companyId = access?.isSystem ? values.company_id : access?.companyId;
-    if (!companyId) return;
+    const companyId = isSystem ? values.company_id : access?.companyId;
+    if (!companyId) {
+      setError('company_id', { message: 'Selecciona la empresa' });
+      return;
+    }
 
     // La técnica es obligatoria solo en productos que se personalizan.
     const missingTechnique = values.items.findIndex(
@@ -336,16 +373,27 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Super Administrador: primero Empresa y Tienda, y recién ahí sus
+              clientes/productos/técnicas (ver listCompanyId). */}
+          <CompanyStoreFields
+            companyId={watch('company_id')}
+            onCompanyChange={handleCompanyChange}
+            businessUnitId={watch('business_unit_id')}
+            onBusinessUnitChange={(value) => setValue('business_unit_id', value)}
+            companyError={errors.company_id?.message}
+          />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Cliente</Label>
               <div className="flex items-center gap-1">
                 <SearchableSelect
                   className="flex-1"
-                  placeholder="Selecciona un cliente"
+                  placeholder={listsEnabled ? 'Selecciona un cliente' : 'Primero elige la empresa'}
+                  disabled={!listsEnabled}
                   value={watch('client_id') ? String(watch('client_id')) : undefined}
                   onChange={(value) => setValue('client_id', Number(value), { shouldValidate: true })}
-                  options={(clients?.data ?? []).map((client) => ({ value: String(client.id), label: client.name }))}
+                  options={companyClients.map((client) => ({ value: String(client.id), label: client.name }))}
                 />
                 {canQuickCreateClient && (
                   <QuickCreateClientDialog
@@ -363,20 +411,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
               {errors.client_id && <p className="text-sm text-destructive">{errors.client_id.message}</p>}
             </div>
 
-            {access?.isSystem ? (
-              <div className="space-y-2">
-                <Label>Empresa</Label>
-                <SearchableSelect
-                  placeholder="Selecciona una empresa"
-                  value={watch('company_id') ? String(watch('company_id')) : undefined}
-                  onChange={(value) => setValue('company_id', Number(value))}
-                  options={(companies?.data ?? []).map((company) => ({
-                    value: String(company.id),
-                    label: company.business_name,
-                  }))}
-                />
-              </div>
-            ) : fixedStoreName ? (
+            {isSystem ? null : fixedStoreName ? (
               <div className="space-y-2">
                 <Label>Tienda</Label>
                 <p
@@ -478,11 +513,11 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
             <div className="space-y-3">
               {fields.map((field, index) => {
                 const item = watchedItems[index];
-                const product = products?.data.find((row) => row.id === item?.product_id);
+                const product = companyProducts.find((row) => row.id === item?.product_id);
                 const usesTechnique = !product || product.requires_customization;
                 const technique = effectiveTechnique(
                   product,
-                  techniques?.data.find((row) => row.id === item?.technique_id),
+                  companyTechniques.find((row) => row.id === item?.technique_id),
                 );
                 const pricingMode = item?.pricing_mode ?? 'unit';
                 const price = computeItemPrice(
@@ -528,7 +563,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                             // existir en el nuevo (ej. tenía "por millar" y el
                             // nuevo no) — vuelve a "por unidad" si eso pasa, o
                             // se queda como "personalizado" si ya estaba así.
-                            const newProduct = products?.data.find((row) => row.id === Number(value));
+                            const newProduct = companyProducts.find((row) => row.id === Number(value));
                             // Un producto sin personalización no lleva técnica:
                             // se descarta la que hubiera quedado elegida.
                             if (newProduct && !newProduct.requires_customization) {
@@ -536,14 +571,14 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                             }
                             const newTechnique = effectiveTechnique(
                               newProduct,
-                              techniques?.data.find((row) => row.id === item?.technique_id),
+                              companyTechniques.find((row) => row.id === item?.technique_id),
                             );
                             const newModes = availablePricingModes(newProduct, newTechnique);
                             if (!newModes.includes(pricingMode)) {
                               setValue(`items.${index}.pricing_mode`, newModes[0] ?? 'custom');
                             }
                           }}
-                          options={(products?.data ?? []).map((row) => ({ value: String(row.id), label: row.name }))}
+                          options={companyProducts.map((row) => ({ value: String(row.id), label: row.name }))}
                         />
                         {canQuickCreateProduct && (
                           <QuickCreateProductDialog
@@ -582,13 +617,13 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                             // Igual que al cambiar de producto: si la técnica
                             // nueva no tiene precio para el modo elegido, se
                             // pasa al primer modo que ambos tengan.
-                            const newTechnique = techniques?.data.find((row) => row.id === Number(value));
+                            const newTechnique = companyTechniques.find((row) => row.id === Number(value));
                             const newModes = availablePricingModes(product, newTechnique);
                             if (!newModes.includes(pricingMode)) {
                               setValue(`items.${index}.pricing_mode`, newModes[0] ?? 'custom');
                             }
                           }}
-                          options={(techniques?.data ?? []).map((row) => ({ value: String(row.id), label: row.name }))}
+                          options={companyTechniques.map((row) => ({ value: String(row.id), label: row.name }))}
                         />
                         {canQuickCreateTechnique && (
                           <QuickCreateTechniqueDialog

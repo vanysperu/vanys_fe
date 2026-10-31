@@ -42,27 +42,47 @@ export function DateRangePickerField({
   className,
 }: DateRangePickerFieldProps) {
   const [open, setOpen] = useState(false);
+  // Rango a medio elegir (solo "desde"): se guarda acá y NO se le avisa al
+  // padre hasta que se complete. Antes se avisaba en el primer clic, el padre
+  // lo convertía en un rango de un día (desde = hasta) y el segundo clic, al
+  // ver un rango ya "completo", arrancaba uno nuevo en vez de cerrarlo — no
+  // había forma de elegir un rango (bug reportado por QA en Caja).
+  const [draft, setDraft] = useState<DateRange | undefined>(undefined);
+
+  const handleOpenChange = (next: boolean) => {
+    // Cerrar con solo "desde" elegido filtra ese único día.
+    if (!next && draft?.from) onChange({ from: draft.from, to: undefined });
+    setDraft(undefined);
+    setOpen(next);
+  };
+
+  const shown = draft ?? value;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           id={id}
           type="button"
           variant="outline"
-          className={cn('w-full justify-start font-normal', !value?.from && 'text-muted-foreground', className)}
+          className={cn('w-full justify-start font-normal', !shown?.from && 'text-muted-foreground', className)}
         >
           <CalendarIcon className="size-4" />
-          {formatRange(value, placeholder)}
+          {formatRange(shown, placeholder)}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-3" align="start">
         <Calendar
           mode="range"
-          selected={value}
+          selected={shown}
           onSelect={(range) => {
+            if (!range.to) {
+              setDraft(range);
+              return;
+            }
+            setDraft(undefined);
             onChange(range);
-            if (range.from && range.to) setOpen(false);
+            setOpen(false);
           }}
           disabled={disabled}
           fromYear={fromYear}

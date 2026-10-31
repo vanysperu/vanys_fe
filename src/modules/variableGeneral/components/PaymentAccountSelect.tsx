@@ -11,8 +11,11 @@ const ACCOUNT_TYPE_LABEL: Record<string, string> = { bank: 'Banco', yape: 'Yape'
 // Valor interno del <Select> para "sin cuenta" (Radix no admite value="").
 const CASH_VALUE = 'cash';
 
-export function usePaymentAccounts() {
-  return useVariableGenerals({ category: PAYMENT_ACCOUNT_CATEGORY, ignorePagination: true });
+// companyId: solo para el Super Administrador (las cuentas de la empresa que
+// eligió en el formulario); para un usuario de empresa el backend siempre
+// devuelve las suyas.
+export function usePaymentAccounts(companyId?: number) {
+  return useVariableGenerals({ category: PAYMENT_ACCOUNT_CATEGORY, ignorePagination: true, companyId });
 }
 
 export function describePaymentAccount(account: Pick<VariableGeneral, 'name' | 'prefix_id' | 'ref1'>): string {
@@ -30,6 +33,7 @@ interface PaymentAccountSelectProps {
   allowCash?: boolean;
   cashLabel?: string;
   placeholder?: string;
+  companyId?: number;
 }
 
 // Selector de "a qué cuenta entró / de qué cuenta salió el dinero" (pedido
@@ -42,9 +46,12 @@ export function PaymentAccountSelect({
   allowCash = true,
   cashLabel = 'Efectivo (sin cuenta)',
   placeholder = 'Selecciona la cuenta',
+  companyId,
 }: PaymentAccountSelectProps) {
-  const { data } = usePaymentAccounts();
-  const accounts = (data?.data ?? []).filter((account) => !account.is_deleted);
+  const { data } = usePaymentAccounts(companyId);
+  const accounts = (data?.data ?? []).filter(
+    (account) => !account.is_deleted && (companyId === undefined || account.company_id === companyId),
+  );
 
   const selected = value == null ? (allowCash ? CASH_VALUE : undefined) : String(value);
 

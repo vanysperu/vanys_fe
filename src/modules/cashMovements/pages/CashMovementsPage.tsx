@@ -4,7 +4,7 @@ import { ArrowDownCircle, ArrowUpCircle, Check, Plus, Wallet } from 'lucide-reac
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
+import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { usePurchaseOrders } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
 import { useQuotations } from '@/modules/quotations/hooks/useQuotations';
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
@@ -294,9 +294,6 @@ function CreateCashMovementDialog() {
   const { data: access } = useAccess();
   const isSystem = access?.isSystem ?? false;
   const { data: categories } = useVariableGenerals({ category: 'cash_movement_type', ignorePagination: true });
-  const { data: quotations } = useQuotations({ page: 1, limit: 100 });
-  const { data: purchaseOrders } = usePurchaseOrders({ page: 1, limit: 100 });
-  const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: isSystem });
   const { mutate: create, isPending, error } = useCreateCashMovement();
 
   const {
@@ -304,9 +301,32 @@ function CreateCashMovementDialog() {
     handleSubmit,
     reset,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<CreateCashMovementFormValues>({ resolver: zodResolver(createCashMovementSchema) });
+
+  // Super Administrador: primero la empresa, y recién ahí sus cotizaciones,
+  // órdenes de compra, tiendas y cuentas — nunca las de todas las empresas
+  // mezcladas (pedido explícito del usuario). Un usuario de empresa siempre
+  // ve las suyas (el backend lo fuerza).
+  const selectedCompanyId = isSystem ? watch('company_id') : undefined;
+  const listsEnabled = !isSystem || Boolean(selectedCompanyId);
+  const { data: quotations } = useQuotations({ page: 1, limit: 100, companyId: selectedCompanyId }, { enabled: listsEnabled });
+  const { data: purchaseOrders } = usePurchaseOrders(
+    { page: 1, limit: 100, companyId: selectedCompanyId },
+    { enabled: listsEnabled },
+  );
+  const belongsToSelectedCompany = (row: { company_id: number }) =>
+    !isSystem || row.company_id === selectedCompanyId;
+
+  const handleCompanyChange = (companyId: number) => {
+    setValue('company_id', companyId, { shouldValidate: true });
+    // Todo lo elegido antes era de otra empresa.
+    setValue('quotation_id', undefined);
+    setValue('purchase_order_id', undefined);
+    setValue('payment_account_id', null);
+  };
 
   const direction = watch('direction');
   const categoryOptions = (categories?.data ?? []).map((item) => ({ value: item.prefix_id, label: item.name }));
@@ -323,6 +343,10 @@ function CreateCashMovementDialog() {
   };
 
   const onSubmit = (values: CreateCashMovementFormValues) => {
+    if (isSystem && !values.company_id) {
+      setError('company_id', { message: 'Selecciona la empresa' });
+      return;
+    }
     create(values, {
       onSuccess: () => {
         toast.success('Movimiento registrado correctamente');
@@ -348,6 +372,14 @@ function CreateCashMovementDialog() {
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <CompanyStoreFields
+            companyId={watch('company_id')}
+            onCompanyChange={handleCompanyChange}
+            businessUnitId={watch('business_unit_id')}
+            onBusinessUnitChange={(value) => setValue('business_unit_id', value)}
+            companyError={errors.company_id?.message}
+          />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Tipo</Label>
@@ -403,6 +435,7 @@ function CreateCashMovementDialog() {
               id="cash-movement-account"
               value={watch('payment_account_id')}
               onChange={(value) => setValue('payment_account_id', value)}
+              companyId={selectedCompanyId}
             />
           </div>
 
@@ -424,7 +457,7 @@ function CreateCashMovementDialog() {
                 value={watch('quotation_id') ? String(watch('quotation_id')) : undefined}
                 onChange={(value) => setValue('quotation_id', Number(value))}
                 onClear={() => setValue('quotation_id', undefined)}
-                options={(quotations?.data ?? []).map((quotation) => ({
+                options={(quotations?.data ?? []).filter(belongsToSelectedCompany).map((quotation) => ({
                   value: String(quotation.id),
                   label: `COT-${String(quotation.id).padStart(4, '0')} — ${quotation.client?.name ?? 'Sin cliente'}`,
                 }))}
@@ -437,7 +470,7 @@ function CreateCashMovementDialog() {
                 value={watch('purchase_order_id') ? String(watch('purchase_order_id')) : undefined}
                 onChange={(value) => setValue('purchase_order_id', Number(value))}
                 onClear={() => setValue('purchase_order_id', undefined)}
-                options={(purchaseOrders?.data ?? []).map((order) => ({
+                options={(purchaseOrders?.data ?? []).filter(belongsToSelectedCompany).map((order) => ({
                   value: String(order.id),
                   label: `OC-${String(order.id).padStart(4, '0')} — ${order.quotation?.client?.name ?? 'Sin cliente'}`,
                 }))}
@@ -445,28 +478,7 @@ function CreateCashMovementDialog() {
             </div>
           </div>
 
-          {isSystem && businessUnits && businessUnits.data.length > 0 && (
-            <div className="space-y-2">
-              <Label>Tienda (opcional)</Label>
-              <Select
-                value={watch('business_unit_id') ? String(watch('business_unit_id')) : undefined}
-                onValueChange={(value) => setValue('business_unit_id', Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sin tienda específica" />
-                </SelectTrigger>
-                <SelectContent>
-                  {businessUnits.data.map((businessUnit) => (
-                    <SelectItem key={businessUnit.id} value={String(businessUnit.id)}>
-                      {businessUnit.business_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
+          {apiError &&<p className="text-sm text-destructive">{apiError.message}</p>}
 
           <DialogFooter>
             <Button type="submit" disabled={isPending}>

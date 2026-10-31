@@ -22,10 +22,11 @@ import type {
   UpdateQuotationDto,
 } from '@/modules/quotations/types/quotation.types';
 
-export function useQuotations(params: QuotationListParams) {
+export function useQuotations(params: QuotationListParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: quotationsKeys.list(params),
     queryFn: () => getQuotations(params),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }

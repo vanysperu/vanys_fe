@@ -37,6 +37,20 @@ test.describe('Caja', () => {
     await expect(page.locator('tr', { hasText: description })).toBeVisible();
   });
 
+  test('el filtro de fecha permite elegir un rango (desde y hasta)', async ({ page }) => {
+    await page.goto('/caja');
+    await page.locator('button', { hasText: 'Fecha' }).first().click();
+    const popover = page.locator('[data-slot="popover-content"][data-state="open"]');
+    await popover.waitFor();
+    // Antes el primer clic ya cerraba un rango de un solo día y el segundo
+    // arrancaba uno nuevo: nunca se llegaba a un rango real (bug de QA).
+    await popover.locator('button:not([data-outside])', { hasText: /^1$/ }).first().click();
+    await expect(popover).toBeVisible();
+    await popover.locator('button:not([data-outside])', { hasText: /^2$/ }).first().click();
+    await expect(popover).toBeHidden();
+    await expect(page.locator('button:has(svg.lucide-calendar)').first()).toContainText('–');
+  });
+
   test('el modal se limpia al cerrarlo sin guardar y volver a abrirlo', async ({ page }) => {
     await page.goto('/caja');
     await page.click('button:has-text("Nuevo movimiento")');

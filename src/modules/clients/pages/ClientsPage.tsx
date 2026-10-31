@@ -4,7 +4,7 @@ import { Check, Pencil, Plus, Search, Users2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { useCompanies } from '@/modules/platform/hooks/useCompanies';
+import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { useCatalog } from '@/modules/users/hooks/useCreateUser';
 import { useClients, useCreateClient, useToggleClientStatus, useUpdateClient } from '@/modules/clients/hooks/useClients';
 import { createClientSchema, PHONE_MAX_DIGITS, type CreateClientFormValues } from '@/modules/clients/schemas/client.schema';
@@ -31,7 +31,6 @@ import {
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
-import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
 
@@ -230,7 +229,6 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
   const isEditing = Boolean(client);
   const [open, setOpen] = useState(isEditing);
   const { data: access } = useAccess();
-  const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: access?.isSystem });
   const { data: documentTypes } = useCatalog('document_type');
   const { mutate: create, isPending: isCreating, error: createError } = useCreateClient();
   const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateClient();
@@ -240,6 +238,7 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
     handleSubmit,
     reset,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<CreateClientFormValues>({ resolver: zodResolver(createClientSchema) });
@@ -279,7 +278,10 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
     }
 
     const companyId = access?.isSystem ? dto.company_id : access?.companyId;
-    if (!companyId) return;
+    if (!companyId) {
+      setError('company_id', { message: 'Selecciona la empresa' });
+      return;
+    }
 
     create(
       { ...dto, company_id: companyId },
@@ -312,26 +314,21 @@ function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {!isEditing && (
+            <CompanyStoreFields
+              companyId={watch('company_id')}
+              onCompanyChange={(value) => setValue('company_id', value, { shouldValidate: true })}
+              businessUnitId={watch('business_unit_id')}
+              onBusinessUnitChange={(value) => setValue('business_unit_id', value)}
+              companyError={errors.company_id?.message}
+            />
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" {...register('name')} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
           </div>
-
-          {access?.isSystem && !isEditing && (
-            <div className="space-y-2">
-              <Label>Empresa</Label>
-              <SearchableSelect
-                placeholder="Selecciona una empresa"
-                value={watch('company_id') ? String(watch('company_id')) : undefined}
-                onChange={(value) => setValue('company_id', Number(value))}
-                options={(companies?.data ?? []).map((company) => ({
-                  value: String(company.id),
-                  label: company.business_name,
-                }))}
-              />
-            </div>
-          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">

@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from '@/presentation/components/shared/ui/tooltip';
 import type { MyAccessViewItem } from '@/presentation/hooks/shared/useAccess';
-import { getStoreOrCompanyLabel, getVisibleAccessModules, useAccess } from '@/presentation/hooks/shared/useAccess';
+import { accessKeys, getStoreOrCompanyLabel, useAccess } from '@/presentation/hooks/shared/useAccess';
 
 // El backend arma el árbol completo (módulos -> vistas -> sub-vistas) según
 // lo que el rol tiene otorgado (GET /access/me). El front NO decide qué
@@ -69,7 +69,7 @@ export function AppSidebar() {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
 
-  const menu = useMemo(() => buildMenu(getVisibleAccessModules(access)), [access]);
+  const menu = useMemo(() => buildMenu(access?.views ?? []), [access]);
 
   const { mutate: signOut, isPending } = useMutation({
     mutationFn: logout,
@@ -434,6 +434,22 @@ function GroupHeader({
   );
 }
 
+// Pulsar un módulo del menú siempre muestra datos frescos (pedido explícito
+// del usuario: tras pagar una OC con plata propia la deuda no salía hasta
+// recargar, porque la caché todavía no vencía). No dispara requests de más:
+// solo marca la caché como vencida, y la pantalla que se monta al navegar
+// vuelve a pedir lo suyo. Si ya estaba en esa pantalla (no se remonta), se
+// refrescan las queries visibles. Los accesos (/auth/my-access) quedan
+// fuera: no cambian por navegar.
+function useRefreshModuleData() {
+  const queryClient = useQueryClient();
+  return (isCurrentRoute: boolean) =>
+    queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] !== accessKeys.all[0],
+      refetchType: isCurrentRoute ? 'active' : 'none',
+    });
+}
+
 function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: boolean }) {
   // Coincidencia exacta: cada ítem es una pantalla (no hay rutas de detalle
   // anidadas). Por prefijo, "Productos" (/productos) quedaba marcada
@@ -446,12 +462,14 @@ function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: 
   // relleno del menú expandido, corrido 6 px a la derecha del botón de
   // colapsar y de las líneas divisorias).
   const isActive = Boolean(useMatch({ path: view.route ?? '', end: true })) && Boolean(view.route);
+  const refreshModuleData = useRefreshModuleData();
   if (!view.route) return null;
 
   const link = (
     <NavLink
       to={view.route}
       end
+      onClick={() => refreshModuleData(isActive)}
       // Colapsado no hay texto visible: el nombre lo da aria-label.
       aria-label={isCollapsed ? view.name : undefined}
       className={cn(

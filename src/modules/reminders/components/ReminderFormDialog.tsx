@@ -83,11 +83,14 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
   });
 
   const me = recipients?.find((recipient) => recipient.is_me);
+  // "Nombre · email": dos compañeros pueden llamarse igual y sin el email
+  // el selector se veía con "personas duplicadas" (bug reportado por QA).
+  const recipientLabel = (recipient: { name: string; email: string }) => `${recipient.name} · ${recipient.email}`;
   const recipientOptions = [
     { value: MYSELF, label: me ? `Yo (${me.name})` : 'Yo' },
     ...(recipients ?? [])
       .filter((recipient) => !recipient.is_me)
-      .map((recipient) => ({ value: String(recipient.id), label: recipient.name })),
+      .map((recipient) => ({ value: String(recipient.id), label: recipientLabel(recipient) })),
   ];
   const recipientId = watch('recipient_user_id');
   const recipientValue = recipientId == null || recipientId === me?.id ? MYSELF : String(recipientId);
@@ -96,7 +99,7 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
   // entrada del array debe ser un id de usuario válido (ver create.service.ts).
   const multiRecipientOptions = (recipients ?? []).map((recipient) => ({
     value: String(recipient.id),
-    label: recipient.is_me ? `Yo (${recipient.name})` : recipient.name,
+    label: recipient.is_me ? `Yo (${recipient.name})` : recipientLabel(recipient),
   }));
   const selectedRecipientIds = (watch('recipient_user_ids') ?? []).map(String);
 
@@ -193,6 +196,7 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
             options={multiRecipientOptions}
             value={selectedRecipientIds}
             onChange={(values) => setValue('recipient_user_ids', values.map(Number), { shouldValidate: true })}
+            selectAllLabel="Todos"
             placeholder="Elige a quién avisar"
             emptyText="No se encontró ese usuario"
           />

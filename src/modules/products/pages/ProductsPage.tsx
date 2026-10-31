@@ -37,6 +37,7 @@ import {
 } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
+import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
 import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
@@ -93,12 +94,9 @@ function ProductsTab() {
   const canCreate = usePermissionButton('producto.create.button');
   const canUpdate = usePermissionButton('producto.update.button');
   const canDisable = usePermissionButton('producto.disable.button');
-  const { data: access } = useAccess();
-  // Un producto siempre pertenece a una empresa específica — un super
-  // administrador no gestiona el catálogo operativo de ninguna empresa en
-  // particular, así que ni siquiera ve el botón de crear (pedido explícito
-  // del usuario; el backend además lo rechaza igual si se intenta).
-  const canCreateHere = canCreate && !access?.isSystem;
+  // El Super Administrador también crea productos: elige la empresa en el
+  // formulario (ver CompanyStoreFields en ProductFormDialog).
+  const canCreateHere = canCreate;
 
   const { data, isLoading } = useProducts({
     page,
@@ -283,6 +281,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
     handleSubmit,
     reset,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<CreateProductFormValues>({
@@ -325,11 +324,13 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
       return;
     }
 
-    // Un producto siempre se crea en la empresa del admin que lo crea — el
-    // super administrador ni siquiera llega aquí (no ve el botón de crear,
-    // ver ProductsTab).
-    const companyId = access?.companyId;
-    if (!companyId) return;
+    // Un usuario de empresa crea en la suya; el Super Administrador en la
+    // que eligió en el formulario.
+    const companyId = access?.isSystem ? values.company_id : access?.companyId;
+    if (!companyId) {
+      setError('company_id', { message: 'Selecciona la empresa' });
+      return;
+    }
 
     create(
       { ...values, company_id: companyId },
@@ -362,6 +363,14 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {!isEditing && (
+            <CompanyStoreFields
+              companyId={watch('company_id')}
+              onCompanyChange={(value) => setValue('company_id', value, { shouldValidate: true })}
+              companyError={errors.company_id?.message}
+            />
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" {...register('name')} />
@@ -465,10 +474,9 @@ function TechniquesTab() {
   const canCreate = usePermissionButton('producto.technique.create.button');
   const canUpdate = usePermissionButton('producto.technique.update.button');
   const canDisable = usePermissionButton('producto.technique.disable.button');
-  const { data: access } = useAccess();
-  // Misma regla que productos: una técnica pertenece a una empresa
-  // específica, un super administrador no la gestiona.
-  const canCreateHere = canCreate && !access?.isSystem;
+  // Igual que productos: el Super Administrador también crea técnicas,
+  // eligiendo la empresa en el formulario.
+  const canCreateHere = canCreate;
 
   const { data, isLoading } = useTechniques({
     page,
@@ -630,6 +638,9 @@ function TechniqueFormDialog({
     register,
     handleSubmit,
     reset,
+    setValue,
+    setError,
+    watch,
     formState: { errors },
   } = useForm<CreateTechniqueFormValues>({
     resolver: zodResolver(createTechniqueSchema),
@@ -668,10 +679,13 @@ function TechniqueFormDialog({
       return;
     }
 
-    // Igual que productos: la técnica se crea siempre en la empresa del
-    // admin que la crea, el super administrador no ve el botón de crear.
-    const companyId = access?.companyId;
-    if (!companyId) return;
+    // Igual que productos: un usuario de empresa crea en la suya; el Super
+    // Administrador en la que eligió en el formulario.
+    const companyId = access?.isSystem ? values.company_id : access?.companyId;
+    if (!companyId) {
+      setError('company_id', { message: 'Selecciona la empresa' });
+      return;
+    }
 
     create(
       { ...values, company_id: companyId },
@@ -704,6 +718,14 @@ function TechniqueFormDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {!isEditing && (
+            <CompanyStoreFields
+              companyId={watch('company_id')}
+              onCompanyChange={(value) => setValue('company_id', value, { shouldValidate: true })}
+              companyError={errors.company_id?.message}
+            />
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="tech-name">Nombre</Label>
             <Input id="tech-name" {...register('name')} />

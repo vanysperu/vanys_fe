@@ -35,6 +35,10 @@ export type UpdateVariableGeneralDto = Partial<CreateVariableGeneralDto>;
 export type VariableGeneralListResult = PagedListResult<VariableGeneral>;
 
 export interface VariableGeneralListParams {
+  // Solo tiene efecto para el Super Administrador: limita el listado a esa
+  // empresa (ej. los selectores de un formulario, una vez elegida la empresa,
+  // para no mezclar información entre empresas).
+  companyId?: number;
   page?: number;
   limit?: number;
   search?: string;

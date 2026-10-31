@@ -27,6 +27,10 @@ interface MultiSelectProps {
   emptyText?: string;
   disabled?: boolean;
   className?: string;
+  // Opcional (prop con default que preserva el comportamiento anterior): si
+  // se manda, se agrega un primer ítem que marca/desmarca todas las opciones
+  // a la vez (pedido de QA en Recordatorios: "una opción para todos").
+  selectAllLabel?: string;
 }
 
 // Mismo patrón que SearchableSelect (Popover + Command con buscador), pero
@@ -41,8 +45,11 @@ export function MultiSelect({
   emptyText = 'Sin resultados',
   disabled,
   className,
+  selectAllLabel,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
+  const allSelected = options.length > 0 && options.every((option) => value.includes(option.value));
+  const toggleAll = () => onChange(allSelected ? [] : options.map((option) => option.value));
 
   const toggleValue = (optionValue: string) => {
     const isSelected = value.includes(optionValue);
@@ -65,6 +72,8 @@ export function MultiSelect({
           <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1 truncate text-left">
             {selectedLabels.length === 0 ? (
               placeholder
+            ) : selectAllLabel && allSelected ? (
+              selectAllLabel
             ) : selectedLabels.length <= 2 ? (
               selectedLabels.map((option) => (
                 <Badge key={option.value} variant="secondary" className="font-normal">
@@ -84,6 +93,19 @@ export function MultiSelect({
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
+              {selectAllLabel && options.length > 0 && (
+                <CommandItem value={`__all__${selectAllLabel}`} onSelect={toggleAll}>
+                  <span
+                    className={cn(
+                      'flex size-4 shrink-0 items-center justify-center rounded-sm border',
+                      allSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-input',
+                    )}
+                  >
+                    {allSelected && <Check className="size-3" />}
+                  </span>
+                  <span className="min-w-0 truncate font-medium">{selectAllLabel}</span>
+                </CommandItem>
+              )}
               {options.map((option) => {
                 const isSelected = value.includes(option.value);
                 return (

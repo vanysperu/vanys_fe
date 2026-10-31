@@ -13,7 +13,9 @@ import {
   type UpdateDocumentSettingsFormValues,
 } from '@/modules/documentSettings/schemas/documentSettings.schema';
 import { useCreateVariableGeneral, useDeleteVariableGeneral, useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
+import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
+import { useAccess } from '@/presentation/hooks/shared/useAccess';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
@@ -29,19 +31,36 @@ const TYPE_LABEL: Record<string, string> = { bank: 'Cuenta bancaria', yape: 'Yap
 // la empresa (arriba) y las cuentas para pagar (abajo, con QR opcional) —
 // pedido explícito: "un lugar donde podamos configurar los documentos que
 // genera cada empresa". Es por empresa: cada admin solo ve/edita la suya
-// (el backend fuerza company_id desde el token, nunca desde acá).
+// (el backend fuerza company_id desde el token). El Super Administrador
+// (sin empresa propia) elige primero la empresa a configurar.
 export function DocumentSettingsPage() {
+  const { data: access } = useAccess();
+  const isSystem = access?.isSystem ?? false;
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | undefined>(undefined);
+  const companyId = isSystem ? selectedCompanyId : undefined;
+  const ready = !isSystem || Boolean(selectedCompanyId);
+
   return (
     <div className="space-y-6">
       <PageHeader title="Documentos de la empresa" description="Lo que aparece en el PDF de tus cotizaciones" />
-      <CompanyBrandingCard />
-      <PaymentAccountsCard />
+      <CompanyStoreFields companyId={selectedCompanyId} onCompanyChange={setSelectedCompanyId} />
+      {ready ? (
+        // key: al cambiar de empresa se remontan, sin arrastrar el logo/QR
+        // pendiente ni el formulario de la empresa anterior.
+        <>
+          <CompanyBrandingCard key={`branding-${companyId ?? 'own'}`} companyId={companyId} />
+          <PaymentAccountsCard key={`accounts-${companyId ?? 'own'}`} companyId={companyId} />
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">Elige la empresa que quieres configurar.</p>
+      )}
     </div>
   );
 }
 
-function CompanyBrandingCard() {
-  const { data: settings, isLoading } = useMyDocumentSettings();
+// companyId: solo para el Super Administrador (la empresa elegida).
+function CompanyBrandingCard({ companyId }: { companyId?: number }) {
+  const { data: settings, isLoading } = useMyDocumentSettings(companyId);
   const { mutate: update, isPending: isSaving } = useUpdateMyDocumentSettings();
   const { mutate: uploadAsset, isPending: isUploading } = useUploadCompanyAsset();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,7 +89,7 @@ function CompanyBrandingCard() {
 
   const onSubmit = (values: UpdateDocumentSettingsFormValues) => {
     update(
-      { ...values, ...(pendingLogoUrl !== undefined ? { logo_url: pendingLogoUrl } : {}) },
+      { ...values, ...(pendingLogoUrl !== undefined ? { logo_url: pendingLogoUrl } : {}), company_id: companyId },
       {
         onSuccess: () => {
           toast.success('Documentos actualizados');
@@ -85,7 +104,7 @@ function CompanyBrandingCard() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    uploadAsset(file, {
+    uploadAsset({ file, companyId }, {
       onSuccess: ({ path }) => {
         setPendingLogoUrl(path);
         toast.info('Logo cargado — presiona "Guardar" para aplicarlo');
@@ -175,7 +194,8 @@ function CompanyBrandingCard() {
   );
 }
 
-function PaymentAccountsCard() {
+// companyId: solo para el Super Administrador (la empresa elegida).
+function PaymentAccountsCard({ companyId }: { companyId?: number }) {
   const [formOpen, setFormOpen] = useState(false);
   // El QR se sube al elegir el archivo (para poder subirlo una sola vez y
   // previsualizarlo) pero la cuenta NO se crea hasta presionar "Guardar" —
@@ -183,7 +203,7 @@ function PaymentAccountsCard() {
   // chance de completar el resto del formulario primero (pedido explícito
   // del usuario).
   const [pendingQrPath, setPendingQrPath] = useState<string | undefined>(undefined);
-  const { data, isLoading } = useVariableGenerals({ category: PAYMENT_ACCOUNT_CATEGORY, ignorePagination: true });
+  const { data, isLoading } = useVariableGenerals({ category: PAYMENT_ACCOUNT_CATEGORY, ignorePagination: true, companyId });
   const { mutate: create, isPending: isCreating } = useCreateVariableGeneral();
   const { mutate: remove } = useDeleteVariableGeneral();
   const { mutate: uploadAsset, isPending: isUploading } = useUploadCompanyAsset();
@@ -197,7 +217,9 @@ function PaymentAccountsCard() {
     formState: { errors },
   } = useForm<CreatePaymentAccountFormValues>({ resolver: zodResolver(createPaymentAccountSchema) });
 
-  const accounts = data?.data ?? [];
+  // Para el Super Administrador, solo las de la empresa elegida (nunca las
+  // de otras empresas mezcladas).
+  const accounts = (data?.data ?? []).filter((account) => companyId === undefined || account.company_id === companyId);
 
   const onSubmit = (values: CreatePaymentAccountFormValues) => {
     create(
@@ -208,6 +230,7 @@ function PaymentAccountsCard() {
         name: values.name,
         ref1: values.ref1,
         ref2: pendingQrPath,
+        company_id: companyId,
       },
       {
         onSuccess: () => {
@@ -225,7 +248,7 @@ function PaymentAccountsCard() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    uploadAsset(file, {
+    uploadAsset({ file, companyId }, {
       onSuccess: ({ path }) => setPendingQrPath(path),
       onError: (error) => toast.error((error as ApiClientError).message),
     });

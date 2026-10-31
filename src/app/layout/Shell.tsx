@@ -10,7 +10,6 @@ import { Button } from '@/presentation/components/shared/ui/button';
 import { SidebarProvider, SidebarTrigger } from '@/presentation/components/shared/ui/sidebar';
 import {
   flattenViewRoutes,
-  getVisibleAccessModules,
   usePermissionButton,
   useAccess,
 } from '@/presentation/hooks/shared/useAccess';
@@ -27,7 +26,7 @@ export function Shell() {
 
   if (isLoading) return <ShellSkeleton />;
 
-  const allowedRoutes = access ? flattenViewRoutes(getVisibleAccessModules(access)) : [];
+  const allowedRoutes = access ? flattenViewRoutes(access.views) : [];
   const isRouteAllowed = location.pathname === '/' || allowedRoutes.includes(location.pathname);
 
   if (access && !isRouteAllowed) return <Navigate to="/" replace />;

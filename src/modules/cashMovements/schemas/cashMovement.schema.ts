@@ -24,6 +24,8 @@ export const createCashMovementSchema = z.object({
     .refine((value) => new Date(value).getTime() <= startOfToday().getTime(), {
       message: 'La fecha no puede ser una fecha futura',
     }),
+  // Solo la elige el Super Administrador (ver CompanyStoreFields).
+  company_id: z.number().optional(),
   quotation_id: z.number().optional(),
   purchase_order_id: z.number().optional(),
   business_unit_id: z.number().optional(),

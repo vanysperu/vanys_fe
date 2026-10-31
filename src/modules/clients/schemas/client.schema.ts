@@ -28,7 +28,9 @@ export const createClientSchema = z
       .optional()
       .or(z.literal('')),
     address: z.string().max(255, 'Máximo 255 caracteres').optional(),
+    // Solo los elige el Super Administrador (ver CompanyStoreFields).
     company_id: z.number().optional(),
+    business_unit_id: z.number().optional(),
   })
   .superRefine((data, ctx) => {
     const hasType = data.document_type != null;

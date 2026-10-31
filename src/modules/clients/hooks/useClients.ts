@@ -4,10 +4,11 @@ import { createClient, getClients, toggleClientStatus, updateClient } from '@/mo
 import { clientsKeys } from '@/modules/clients/hooks/clients.keys';
 import type { ClientListParams, UpdateClientDto } from '@/modules/clients/types/client.types';
 
-export function useClients(params: ClientListParams) {
+export function useClients(params: ClientListParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: clientsKeys.list(params),
     queryFn: () => getClients(params),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }

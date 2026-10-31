@@ -7,13 +7,18 @@ import {
 } from '@/modules/documentSettings/api/documentSettings.api';
 
 const documentSettingsKeys = {
-  mine: ['documentSettings', 'mine'] as const,
+  all: ['documentSettings', 'mine'] as const,
+  // companyId en la key: el Super Administrador alterna entre empresas y
+  // cada una tiene sus propios datos (nunca reutilizar los de otra).
+  mine: (companyId: number | undefined) => [...documentSettingsKeys.all, companyId ?? 'own'] as const,
 };
 
-export function useMyDocumentSettings() {
+// companyId: solo para el Super Administrador; undefined = la del usuario.
+export function useMyDocumentSettings(companyId?: number, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: documentSettingsKeys.mine,
-    queryFn: getMyDocumentSettings,
+    queryKey: documentSettingsKeys.mine(companyId),
+    queryFn: () => getMyDocumentSettings(companyId),
+    enabled: options?.enabled,
   });
 }
 
@@ -21,7 +26,7 @@ export function useUpdateMyDocumentSettings() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateMyDocumentSettings,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: documentSettingsKeys.mine }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: documentSettingsKeys.all }),
   });
 }
 

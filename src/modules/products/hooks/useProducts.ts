@@ -4,10 +4,11 @@ import { createProduct, getProducts, toggleProductStatus, updateProduct } from '
 import { productsKeys } from '@/modules/products/hooks/products.keys';
 import type { CatalogListParams, UpdateProductDto } from '@/modules/products/types/product.types';
 
-export function useProducts(params: CatalogListParams) {
+export function useProducts(params: CatalogListParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: productsKeys.list(params),
     queryFn: () => getProducts(params),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }

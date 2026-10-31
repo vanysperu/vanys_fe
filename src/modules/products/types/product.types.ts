@@ -62,6 +62,10 @@ export interface CreateTechniqueDto {
 export type UpdateTechniqueDto = Partial<Omit<CreateTechniqueDto, 'company_id'>>;
 
 export interface CatalogListParams {
+  // Solo tiene efecto para el Super Administrador: limita el listado a esa
+  // empresa (ej. los selectores de un formulario, una vez elegida la empresa,
+  // para no mezclar información entre empresas).
+  companyId?: number;
   page?: number;
   limit?: number;
   searchTerm?: string;

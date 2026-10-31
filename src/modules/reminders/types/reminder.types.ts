@@ -41,6 +41,7 @@ export interface Reminder {
 
 // Destinatario posible; is_me = el usuario logueado.
 export interface ReminderRecipient extends ReminderPerson {
+  email: string;
   is_me: boolean;
 }
 

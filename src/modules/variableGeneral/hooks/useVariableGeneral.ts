@@ -11,10 +11,11 @@ import type { UpdateVariableGeneralDto } from '@/modules/variableGeneral/types/v
 import { variableGeneralKeys } from '@/modules/variableGeneral/hooks/variableGeneral.keys';
 import type { VariableGeneralListParams } from '@/modules/variableGeneral/types/variableGeneral.types';
 
-export function useVariableGenerals(params: VariableGeneralListParams) {
+export function useVariableGenerals(params: VariableGeneralListParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: variableGeneralKeys.list(params),
     queryFn: () => getVariableGenerals(params),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }
