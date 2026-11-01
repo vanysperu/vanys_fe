@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { moneyAmountSchema } from '@/lib/moneySchema';
+
 function startOfToday(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -12,7 +14,7 @@ export const createCashMovementSchema = z.object({
   // input: expected string, received undefined" antes de llegar siquiera a
   // .min() (bug reportado por QA).
   category: z.string({ error: 'Selecciona una categoría' }).min(1, 'Selecciona una categoría').max(50, 'Máximo 50 caracteres'),
-  amount: z.number({ error: 'El monto es obligatorio' }).positive('Debe ser mayor a 0'),
+  amount: moneyAmountSchema(),
   description: z.string().max(500, 'Máximo 500 caracteres').optional(),
   occurred_at: z
     .string({ error: 'La fecha es obligatoria' })

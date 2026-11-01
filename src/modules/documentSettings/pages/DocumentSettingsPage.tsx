@@ -12,7 +12,14 @@ import {
   type CreatePaymentAccountFormValues,
   type UpdateDocumentSettingsFormValues,
 } from '@/modules/documentSettings/schemas/documentSettings.schema';
-import { useCreateVariableGeneral, useDeleteVariableGeneral, useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
+import {
+  useCreateVariableGeneral,
+  useDeleteVariableGeneral,
+  useToggleVariableGeneralStatus,
+  useVariableGenerals,
+} from '@/modules/variableGeneral/hooks/useVariableGeneral';
+import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
+import { Badge } from '@/presentation/components/shared/ui/badge';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { useAccess } from '@/presentation/hooks/shared/useAccess';
@@ -205,7 +212,21 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
   const [pendingQrPath, setPendingQrPath] = useState<string | undefined>(undefined);
   const { data, isLoading } = useVariableGenerals({ category: PAYMENT_ACCOUNT_CATEGORY, ignorePagination: true, companyId });
   const { mutate: create, isPending: isCreating } = useCreateVariableGeneral();
-  const { mutate: remove } = useDeleteVariableGeneral();
+  const { mutate: remove, isPending: isRemoving } = useDeleteVariableGeneral();
+  const { mutate: toggleStatus, isPending: isToggling } = useToggleVariableGeneralStatus();
+
+  // Una cuenta con movimientos no se elimina (su historial en Caja pasaría a
+  // "Efectivo"): el backend lo rechaza y se explica por qué; se deshabilita.
+  const removeAccount = (accountId: number) =>
+    remove(accountId, {
+      onSuccess: () => toast.success('Cuenta eliminada'),
+      onError: (error) => toast.error((error as ApiClientError).message),
+    });
+  const toggleAccount = (accountId: number, active: boolean) =>
+    toggleStatus(accountId, {
+      onSuccess: () => toast.success(active ? 'Cuenta deshabilitada: ya no se ofrece, su historial se conserva' : 'Cuenta habilitada'),
+      onError: (error) => toast.error((error as ApiClientError).message),
+    });
   const { mutate: uploadAsset, isPending: isUploading } = useUploadCompanyAsset();
 
   const {
@@ -273,15 +294,34 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
                   <img src={buildAssetUrl(account.ref2) ?? undefined} alt="QR" className="size-10 rounded border object-contain" />
                 )}
                 <div>
-                  <p className="text-sm font-medium">{account.name}</p>
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    {account.name}
+                    {account.is_deleted && <Badge variant="outline">Deshabilitada</Badge>}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {TYPE_LABEL[account.prefix_id] ?? account.prefix_id} · {account.ref1}
                   </p>
                 </div>
               </div>
-              <Button type="button" size="icon" variant="ghost" onClick={() => remove(account.id)}>
-                <Trash2 className="size-4 text-destructive" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                <ToggleStatusButton
+                  active={!account.is_deleted}
+                  disabled={isToggling}
+                  entityLabel="cuenta"
+                  onToggle={() => toggleAccount(account.id, !account.is_deleted)}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  title="Eliminar cuenta"
+                  aria-label="Eliminar cuenta"
+                  disabled={isRemoving}
+                  onClick={() => removeAccount(account.id)}
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>

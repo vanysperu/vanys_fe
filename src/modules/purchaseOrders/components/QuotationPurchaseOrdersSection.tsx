@@ -29,6 +29,11 @@ interface QuotationPurchaseOrdersSectionProps {
   companyId: number;
   items: QuotationItem[];
   canCreate: boolean;
+  // Cotización aceptada o en curso (QUOTATION_ACTIVE_STATUSES). Si no lo
+  // está, sus órdenes se ven pero no se registran compras ni se cambian sus
+  // ítems: el backend responde 409 (pedido explícito del usuario: "nada sin
+  // aceptar"). Opcional con default true para no cambiar otros usos.
+  quotationActive?: boolean;
 }
 
 // "Orden de compra": se le asigna a una persona (usuario del sistema de la
@@ -41,6 +46,7 @@ export function QuotationPurchaseOrdersSection({
   companyId,
   items,
   canCreate,
+  quotationActive = true,
 }: QuotationPurchaseOrdersSectionProps) {
   const [formOpen, setFormOpen] = useState(false);
   const { data: ordersResult } = usePurchaseOrders({ quotationId });
@@ -106,7 +112,12 @@ export function QuotationPurchaseOrdersSection({
                 {PURCHASE_ORDER_STATUS_LABEL[order.status]}
               </Badge>
             </div>
-            <PurchaseOrderItemsChecklist items={order.items} canEdit={canEditItems} quotationId={quotationId} />
+            <PurchaseOrderItemsChecklist
+              items={order.items}
+              canEdit={canEditItems && quotationActive}
+              quotationId={quotationId}
+              companyId={order.company_id}
+            />
           </div>
         ))}
       </div>

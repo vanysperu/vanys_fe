@@ -57,7 +57,8 @@ test.describe('Documentos de la empresa', () => {
       .filter({ has: page.locator('button') })
       .last();
     await expect(accountRow).toBeVisible();
-    await accountRow.locator('button').click();
+    // La fila tiene también el botón de deshabilitar: se apunta al de eliminar.
+    await accountRow.getByRole('button', { name: 'Eliminar cuenta' }).click();
     await expect(page.locator('p', { hasText: accountName })).toHaveCount(0);
   });
 });

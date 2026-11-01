@@ -8,8 +8,10 @@ test.use({ storageState: ADMIN_STATE });
 test.describe('Caja', () => {
   test('la vista se ve bien (encabezado + totales + tabla)', async ({ page }) => {
     await page.goto('/caja');
-    await expect(page.locator('text=Ingresos (esta página)')).toBeVisible();
-    await expect(page.locator('text=Egresos (esta página)')).toBeVisible();
+    // Totales de todo lo filtrado (los calcula el backend), no de la página.
+    await expect(page.locator('text=Ingresos (total)')).toBeVisible();
+    await expect(page.locator('text=Egresos (total)')).toBeVisible();
+    await expect(page.locator('text=Saldo (total)')).toBeVisible();
     await page.waitForTimeout(500);
     await expect(page.locator('h1', { hasText: 'Caja' }).locator('xpath=../..')).toHaveScreenshot('cash-header.png');
   });

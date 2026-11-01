@@ -62,7 +62,15 @@ export function PaymentFormFields({ form, idPrefix = 'payment' }: PaymentFormFie
       </div>
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-method`}>Método</Label>
-        <Select value={method} onValueChange={(value) => setValue('method', value, { shouldValidate: true })}>
+        <Select
+          value={method}
+          onValueChange={(value) => {
+            setValue('method', value, { shouldValidate: true });
+            // El efectivo no entra a ninguna cuenta: se suelta la elegida antes
+            // (el campo se ocultaba pero el valor viajaba igual al backend).
+            if (value === CASH_PAYMENT_METHOD) setValue('payment_account_id', null);
+          }}
+        >
           <SelectTrigger id={`${idPrefix}-method`}>
             <SelectValue placeholder="Selecciona un método" />
           </SelectTrigger>

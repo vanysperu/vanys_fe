@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { useCreateQuotationExpense } from '@/modules/quotations/hooks/useQuotations';
+import { PaymentAccountSelect } from '@/modules/variableGeneral/components/PaymentAccountSelect';
 import {
   createQuotationExpenseSchema,
   type CreateQuotationExpenseFormValues,
@@ -29,9 +30,12 @@ interface QuotationExpensesSectionProps {
   quotationId: number;
   expenses: QuotationExpense[];
   canRegister: boolean;
+  // Empresa de la cotización: el selector de cuenta solo ofrece las suyas
+  // (importa para el Super Administrador, que ve varias empresas).
+  companyId?: number;
 }
 
-export function QuotationExpensesSection({ quotationId, expenses, canRegister }: QuotationExpensesSectionProps) {
+export function QuotationExpensesSection({ quotationId, expenses, canRegister, companyId }: QuotationExpensesSectionProps) {
   const [formOpen, setFormOpen] = useState(false);
   const { mutate: createExpense, isPending } = useCreateQuotationExpense(quotationId);
   const {
@@ -43,7 +47,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister }:
     formState: { errors },
   } = useForm<CreateQuotationExpenseFormValues>({
     resolver: zodResolver(createQuotationExpenseSchema),
-    defaultValues: { spent_at: todayLocalDateString() },
+    defaultValues: { spent_at: todayLocalDateString(), payment_account_id: null },
   });
 
   const total = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
@@ -52,7 +56,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister }:
     createExpense(values, {
       onSuccess: () => {
         toast.success('Gasto registrado');
-        reset({ spent_at: todayLocalDateString() });
+        reset({ spent_at: todayLocalDateString(), payment_account_id: null });
         setFormOpen(false);
       },
       onError: (error) => toast.error((error as ApiClientError).message),
@@ -143,6 +147,17 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister }:
                 <Label htmlFor="expense-category">Categoría (opcional)</Label>
                 <Input id="expense-category" placeholder="Insumos, envío…" maxLength={50} {...register('category')} />
                 {errors.category && <p className="text-xs text-destructive">{errors.category.message}</p>}
+              </div>
+              {/* De dónde salió el dinero: así Caja descuenta de la cuenta
+                  correcta (antes todo gasto figuraba como efectivo). */}
+              <div className="space-y-1">
+                <Label htmlFor="expense-account">¿De dónde salió el dinero?</Label>
+                <PaymentAccountSelect
+                  id="expense-account"
+                  companyId={companyId}
+                  value={watch('payment_account_id')}
+                  onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
+                />
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" size="sm" variant="ghost" onClick={() => setFormOpen(false)}>

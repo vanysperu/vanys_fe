@@ -125,6 +125,20 @@ test.describe('Cotizaciones', () => {
     // buscar su botón.
     await page.click('div[role="dialog"] [role="tab"]:has-text("Compras")');
 
+    // Una Pendiente no admite compras (ni pagos, gastos o producción): no
+    // aparece el botón y el detalle dice por qué.
+    await expect(page.getByTestId('quotation-inactive-notice')).toContainText('todavía no fue aceptada');
+    await expect(page.locator('div[role="dialog"] button:has-text("Crear orden de compra")')).toHaveCount(0);
+
+    // Aceptada (sin adelanto), ya se puede comprar.
+    const detail = page.locator('div[role="dialog"]', { hasText: /^Cotización #/ });
+    await detail.getByRole('button', { name: 'Aceptada' }).click();
+    const advance = page.locator('div[role="dialog"]', { hasText: '¿El cliente pagó adelanto?' });
+    await advance.getByRole('button', { name: 'No, aceptar sin adelanto' }).click();
+    await expect(page.locator('text=Cotización marcada como "Aceptada"')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('quotation-inactive-notice')).toHaveCount(0);
+    await page.click('div[role="dialog"] [role="tab"]:has-text("Compras")');
+
     // Crear una orden de compra asignada al propio admin logueado (siempre
     // existe y pertenece a la misma empresa).
     await page.click('div[role="dialog"] button:has-text("Crear orden de compra")');

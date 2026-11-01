@@ -40,7 +40,17 @@ test.describe('Origen de fondos de una compra y Deudas a personal', () => {
     await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
-    await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();
+    const detailDialog = page.locator('div[role="dialog"]', { hasText: /^Cotización #/ });
+    await expect(detailDialog).toBeVisible();
+
+    // Solo una cotización aceptada admite órdenes de compra, compras y pagos:
+    // se acepta sin adelanto.
+    await detailDialog.getByRole('button', { name: 'Aceptada' }).click();
+    await page
+      .locator('div[role="dialog"]', { hasText: '¿El cliente pagó adelanto?' })
+      .getByRole('button', { name: 'No, aceptar sin adelanto' })
+      .click();
+    await expect(page.locator('text=Cotización marcada como "Aceptada"')).toBeVisible({ timeout: 10_000 });
 
     await page.click('div[role="dialog"] [role="tab"]:has-text("Compras")');
     await page.click('div[role="dialog"] button:has-text("Crear orden de compra")');
@@ -78,11 +88,54 @@ test.describe('Origen de fondos de una compra y Deudas a personal', () => {
     await page.getByRole('option', { name: 'Ya pagadas' }).click();
     await expect(page.locator('tr', { hasText: 'Ana Acme' })).toBeVisible();
 
-    // En Caja, el gasto de la compra dice quién lo pagó y que ya se le repuso.
+    // En Caja, el gasto de la compra dice quién lo pagó y que ya se le repuso,
+    // pero no mueve caja; la reposición es el egreso, en su propia fila.
     await page.goto('/caja');
     const expenseRow = page.locator('tr', { hasText: productName });
-    await expect(expenseRow).toContainText('Pagado por Ana Acme');
-    await expect(expenseRow).toContainText(/repuesto el .* en efectivo/);
+    await expect(expenseRow).toContainText('Pagado por Ana Acme con su plata');
+    await expect(expenseRow).toContainText('ya repuesto');
+    await expect(expenseRow).toContainText('no mueve caja');
+    const reimbursementRow = page.locator('tr', { hasText: 'Reposición a Ana Acme' }).first();
+    await expect(reimbursementRow).toContainText('Efectivo');
+  });
+});
+
+test.describe('Deuda manual con un trabajador', () => {
+  test('se registra, se ve en Caja sin mover caja y se anula desde el detalle', async ({ page }) => {
+    const description = `QA Luz ${stamp()}`;
+
+    await page.goto('/deudas-personal');
+    await page.getByRole('button', { name: 'Registrar deuda' }).click();
+    const dialog = page.locator('div[role="dialog"]', { hasText: 'Registrar deuda con un trabajador' });
+    await expect(dialog).toBeVisible();
+    await chooseSearchableSelect(page, 'Trabajador que puso el dinero', 'Ana Acme');
+    await page.fill('#manual-debt-description', description);
+    await chooseSearchableSelect(page, 'Categoría del gasto', 'Pago de servicios');
+    await page.fill('#manual-debt-amount', '12.34');
+    await dialog.getByRole('button', { name: 'Registrar deuda' }).click();
+    await expect(page.locator('text=Deuda registrada')).toBeVisible({ timeout: 10_000 });
+
+    // En Caja se ve quién lo pagó, pero no suma: no salió plata de la empresa.
+    await page.goto('/caja');
+    await page.getByRole('combobox', { name: 'Origen' }).click();
+    await page.getByRole('option', { name: 'Pagado por un trabajador' }).click();
+    const cashRow = page.locator('tr', { hasText: description });
+    await expect(cashRow).toContainText('no mueve caja');
+    await expect(cashRow).toContainText('Pagado por Ana Acme con su plata');
+
+    // Se anula desde el detalle del trabajador (todavía no se le repuso nada).
+    await page.goto('/deudas-personal');
+    await page.locator('tr', { hasText: 'Ana Acme' }).getByRole('button', { name: 'Ver detalle' }).click();
+    const detail = page.locator('div[role="dialog"]', { hasText: 'Deudas con' });
+    const debtRow = detail.locator('tr', { hasText: description });
+    await expect(debtRow).toContainText('Pendiente');
+    await debtRow.getByRole('button', { name: 'Anular deuda' }).click();
+    await page
+      .locator('div[role="dialog"]', { hasText: '¿Anular esta deuda?' })
+      .getByRole('button', { name: 'Anular deuda' })
+      .click();
+    await expect(page.locator('text=Deuda anulada')).toBeVisible({ timeout: 10_000 });
+    await expect(detail.locator('tr', { hasText: description })).toContainText('Anulada');
   });
 });
 

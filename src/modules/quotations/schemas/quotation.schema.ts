@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { NOTES_MAX_LENGTH } from '@/lib/constants';
+import { moneyAmountSchema } from '@/lib/moneySchema';
 
 // La cantidad es siempre obligatoria: cada modo de precio (unidad/ciento/
 // medio millar/millar/personalizado) es una tarifa POR UNIDAD, no el
@@ -59,7 +60,7 @@ export const CASH_PAYMENT_METHOD = 'cash';
 
 export const createQuotationPaymentSchema = z
   .object({
-    amount: z.number({ error: 'El monto es obligatorio' }).positive('Debe ser mayor a 0'),
+    amount: moneyAmountSchema(),
     method: z.string({ error: 'Selecciona un método de pago' }).min(1, 'Selecciona un método de pago'),
     paid_at: z.string({ error: 'La fecha es obligatoria' }).min(1, 'La fecha es obligatoria'),
     notes: z.string().max(NOTES_MAX_LENGTH, `Máximo ${NOTES_MAX_LENGTH} caracteres`).optional(),
@@ -86,9 +87,11 @@ export const createQuotationExpenseSchema = z.object({
     .string({ error: 'La descripción es obligatoria' })
     .min(1, 'La descripción es obligatoria')
     .max(300, 'Máximo 300 caracteres'),
-  amount: z.number({ error: 'El monto es obligatorio' }).positive('Debe ser mayor a 0'),
+  amount: moneyAmountSchema(),
   category: z.string().max(50, 'Máximo 50 caracteres').optional(),
   spent_at: z.string({ error: 'La fecha es obligatoria' }).min(1, 'La fecha es obligatoria'),
+  // Cuenta de la empresa desde la que se pagó (null = efectivo).
+  payment_account_id: z.number().nullable().optional(),
 });
 
 export type CreateQuotationExpenseFormValues = z.infer<typeof createQuotationExpenseSchema>;

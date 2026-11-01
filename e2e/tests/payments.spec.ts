@@ -49,7 +49,15 @@ test.describe('Pagos', () => {
     await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
-    await expect(page.locator('div[role="dialog"]', { hasText: /^Cotización #/ })).toBeVisible();
+    const detail = page.locator('div[role="dialog"]', { hasText: /^Cotización #/ });
+    await expect(detail).toBeVisible();
+
+    // Solo una cotización aceptada (o en curso) recibe pagos: se acepta sin
+    // adelanto y recién ahí se registra el pago.
+    await detail.getByRole('button', { name: 'Aceptada' }).click();
+    const advance = page.locator('div[role="dialog"]', { hasText: '¿El cliente pagó adelanto?' });
+    await advance.getByRole('button', { name: 'No, aceptar sin adelanto' }).click();
+    await expect(page.locator('text=Cotización marcada como "Aceptada"')).toBeVisible({ timeout: 10_000 });
 
     await page.click('div[role="dialog"] [role="tab"]:has-text("Pagos")');
     await page.click('div[role="dialog"] button:has-text("Registrar pago")');

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Check, Plus, Wallet } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Check, Plus, Scale, Wallet, type LucideIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -23,7 +23,10 @@ import {
   type CashMovementDirection,
   type CashMovementListItem,
   type CashMovementSource,
+  type CashMovementSummary,
 } from '@/modules/cashMovements/types/cashMovement.types';
+import { useCompanies } from '@/modules/platform/hooks/useCompanies';
+import { cn } from '@/lib/utils';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateField } from '@/presentation/components/shared/DateField';
 import { disableFuture } from '@/presentation/components/shared/ui/calendar';
@@ -57,16 +60,20 @@ const SOURCE_LABEL: Record<CashMovementListItem['source'], string> = {
   manual: 'Movimiento manual',
   quotation_payment: 'Pago de cotización',
   quotation_expense: 'Gasto de cotización',
+  employee_debt: 'Pagado por un trabajador',
+  employee_debt_payment: 'Reposición a trabajador',
 };
 
 // Libro de caja: junta en un solo listado lo que ya se registra en
 // cotizaciones (Pagos = ingreso, Gastos = egreso, y toda compra de una
-// orden ya genera un gasto) MÁS los movimientos manuales propios de este
-// módulo (ej. pagar el alquiler) — pedido explícito del usuario: "toda
-// entra y salida de dinero debe estar ligada a un tipo... y también poder
-// vincularse a alguna cotización o orden de compra". Solo los movimientos
-// "manual" se pueden deshabilitar acá; los otros dos se gestionan desde su
-// propia pantalla de origen (Pagos/Gastos de la cotización).
+// orden ya genera un gasto), las reposiciones a trabajadores y los
+// movimientos manuales propios de este módulo (ej. pagar el alquiler) —
+// pedido explícito del usuario: "toda entrada y salida de dinero". Caja es
+// el dinero que REALMENTE se movió: lo que un trabajador pagó con su plata
+// se ve (para saber quién lo pagó) pero no suma; su egreso es la reposición.
+// Los totales los calcula el backend sobre todo lo filtrado, no sobre la
+// página. Solo los movimientos "manual" se deshabilitan acá; el resto se
+// gestiona desde su propia pantalla (cotización, Deudas a personal).
 export function CashMovementsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -75,13 +82,25 @@ export function CashMovementsPage() {
   const [account, setAccount] = useState<string | undefined>(undefined);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
-  const { data: accountsResult } = usePaymentAccounts();
+  const [companyFilter, setCompanyFilter] = useState<string | undefined>(undefined);
+  const { data: access } = useAccess();
+  const isSystem = access?.isSystem ?? false;
+  const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: isSystem });
+  const companyId = companyFilter ? Number(companyFilter) : undefined;
+  const { data: accountsResult } = usePaymentAccounts(companyId);
   const { data: categoriesResult } = useVariableGenerals({ category: 'cash_movement_type', ignorePagination: true });
+  const { data: methodsResult } = useVariableGenerals({ category: 'payment_method', ignorePagination: true });
+  // Nombre legible de la categoría (los pagos traen su método): la fila guarda
+  // el código interno ("pago_servicios", "cash").
+  const categoryNames = new Map(
+    [...(categoriesResult?.data ?? []), ...(methodsResult?.data ?? [])].map((row) => [row.prefix_id, row.name]),
+  );
 
   const canCreate = usePermissionButton('cash_movement.create.button');
   const canDisable = usePermissionButton('cash_movement.disable.button');
 
   const { data, isLoading } = useCashMovements({
+    companyId,
     page,
     limit: pageSize,
     direction,
@@ -92,8 +111,11 @@ export function CashMovementsPage() {
     dateTo: dateRange.dateTo,
   });
 
-  const hasActiveFilters = Boolean(direction || source || account || category || dateRange.dateFrom || dateRange.dateTo);
+  const hasActiveFilters = Boolean(
+    companyFilter || direction || source || account || category || dateRange.dateFrom || dateRange.dateTo,
+  );
   const clearFilters = () => {
+    setCompanyFilter(undefined);
     setDirection(undefined);
     setSource(undefined);
     setAccount(undefined);
@@ -108,14 +130,12 @@ export function CashMovementsPage() {
   };
   const { mutate: toggleStatus, isPending: isToggling } = useToggleCashMovementStatus();
 
-  const totals = (data?.data ?? []).reduce(
-    (acc, item) => {
-      if (item.direction === 'income') acc.income += item.amount;
-      else acc.expense += item.amount;
-      return acc;
-    },
-    { income: 0, expense: 0 },
-  );
+  const summary = data?.summary;
+  // La cuenta elegida pertenece a una empresa: al cambiar de empresa se suelta.
+  const handleCompanyFilter = withPageReset((value: string | undefined) => {
+    setCompanyFilter(value);
+    setAccount(undefined);
+  });
 
   return (
     <div className="space-y-6">
@@ -128,6 +148,18 @@ export function CashMovementsPage() {
       />
 
       <FiltersBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
+        {/* El Super Administrador ve todas las empresas: sin acotar a una, los
+            totales mezclan la plata de todas. */}
+        {isSystem && (
+          <FilterSelect
+            aria-label="Empresa"
+            allLabel="Todas las empresas"
+            className="w-56"
+            value={companyFilter}
+            onChange={handleCompanyFilter}
+            options={(companies?.data ?? []).map((row) => ({ value: String(row.id), label: row.business_name }))}
+          />
+        )}
         <FilterSelect
           aria-label="Tipo"
           allLabel="Ingresos y egresos"
@@ -165,22 +197,7 @@ export function CashMovementsPage() {
         <DateRangeFilter placeholder="Fecha" value={dateRange} onChange={withPageReset(setDateRange)} />
       </FiltersBar>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
-          <ArrowUpCircle className="size-8 text-[var(--success)]" />
-          <div>
-            <p className="text-xs text-muted-foreground">Ingresos (esta página)</p>
-            <p className="text-lg font-semibold">{money(totals.income)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
-          <ArrowDownCircle className="size-8 text-destructive" />
-          <div>
-            <p className="text-xs text-muted-foreground">Egresos (esta página)</p>
-            <p className="text-lg font-semibold">{money(totals.expense)}</p>
-          </div>
-        </div>
-      </div>
+      <CashSummaryCards summary={summary} filtered={hasActiveFilters} />
 
       <DataTable<CashMovementListItem>
         columns={[
@@ -193,7 +210,7 @@ export function CashMovementsPage() {
               </Badge>
             ),
           },
-          { header: 'Categoría', cell: (row) => row.category ?? '—' },
+          { header: 'Categoría', cell: (row) => (row.category ? (categoryNames.get(row.category) ?? row.category) : '—') },
           {
             header: 'Descripción',
             className: 'min-w-56',
@@ -205,27 +222,45 @@ export function CashMovementsPage() {
                   {row.quotation_id && ` · COT-${String(row.quotation_id).padStart(4, '0')}`}
                   {row.purchase_order_id && ` · OC-${String(row.purchase_order_id).padStart(4, '0')}`}
                 </span>
-                {/* Compra pagada con plata de un trabajador: quién la pagó y
-                    si ya se le repuso (pedido explícito del usuario). */}
+                {/* Pagado con plata de un trabajador: quién lo pagó y cuánto
+                    se le repuso (pedido explícito del usuario). */}
                 {row.paid_by_employee_name && <EmployeeReimbursementNote row={row} />}
+                {row.reimbursement_total !== null && row.reimbursement_total > row.amount && (
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    Parte de una reposición de {money(row.reimbursement_total)}
+                  </span>
+                )}
               </div>
             ),
           },
           {
             header: 'Cuenta',
-            cell: (row) =>
-              row.paid_by_employee_name && row.reimbursement_status === 'pending'
-                ? '—'
-                : (row.payment_account_name ?? 'Efectivo'),
+            // Lo que pagó un trabajador no salió de ninguna cuenta de la empresa.
+            cell: (row) => (row.moves_cash ? (row.payment_account_name ?? 'Efectivo') : '—'),
           },
           {
             header: 'Monto',
             align: 'right',
-            cell: (row) => (
-              <span className={row.direction === 'income' ? 'font-semibold text-[var(--success)]' : 'font-semibold text-destructive'}>
-                {row.direction === 'income' ? '+' : '-'} {money(row.amount)}
-              </span>
-            ),
+            cell: (row) =>
+              row.moves_cash ? (
+                <span
+                  className={cn(
+                    'whitespace-nowrap font-semibold',
+                    row.direction === 'income' ? 'text-[var(--success)]' : 'text-destructive',
+                  )}
+                >
+                  {row.direction === 'income' ? '+' : '-'} {money(row.amount)}
+                </span>
+              ) : (
+                // No suma: se ve tachado para que nadie lo cuente como salida.
+                <span
+                  className="block whitespace-nowrap text-right text-muted-foreground"
+                  title="No mueve caja: lo pagó un trabajador con su plata"
+                >
+                  <span className="line-through">{money(row.amount)}</span>
+                  <span className="block text-[10px]">no mueve caja</span>
+                </span>
+              ),
           },
           {
             header: '',
@@ -269,23 +304,94 @@ export function CashMovementsPage() {
   );
 }
 
-// "Pagado por Juan Pérez · pendiente de reponer" o
-// "Pagado por Juan Pérez · repuesto el 18/10/2026 desde BCP Soles".
+// Gasto que un trabajador pagó con su plata: no salió de la caja de la
+// empresa. Dice quién lo pagó y cuánto se le repuso (la reposición es el
+// egreso, en su propia fila).
 function EmployeeReimbursementNote({ row }: { row: CashMovementListItem }) {
+  const reimbursed = row.reimbursed_amount ?? 0;
   if (row.reimbursement_status === 'paid') {
     const date = row.reimbursed_at ? new Date(`${row.reimbursed_at}T00:00:00`).toLocaleDateString('es-PE') : '';
-    const from = row.payment_account_name ? ` desde ${row.payment_account_name}` : ' en efectivo';
     return (
       <span className="mt-0.5 block text-[11px] text-[var(--success)]">
-        Pagado por {row.paid_by_employee_name} · repuesto el {date}
-        {from}
+        Pagado por {row.paid_by_employee_name} con su plata · ya repuesto (último abono el {date})
       </span>
     );
   }
   return (
     <span className="mt-0.5 block text-[11px] text-[var(--warning,#b45309)]">
-      Pagado por {row.paid_by_employee_name} · pendiente de reponer
+      Pagado por {row.paid_by_employee_name} con su plata ·{' '}
+      {reimbursed > 0 ? `repuesto ${money(reimbursed)} de ${money(row.amount)}` : 'pendiente de reponer'}
     </span>
+  );
+}
+
+// Totales de todo lo filtrado (los calcula el backend): ingresos, egresos y
+// saldo, y el mismo desglose por cuenta — así se puede comparar cada cuenta
+// con el banco o con el efectivo contado.
+const VISIBLE_ACCOUNTS = 6;
+
+function CashSummaryCards({ summary, filtered }: { summary: CashMovementSummary | undefined; filtered: boolean }) {
+  const [showAllAccounts, setShowAllAccounts] = useState(false);
+  const scope = filtered ? 'del filtro' : 'total';
+  const net = summary?.net ?? 0;
+  const accounts = summary?.by_account ?? [];
+  const visibleAccounts = showAllAccounts ? accounts : accounts.slice(0, VISIBLE_ACCOUNTS);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <SummaryCard icon={ArrowUpCircle} iconClassName="text-[var(--success)]" label={`Ingresos (${scope})`} value={summary?.income ?? 0} />
+        <SummaryCard icon={ArrowDownCircle} iconClassName="text-destructive" label={`Egresos (${scope})`} value={summary?.expense ?? 0} />
+        <SummaryCard
+          icon={Scale}
+          iconClassName={net < 0 ? 'text-destructive' : 'text-primary'}
+          label={`Saldo (${scope})`}
+          value={net}
+        />
+      </div>
+      {accounts.length > 0 && (
+        <div className="rounded-xl border bg-card p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-muted-foreground">Saldo por cuenta</p>
+            {accounts.length > VISIBLE_ACCOUNTS && (
+              <Button type="button" size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setShowAllAccounts((all) => !all)}>
+                {showAllAccounts ? 'Ver menos' : `Ver todas (${accounts.length})`}
+              </Button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleAccounts.map((account) => (
+              <div key={account.payment_account_id ?? 'cash'} className="flex min-w-0 items-center justify-between gap-3 text-sm">
+                <span className="truncate">{account.payment_account_name}</span>
+                <span className={cn('whitespace-nowrap', account.net < 0 && 'text-destructive')}>{money(account.net)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({
+  icon: Icon,
+  iconClassName,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  iconClassName: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
+      <Icon className={cn('size-8', iconClassName)} />
+      <div>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-lg font-semibold">{money(value)}</p>
+      </div>
+    </div>
   );
 }
 

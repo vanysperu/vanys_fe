@@ -85,6 +85,22 @@ export const QUOTATION_TRANSITIONS: Record<QuotationStatus, QuotationStatus[]> =
   cancelled: [],
 };
 
+// Cotización "activa": aceptada y en curso (de Aceptada a Finalizada). Solo
+// ahí se registran pagos, gastos y compras, y se mueve la producción (pedido
+// explícito del usuario: "una cotización que no fue aceptada no debería
+// poder hacer nada"). Espejo de ACTIVE_QUOTATION_STATUSES (grulla_be:
+// quotation/services/shared/active_quotation.ts), que es quien lo hace
+// cumplir. Una Pendiente cobra su adelanto al aceptarla (modal "¿El cliente
+// pagó adelanto?"); una Rechazada, Vencida o Cancelada ya está cerrada.
+export const QUOTATION_ACTIVE_STATUSES: QuotationStatus[] = [
+  'accepted',
+  'design_pending',
+  'in_process',
+  'ready',
+  'delivered',
+  'finished',
+];
+
 // Subconjunto de QUOTATION_TRANSITIONS que cae dentro de la cadena
 // principal (sin las salidas de excepción) — es lo único que el tablero
 // Kanban permite soltar arrastrando, ya que solo tiene columnas para la
@@ -228,6 +244,8 @@ export interface QuotationExpense {
   amount: number;
   category: string | null;
   spent_at: string;
+  // Cuenta de la empresa desde la que se pagó (null = efectivo).
+  payment_account_id: number | null;
   created_at: string;
   actor?: QuotationActor;
 }
@@ -270,14 +288,15 @@ export interface CreateQuotationExpenseDto {
   amount: number;
   category?: string | null;
   spent_at: string;
+  payment_account_id?: number | null;
 }
 
 export interface CreateQuotationItemDto {
   product_id: number;
   // Solo para productos que requieren personalización (null si no).
   technique_id?: number | null;
-  // Solo se manda (y es obligatoria) cuando pricing_mode="custom" — en los
-  // modos de catálogo la cantidad la define el lote, el backend la ignora.
+  // Siempre obligatoria: cada modo de precio es una tarifa POR UNIDAD y el
+  // subtotal es precio por unidad × cantidad.
   quantity?: number | null;
   pricing_mode: QuotationItemPricingMode;
   custom_price?: number | null;

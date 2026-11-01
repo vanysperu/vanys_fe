@@ -1,3 +1,11 @@
+import { QUOTATION_ACTIVE_STATUSES } from '@/modules/quotations/types/quotation.types';
+
+// Solo una orden de una cotización aceptada o en curso admite registrar
+// compras o cambiar sus productos (el backend responde 409
+// QUOTATION_NOT_ACTIVE si no): en otra, las acciones ni se muestran.
+export const isPurchaseOrderQuotationActive = (order: Pick<PurchaseOrder, 'quotation'>): boolean =>
+  QUOTATION_ACTIVE_STATUSES.some((status) => status === order.quotation?.status);
+
 export type PurchaseOrderStatus = 'pending' | 'purchased';
 
 // "purchased" = TODOS los items quedaron resueltos (comprados o marcados
@@ -62,6 +70,9 @@ export interface CreatePurchaseOrderItemPurchaseDto {
   amount: number;
   notes?: string;
   funding_source: FundingSource;
+  // Cuenta de la empresa desde la que se pagó (null = efectivo). Solo con
+  // funding_source="company": con plata del trabajador no sale de ninguna.
+  payment_account_id?: number | null;
   // true = la persona ya confirmó que quiere comprar por encima de lo pedido.
   allow_exceed?: boolean;
 }

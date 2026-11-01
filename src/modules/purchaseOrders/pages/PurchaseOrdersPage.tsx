@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { usePurchaseOrders } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
 import { PurchaseOrderItemsChecklist } from '@/modules/purchaseOrders/components/PurchaseOrderItemsChecklist';
 import {
+  isPurchaseOrderQuotationActive,
   PURCHASE_ORDER_STATUS_LABEL,
   type PurchaseOrder,
   type PurchaseOrderStatus,
@@ -130,7 +131,12 @@ export function PurchaseOrdersPage() {
             // quedan dentro del checklist en vez de una columna de acciones
             // dedicada, que no tendría sentido para múltiples productos.
             cell: (order) => (
-              <PurchaseOrderItemsChecklist items={order.items} canEdit={canEditItems} quotationId={order.quotation_id} />
+              <PurchaseOrderItemsChecklist
+                items={order.items}
+                canEdit={canEditItems && isPurchaseOrderQuotationActive(order)}
+                quotationId={order.quotation_id}
+                companyId={order.company_id}
+              />
             ),
           },
           {

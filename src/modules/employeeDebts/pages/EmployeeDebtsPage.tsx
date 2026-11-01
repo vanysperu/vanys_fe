@@ -1,8 +1,11 @@
-import { Check, HandCoins, Loader2, X } from 'lucide-react';
+import { Check, HandCoins, ListTree, Loader2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { CreateManualDebtDialog } from '@/modules/employeeDebts/components/CreateManualDebtDialog';
+import { EmployeeDebtDetailDialog } from '@/modules/employeeDebts/components/EmployeeDebtDetailDialog';
 import { useEmployeeDebts, usePayEmployeeDebt } from '@/modules/employeeDebts/hooks/useEmployeeDebts';
+import { hasAtMostTwoDecimals } from '@/lib/moneySchema';
 import {
   EMPLOYEE_DEBT_STATUS_LABEL,
   type EmployeeDebtStatusFilter,
@@ -37,18 +40,22 @@ const DEFAULT_STATUS: EmployeeDebtStatusFilter = 'pending';
 
 // "¿A quién se le debe y cuánto?" (pedido explícito del usuario) — se
 // agrupa por trabajador: cuando alguien paga una compra de orden de compra
-// con su propia plata (ver PurchaseOrderItemsChecklist), queda acá como
-// deuda pendiente hasta que la empresa se la repone. Por defecto se ven solo
-// las pendientes de pagar (pedido explícito del usuario).
+// con su propia plata (ver PurchaseOrderItemsChecklist), o un administrador
+// registra una deuda manual (ej. pagó la luz con su plata), queda acá como
+// deuda pendiente hasta que la empresa se la repone. La reposición es el
+// egreso de Caja. Por defecto se ven solo las pendientes de pagar (pedido
+// explícito del usuario).
 export function EmployeeDebtsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [payingDebt, setPayingDebt] = useState<EmployeeDebtSummaryItem | null>(null);
+  const [detailDebt, setDetailDebt] = useState<EmployeeDebtSummaryItem | null>(null);
   const [status, setStatus] = useState<EmployeeDebtStatusFilter>(DEFAULT_STATUS);
   const [employeeFilter, setEmployeeFilter] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
 
   const canPay = usePermissionButton('employee_debt.pay.button');
+  const canCreate = usePermissionButton('employee_debt.create.button');
 
   const { data, isLoading } = useEmployeeDebts({
     page,
@@ -78,7 +85,11 @@ export function EmployeeDebtsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Deudas a personal" description="Dinero propio que un trabajador adelantó en una compra y la empresa debe reponerle" />
+      <PageHeader
+        title="Deudas a personal"
+        description="Dinero propio que un trabajador puso en un gasto de la empresa y que la empresa debe reponerle"
+        action={canCreate ? <CreateManualDebtDialog /> : undefined}
+      />
 
       <FiltersBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
         <FilterSelect
@@ -99,7 +110,7 @@ export function EmployeeDebtsPage() {
           onChange={withPageReset(setEmployeeFilter)}
           options={(allEmployees?.data ?? []).map((row) => ({ value: String(row.user_id), label: row.employee_name }))}
         />
-        <DateRangeFilter placeholder="Fecha de la compra" value={dateRange} onChange={withPageReset(setDateRange)} />
+        <DateRangeFilter placeholder="Fecha del gasto" value={dateRange} onChange={withPageReset(setDateRange)} />
       </FiltersBar>
 
       <DataTable<EmployeeDebtSummaryItem>
@@ -141,14 +152,18 @@ export function EmployeeDebtsPage() {
           {
             header: '',
             align: 'right',
-            cell: (row) =>
-              canPay && row.pending_amount > 0 ? (
-                <div className="flex justify-end">
+            cell: (row) => (
+              <div className="flex justify-end gap-2">
+                <Button size="icon" variant="ghost" title="Ver detalle" aria-label="Ver detalle" onClick={() => setDetailDebt(row)}>
+                  <ListTree className="size-4" />
+                </Button>
+                {canPay && row.pending_amount > 0 && (
                   <Button size="sm" variant="outline" onClick={() => setPayingDebt(row)}>
                     Marcar como pagado
                   </Button>
-                </div>
-              ) : null,
+                )}
+              </div>
+            ),
           },
         ]}
         rows={data?.data ?? []}
@@ -170,13 +185,14 @@ export function EmployeeDebtsPage() {
       )}
 
       {payingDebt && <PayDebtDialog debt={payingDebt} onClose={() => setPayingDebt(null)} />}
+      {detailDebt && <EmployeeDebtDetailDialog debt={detailDebt} onClose={() => setDetailDebt(null)} />}
     </div>
   );
 }
 
 // Reponer al trabajador: se elige desde qué cuenta salió el dinero (o
-// efectivo). Con eso, en Caja cada gasto de esas compras pasa a decir
-// "pagado por <trabajador> · repuesto el <fecha> desde <cuenta>".
+// efectivo). La reposición es el egreso de Caja, en esta fecha, por este
+// monto y desde esa cuenta (cada abono parcial es su propia salida).
 function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClose: () => void }) {
   const [accountId, setAccountId] = useState<number | null>(null);
   // Por defecto se ofrece saldar todo; el input queda editable para un
@@ -186,7 +202,12 @@ function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClo
   const { mutate: payDebt, isPending } = usePayEmployeeDebt();
 
   const amount = Number(amountInput);
-  const isAmountValid = Number.isFinite(amount) && amount > 0 && amount <= debt.pending_amount + 0.009;
+  // Céntimos exactos (sin tolerancia): el backend rechaza reponer de más.
+  const isAmountValid =
+    Number.isFinite(amount) &&
+    amount > 0 &&
+    hasAtMostTwoDecimals(amount) &&
+    Math.round(amount * 100) <= Math.round(debt.pending_amount * 100);
 
   const confirm = () => {
     if (!isAmountValid) return;
@@ -226,13 +247,15 @@ function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClo
             className="border-input bg-card flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
           />
           {!isAmountValid && (
-            <p className="text-xs text-destructive">El monto debe ser mayor a 0 y no superar {money(debt.pending_amount)}.</p>
+            <p className="text-xs text-destructive">
+              El monto debe ser mayor a 0, con máximo 2 decimales, y no superar {money(debt.pending_amount)}.
+            </p>
           )}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="debt-account">¿De dónde salió el dinero para reponerle?</Label>
-          <PaymentAccountSelect id="debt-account" value={accountId} onChange={setAccountId} />
+          <PaymentAccountSelect id="debt-account" companyId={debt.company_id} value={accountId} onChange={setAccountId} />
         </div>
 
         <DialogFooter>

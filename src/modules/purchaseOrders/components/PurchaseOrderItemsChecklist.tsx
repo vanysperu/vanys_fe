@@ -26,6 +26,8 @@ import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import type { ApiClientError } from '@/config/api.types';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
+import { moneyAmountSchema } from '@/lib/moneySchema';
+import { PaymentAccountSelect } from '@/modules/variableGeneral/components/PaymentAccountSelect';
 
 function money(n: number) {
   return 'S/ ' + Number(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -33,9 +35,11 @@ function money(n: number) {
 
 const registerPurchaseSchema = z.object({
   quantity: z.number({ error: 'La cantidad es obligatoria' }).int().positive('Debe ser mayor a 0'),
-  amount: z.number({ error: 'El monto es obligatorio' }).positive('Debe ser mayor a 0'),
+  amount: moneyAmountSchema(),
   notes: z.string().max(NOTES_MAX_LENGTH, `Máximo ${NOTES_MAX_LENGTH} caracteres`).optional(),
   funding_source: z.enum(['company', 'employee'], { error: 'Selecciona con qué plata se pagó' }),
+  // Cuenta de la empresa desde la que se pagó (null = efectivo).
+  payment_account_id: z.number().nullable().optional(),
 });
 type RegisterPurchaseFormValues = z.infer<typeof registerPurchaseSchema>;
 
@@ -60,6 +64,9 @@ interface PurchaseOrderItemsChecklistProps {
   // Para invalidar el detalle de la cotización (pestaña Gastos) al
   // registrar una compra — toda compra genera un gasto real.
   quotationId?: number;
+  // Empresa de la orden: el selector de cuenta solo ofrece las suyas
+  // (importa para el Super Administrador, que ve varias empresas).
+  companyId?: number;
 }
 
 const STATUS_STYLE: Record<PurchaseOrderItemStatus, string> = {
@@ -73,7 +80,7 @@ const STATUS_STYLE: Record<PurchaseOrderItemStatus, string> = {
 // allá, 200 más allá) — "Registrar compra" pide cantidad + monto cada vez
 // (toda compra ES un gasto, se refleja solo en la pestaña Gastos) y el
 // producto pasa a "comprado" recién cuando la suma alcanza lo pedido.
-export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId }: PurchaseOrderItemsChecklistProps) {
+export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, companyId }: PurchaseOrderItemsChecklistProps) {
   const [openFormItemId, setOpenFormItemId] = useState<number | null>(null);
   // Compra que superaba lo pedido y espera confirmación (pedido explícito del
   // usuario: en vez de solo avisar, preguntar "¿seguro quieres comprar más?").
@@ -193,6 +200,7 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId }: Pur
             {isFormOpen && (
               <RegisterPurchaseForm
                 remaining={item.quantity - purchasedQty}
+                companyId={companyId}
                 isPending={isRegistering}
                 onCancel={() => setOpenFormItemId(null)}
                 onSubmit={(values) => submitPurchase(item.id, values)}
@@ -207,11 +215,13 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId }: Pur
 
 function RegisterPurchaseForm({
   remaining,
+  companyId,
   isPending,
   onSubmit,
   onCancel,
 }: {
   remaining: number;
+  companyId?: number;
   isPending: boolean;
   onSubmit: (values: RegisterPurchaseFormValues) => void;
   onCancel: () => void;
@@ -224,14 +234,20 @@ function RegisterPurchaseForm({
     formState: { errors },
   } = useForm<RegisterPurchaseFormValues>({
     resolver: zodResolver(registerPurchaseSchema),
-    defaultValues: { quantity: remaining > 0 ? remaining : 1, funding_source: 'company' },
+    defaultValues: { quantity: remaining > 0 ? remaining : 1, funding_source: 'company', payment_account_id: null },
   });
+  const fundingSource = watch('funding_source');
+
+  // Con plata del trabajador no se manda cuenta (el backend la rechaza): la
+  // empresa no pagó nada todavía, su egreso será la reposición.
+  const submit = (values: RegisterPurchaseFormValues) =>
+    onSubmit({ ...values, payment_account_id: values.funding_source === 'company' ? values.payment_account_id : null });
 
   // Panel del formulario un tono más oscuro que la tarjeta que lo contiene,
   // para que los campos blancos se distingan (pedido explícito del usuario:
   // "blanco dentro de más blanco").
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 rounded-md border bg-muted/60 p-2">
+    <form onSubmit={handleSubmit(submit)} className="space-y-2 rounded-md border bg-muted/60 p-2">
       <p className="text-xs text-muted-foreground">
         Faltan {remaining} — si lo compraste en varios lugares, registra cada compra por separado.
       </p>
@@ -272,13 +288,27 @@ function RegisterPurchaseForm({
             <SelectItem value="employee">{FUNDING_SOURCE_LABEL.employee}</SelectItem>
           </SelectContent>
         </Select>
-        {watch('funding_source') === 'employee' && (
+        {fundingSource === 'employee' && (
           <p className="text-xs text-muted-foreground">
-            Se registrará como una deuda de la empresa hacia ti (ver "Deudas a personal").
+            Se registrará como una deuda de la empresa hacia ti (ver "Deudas a personal"). No sale de Caja hasta que
+            se te reponga.
           </p>
         )}
         {errors.funding_source && <p className="text-xs text-destructive">{errors.funding_source.message}</p>}
       </div>
+      {fundingSource === 'company' && (
+        <div className="space-y-1">
+          <Label htmlFor="purchase-account" className="text-xs">
+            ¿De dónde salió el dinero?
+          </Label>
+          <PaymentAccountSelect
+            id="purchase-account"
+            companyId={companyId}
+            value={watch('payment_account_id')}
+            onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
+          />
+        </div>
+      )}
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancelar

@@ -182,6 +182,13 @@ test('primer día en producción: plataforma, empresa, logo, cotización con PDF
   });
 
   await test.step('registra un pago en la cotización', async () => {
+    // Solo una cotización aceptada recibe pagos: se acepta sin adelanto.
+    await detail.getByRole('button', { name: 'Aceptada' }).click();
+    await page
+      .locator('div[role="dialog"]', { hasText: '¿El cliente pagó adelanto?' })
+      .getByRole('button', { name: 'No, aceptar sin adelanto' })
+      .click();
+    await expect(page.locator('text=Cotización marcada como "Aceptada"')).toBeVisible();
     await detail.getByRole('tab', { name: 'Pagos' }).click();
     await detail.getByRole('button', { name: 'Registrar pago' }).click();
     await page.fill('#payment-amount', '100');

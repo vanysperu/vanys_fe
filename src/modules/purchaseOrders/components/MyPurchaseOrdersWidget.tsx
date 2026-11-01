@@ -2,6 +2,7 @@ import { ShoppingCart } from 'lucide-react';
 
 import { usePurchaseOrders } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
 import { PurchaseOrderItemsChecklist } from '@/modules/purchaseOrders/components/PurchaseOrderItemsChecklist';
+import { isPurchaseOrderQuotationActive } from '@/modules/purchaseOrders/types/purchaseOrder.types';
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
 
 // "Inicio" -> lo que a MÍ me toca comprar, sin importar el rol — cualquier
@@ -32,7 +33,12 @@ export function MyPurchaseOrdersWidget() {
               COT-{String(order.quotation_id).padStart(4, '0')}
               {order.quotation?.client?.name ? ` · ${order.quotation.client.name}` : ''}
             </p>
-            <PurchaseOrderItemsChecklist items={order.items} canEdit quotationId={order.quotation_id} />
+            <PurchaseOrderItemsChecklist
+              items={order.items}
+              canEdit={isPurchaseOrderQuotationActive(order)}
+              quotationId={order.quotation_id}
+              companyId={order.company_id}
+            />
           </div>
         ))}
       </div>

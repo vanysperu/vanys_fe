@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useDownloadQuotationPdf } from '@/modules/quotations/hooks/useQuotations';
 import {
+  QUOTATION_ACTIVE_STATUSES,
   QUOTATION_STATUS_COLOR,
   QUOTATION_STATUS_LABEL,
   QUOTATION_STATUS_ORDER,
@@ -243,9 +244,13 @@ function QuotationRowActions({
   onPreviewPdf,
   onDownload,
 }: QuotationRowActionsProps) {
+  // Pago, gasto y orden de compra solo en una cotización activa (ver
+  // QUOTATION_ACTIVE_STATUSES); el PDF se puede ver siempre.
+  const isActive = QUOTATION_ACTIVE_STATUSES.includes(quotation.status);
+
   return (
     <>
-      {canRegisterPayment && (
+      {canRegisterPayment && isActive && (
         <button
           type="button"
           title="Añadir pago"
@@ -255,7 +260,7 @@ function QuotationRowActions({
           <CircleDollarSign className="size-4" />
         </button>
       )}
-      {canRegisterExpense && (
+      {canRegisterExpense && isActive && (
         <button
           type="button"
           title="Añadir gasto"
@@ -265,7 +270,7 @@ function QuotationRowActions({
           <Receipt className="size-4" />
         </button>
       )}
-      {canCreatePurchaseOrder && (
+      {canCreatePurchaseOrder && isActive && (
         <button
           type="button"
           title="Orden de compra"

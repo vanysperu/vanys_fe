@@ -12,12 +12,14 @@ import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/Quota
 import { useChangeQuotationStatus, useDownloadQuotationPdf, useQuotation } from '@/modules/quotations/hooks/useQuotations';
 import { ArrowRight, Download, Eye } from 'lucide-react';
 import {
+  QUOTATION_ACTIVE_STATUSES,
   QUOTATION_ITEM_PRICING_MODE_LABEL,
   QUOTATION_STATUS_LABEL,
   getForwardTransitions,
   type QuotationItem,
   type QuotationStatus,
 } from '@/modules/quotations/types/quotation.types';
+import { allocateIgvByLine, type LineIgvAmounts } from '@/modules/quotations/utils/quotationAmounts';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Button } from '@/presentation/components/shared/ui/button';
 import {
@@ -40,19 +42,15 @@ function money(n: number) {
 // cantidad/modo/precio en una línea y los montos abajo, con el total a la
 // vista sin tener que deslizar una tabla de lado.
 function QuotationItemCards({
-  items,
+  rows,
   includesIgv,
-  itemIgv,
 }: {
-  items: QuotationItem[];
+  rows: Array<{ line: QuotationItem; amounts: LineIgvAmounts }>;
   includesIgv: boolean;
-  itemIgv: (subtotal: number) => number;
 }) {
   return (
     <ul className="space-y-2" data-testid="quotation-item-cards">
-      {items.map((item) => {
-        const subtotal = Number(item.subtotal);
-        const igv = itemIgv(subtotal);
+      {rows.map(({ line: item, amounts: { subtotal, igv, total } }) => {
         return (
           <li key={item.id} className="rounded-lg border bg-card p-3 text-sm">
             <p className="font-medium">{item.product?.name}</p>
@@ -76,7 +74,7 @@ function QuotationItemCards({
               )}
               <div className="flex items-baseline justify-between">
                 <dt className="font-medium">{includesIgv ? 'Total' : 'Total (sin IGV)'}</dt>
-                <dd className="font-mono-nums text-sm font-semibold text-primary">S/ {(subtotal + igv).toFixed(2)}</dd>
+                <dd className="font-mono-nums text-sm font-semibold text-primary">S/ {total.toFixed(2)}</dd>
               </div>
             </dl>
           </li>
@@ -163,14 +161,27 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
 
   const allowedNext = quotation ? getForwardTransitions(quotation.status) : [];
   const balance = quotation ? Number(quotation.total) - Number(quotation.total_paid) : 0;
+  // Pagos, gastos, compras y producción solo en una cotización activa
+  // (QUOTATION_ACTIVE_STATUSES; el backend responde 409 en el resto). El
+  // adelanto al aceptar una Pendiente va por AcceptQuotationDialog y sigue
+  // dependiendo solo del permiso (canRegisterPayment, en handleTransition).
+  const isActive = Boolean(quotation && QUOTATION_ACTIVE_STATUSES.includes(quotation.status));
+  const inactiveNotice = !quotation || isActive
+    ? null
+    : quotation.status === 'pending'
+      ? 'Esta cotización todavía no fue aceptada. Acéptala para registrar pagos, gastos y compras, o avanzar la producción.'
+      : `Esta cotización está "${QUOTATION_STATUS_LABEL[quotation.status]}": ya no admite pagos, gastos, compras ni cambios en la producción.`;
   // IGV de cada ítem (pedido explícito del usuario: "no se ve claro cuánto
-  // hay que pagar ni su IGV por fila"). La tasa sale de la propia cotización
-  // (total vs. subtotal), igual que el resumen: así coincide con lo que se
-  // cobró aunque el % configurado cambie después.
-  const quotationSubtotal = Number(quotation?.subtotal ?? 0);
-  const itemIgvRate =
-    quotation?.includes_igv && quotationSubtotal > 0 ? (Number(quotation.total) - quotationSubtotal) / quotationSubtotal : 0;
-  const itemIgv = (subtotal: number) => Math.round(subtotal * itemIgvRate * 100) / 100;
+  // hay que pagar ni su IGV por fila"): el IGV real cobrado (total -
+  // subtotal, así coincide aunque el % configurado cambie después) repartido
+  // entre los ítems con el MISMO reparto que el PDF. Antes cada ítem
+  // redondeaba su propia parte y las filas podían no sumar el total.
+  const itemRows = quotation
+    ? allocateIgvByLine(
+        quotation.items,
+        quotation.includes_igv ? Number(quotation.total) - Number(quotation.subtotal) : 0,
+      )
+    : [];
   // En el celular los ítems van como tarjetas: en la tabla los nombres se
   // partían en varias líneas y el total quedaba fuera de la vista.
   const isMobile = useIsMobile();
@@ -303,6 +314,17 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
               </div>
             )}
 
+            {/* Por qué no aparecen los botones de pago, gasto, compra ni el
+                arrastre de producción: la cotización no está activa. */}
+            {inactiveNotice && (
+              <p
+                className="rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                data-testid="quotation-inactive-notice"
+              >
+                {inactiveNotice}
+              </p>
+            )}
+
             <Tabs value={tab} onValueChange={(value) => setTab(value as QuotationDetailTab)}>
               <TabsList>
                 <TabsTrigger value="products">Productos</TabsTrigger>
@@ -314,11 +336,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
 
               <TabsContent value="products" className="space-y-4">
                 {isMobile ? (
-                  <QuotationItemCards
-                    items={quotation.items}
-                    includesIgv={Boolean(quotation.includes_igv)}
-                    itemIgv={itemIgv}
-                  />
+                  <QuotationItemCards rows={itemRows} includesIgv={Boolean(quotation.includes_igv)} />
                 ) : (
                 /* overflow-x-auto: si la ventana es angosta, la tabla se
                    desliza de lado sin ensanchar el modal. */
@@ -343,7 +361,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                       </tr>
                     </thead>
                     <tbody>
-                      {quotation.items.map((item) => (
+                      {itemRows.map(({ line: item, amounts }) => (
                         <tr key={item.id} className="border-t">
                           <td className="px-3 py-2">{item.product?.name}</td>
                           <td className="px-3 py-2 text-muted-foreground">{item.technique?.name ?? '—'}</td>
@@ -359,10 +377,10 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                           {quotation.includes_igv && (
                             <>
                               <td className="px-3 py-2 text-right whitespace-nowrap text-muted-foreground">
-                                S/ {Number(item.subtotal).toFixed(2)}
+                                S/ {amounts.subtotal.toFixed(2)}
                               </td>
                               <td className="px-3 py-2 text-right whitespace-nowrap text-muted-foreground">
-                                S/ {itemIgv(Number(item.subtotal)).toFixed(2)}
+                                S/ {amounts.igv.toFixed(2)}
                               </td>
                             </>
                           )}
@@ -370,7 +388,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                               de la empresa (--primary, ver useBrandTheme.ts)
                               para que destaque frente al resto de la fila. */}
                           <td className="px-3 py-2 text-right font-semibold whitespace-nowrap text-primary">
-                            S/ {(Number(item.subtotal) + itemIgv(Number(item.subtotal))).toFixed(2)}
+                            S/ {amounts.total.toFixed(2)}
                           </td>
                         </tr>
                       ))}
@@ -385,7 +403,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                     quotationId={quotation.id}
                     items={quotation.items}
                     companyId={quotation.company_id}
-                    canMoveStage={canMoveStage}
+                    canMoveStage={canMoveStage && isActive}
                   />
                 </div>
 
@@ -403,15 +421,16 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   payments={quotation.payments}
                   totalPaid={Number(quotation.total_paid)}
                   balance={balance}
-                  canRegister={canRegisterPayment}
+                  canRegister={canRegisterPayment && isActive}
                 />
               </TabsContent>
 
               <TabsContent value="expenses">
                 <QuotationExpensesSection
                   quotationId={quotation.id}
+                  companyId={quotation.company_id}
                   expenses={quotation.expenses}
-                  canRegister={canRegisterExpense}
+                  canRegister={canRegisterExpense && isActive}
                 />
               </TabsContent>
 
@@ -420,7 +439,8 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   quotationId={quotation.id}
                   companyId={quotation.company_id}
                   items={quotation.items}
-                  canCreate={canCreatePurchaseOrder}
+                  canCreate={canCreatePurchaseOrder && isActive}
+                  quotationActive={isActive}
                 />
               </TabsContent>
 

@@ -17,6 +17,12 @@ import { QuickCreateTechniqueDialog } from '@/modules/quotations/components/Quic
 import { useCreateQuotation } from '@/modules/quotations/hooks/useQuotations';
 import { createQuotationSchema, type CreateQuotationFormValues } from '@/modules/quotations/schemas/quotation.schema';
 import { QUOTATION_ITEM_PRICING_MODE_LABEL, type QuotationItemPricingMode } from '@/modules/quotations/types/quotation.types';
+import {
+  allocateIgvByLine,
+  computeQuotationIgv,
+  roundMoney,
+  type LineIgvAmounts,
+} from '@/modules/quotations/utils/quotationAmounts';
 import { NOTES_MAX_LENGTH } from '@/lib/constants';
 import { CharCounter } from '@/presentation/components/shared/CharCounter';
 import { Button } from '@/presentation/components/shared/ui/button';
@@ -90,8 +96,6 @@ interface ItemPriceBreakdown {
   total: number;
 }
 
-const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-
 // Precio en vivo del item, MISMO cálculo que el backend al crear (grulla_be:
 // quotation.service.ts -> resolveUnitPrice): (precio del producto + precio de
 // la técnica, los dos en el mismo modo) × cantidad, con el precio unitario
@@ -136,23 +140,23 @@ function computeItemPrice(
   return { productPrice, techniquePrice, unitPrice, total: roundMoney(unitPrice * quantity) };
 }
 
-// Montos de un ítem: subtotal, IGV y lo que se cobra por ese ítem. El IGV por
-// ítem es referencial: el backend lo calcula sobre el subtotal de toda la
-// cotización (computeQuotationTotal), así que la suma de los ítems puede
-// diferir en un céntimo del "Total a pagar" del resumen, que es el que vale.
+// Montos de un ítem: subtotal, IGV y lo que se cobra por ese ítem. El IGV del
+// ítem es su parte del IGV de toda la cotización (allocateIgvByLine), el
+// mismo reparto que usan el detalle y el PDF: los ítems suman exactamente el
+// "Total a pagar". Antes cada ítem redondeaba su propio IGV y en ~9% de las
+// cotizaciones no coincidía con el PDF.
 function ItemAmounts({
-  subtotal,
+  amounts,
   igvRate,
   includesIgv,
   index,
 }: {
-  subtotal: number;
+  amounts: LineIgvAmounts;
   igvRate: number;
   includesIgv: boolean;
   index: number;
 }) {
-  const igv = includesIgv ? roundMoney(subtotal * igvRate) : 0;
-  const total = roundMoney(subtotal + igv);
+  const { subtotal, igv, total } = amounts;
 
   // En el celular: Subtotal e IGV en una fila y el total del ítem debajo, a lo
   // ancho (con montos de 5 cifras, tres columnas de ~100 px se apretaban).
@@ -285,21 +289,26 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
     });
   };
 
-  const subtotal = watchedItems.reduce((sum, item) => {
+  // Precio de cada ítem (null mientras le falte algún dato).
+  const itemPrices = watchedItems.map((item) => {
     const product = companyProducts.find((row) => row.id === item.product_id);
     const technique = effectiveTechnique(product, companyTechniques.find((row) => row.id === item.technique_id));
-    return (
-      sum +
-      (computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price)
-        ?.total ?? 0)
-    );
-  }, 0);
+    return computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price);
+  });
+  const subtotal = roundMoney(itemPrices.reduce((sum, price) => sum + (price?.total ?? 0), 0));
   // Viene de "Variables Generales" (categoría "tax_config"), ya no es un
   // 18% hardcodeado — el backend recalcula con el mismo valor real al
   // guardar (ver access.service.ts -> getIgvRate).
   const igvRate = access?.igvRate ?? 0.18;
-  const igvAmount = includesIgv ? subtotal * igvRate : 0;
-  const grandTotal = subtotal + igvAmount;
+  // Mismo cálculo que el backend al guardar (IGV redondeado una vez sobre el
+  // subtotal): antes este resumen redondeaba distinto y en ~5% de las
+  // cotizaciones el "Total a pagar" difería en un céntimo del PDF.
+  const igvAmount = computeQuotationIgv(subtotal, Boolean(includesIgv), igvRate);
+  const grandTotal = roundMoney(subtotal + igvAmount);
+  const itemAmounts = allocateIgvByLine(
+    itemPrices.map((price) => ({ subtotal: price?.total ?? 0 })),
+    igvAmount,
+  ).map(({ amounts }) => amounts);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -520,14 +529,8 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                   companyTechniques.find((row) => row.id === item?.technique_id),
                 );
                 const pricingMode = item?.pricing_mode ?? 'unit';
-                const price = computeItemPrice(
-                  product,
-                  technique,
-                  item?.quantity,
-                  pricingMode,
-                  item?.custom_price,
-                  item?.custom_technique_price,
-                );
+                const price = itemPrices[index] ?? null;
+                const amounts = itemAmounts[index];
                 const modes = availablePricingModes(product, technique);
 
                 return (
@@ -741,7 +744,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                       igual; debajo, los montos del ítem bien a la vista
                       (pedido explícito del usuario: "no se ve claro cuánto
                       hay que pagar ni su IGV por fila"). */}
-                  {price ? (
+                  {price && amounts ? (
                     <div className="space-y-2 border-t border-dashed pt-2">
                       <p className="text-xs text-muted-foreground" data-testid={`item-price-breakdown-${index}`}>
                         {technique === null
@@ -749,7 +752,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
                           : `Producto S/ ${price.productPrice.toFixed(2)} + técnica S/ ${price.techniquePrice.toFixed(2)} = S/ ${price.unitPrice.toFixed(2)} c/u`}{' '}
                         × {item?.quantity} = S/ {price.total.toFixed(2)}
                       </p>
-                      <ItemAmounts subtotal={price.total} igvRate={igvRate} includesIgv={Boolean(includesIgv)} index={index} />
+                      <ItemAmounts amounts={amounts} igvRate={igvRate} includesIgv={Boolean(includesIgv)} index={index} />
                     </div>
                   ) : (
                     <p className="border-t border-dashed pt-2 text-xs text-muted-foreground">

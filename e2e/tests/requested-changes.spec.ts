@@ -73,6 +73,14 @@ test.describe('Cambios pedidos: precios, compras, clientes y menú', () => {
     await waitForToastsToClear(page);
     await page.getByRole('button', { name: 'Lista', exact: true }).click();
     await page.click(`span:has-text("${clientName}")`);
+
+    // Solo una cotización aceptada admite compras: se acepta sin adelanto.
+    const detail = page.locator('div[role="dialog"]', { hasText: /^Cotización #/ });
+    await detail.getByRole('button', { name: 'Aceptada' }).click();
+    const advance = page.locator('div[role="dialog"]', { hasText: '¿El cliente pagó adelanto?' });
+    await advance.getByRole('button', { name: 'No, aceptar sin adelanto' }).click();
+    await expect(page.locator('text=Cotización marcada como "Aceptada"')).toBeVisible({ timeout: 10_000 });
+
     await page.click('div[role="dialog"] [role="tab"]:has-text("Compras")');
     await page.click('div[role="dialog"] button:has-text("Crear orden de compra")');
     await page.locator('div[role="dialog"] label', { hasText: productName }).click();

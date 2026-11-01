@@ -125,10 +125,12 @@ export function useDownloadQuotationPdf() {
 
 // Para la vista previa: useQuery (no mutation) para que el blob quede en
 // caché mientras el modal de preview sigue abierto, sin volver a generar
-// el PDF si se abre/cierra rápido dos veces.
+// el PDF si se abre/cierra rápido dos veces. La key cuelga del detalle
+// (quotationsKeys.pdf): antes era una key suelta que nada invalidaba, y tras
+// cambiar el estado la vista previa seguía mostrando el PDF viejo hasta 1 min.
 export function usePreviewQuotationPdf(id: number | null) {
   return useQuery({
-    queryKey: ['quotationPdfPreview', id],
+    queryKey: quotationsKeys.pdf(id ?? 0),
     queryFn: () => downloadQuotationPdf(id as number),
     enabled: id !== null,
     staleTime: 60 * 1000,
