@@ -1,10 +1,27 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Check, Plus, Scale, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Check, Lock, Pencil, Plus, Scale, Wallet, type LucideIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
+import { useAdjustmentReason } from '@/modules/cashClosings/hooks/useAdjustmentReason';
+import { useCashPeriodStatus } from '@/modules/cashClosings/hooks/useCashClosings';
+import { useCanAdjustClosedPeriods } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
+import { formatPeriodEs, lockedDatesExcept } from '@/modules/cashClosings/utils/period';
+import { CashBalancesPanel } from '@/modules/cashMovements/components/CashBalancesPanel';
+import { AdjustmentEntryDescription, PeriodLockIcon } from '@/modules/cashMovements/components/CashEntryParts';
+import { adjustmentCategoryText, netAmountOf } from '@/modules/cashMovements/utils/cashEntry';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
+import { EditCashMovementDialog } from '@/modules/cashMovements/components/EditCashMovementDialog';
+import { CorrectedBadge } from '@/modules/moneyCorrections/components/CorrectedBadge';
+import { CorrectionHistoryDialog } from '@/modules/moneyCorrections/components/CorrectionHistoryDialog';
+import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
+import { CorrectPaymentDialog } from '@/modules/payments/components/CorrectPaymentDialog';
+import { CorrectManualDebtDialog } from '@/modules/employeeDebts/components/CorrectManualDebtDialog';
+import { CorrectReimbursementDialog } from '@/modules/employeeDebts/components/CorrectReimbursementDialog';
+import { CorrectPurchaseDialog } from '@/modules/purchaseOrders/components/CorrectPurchaseDialog';
+import { CorrectQuotationExpenseDialog } from '@/modules/quotations/components/CorrectQuotationExpenseDialog';
 import { usePurchaseOrders } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
 import { useQuotations } from '@/modules/quotations/hooks/useQuotations';
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
@@ -29,7 +46,7 @@ import { useCompanies } from '@/modules/platform/hooks/useCompanies';
 import { cn } from '@/lib/utils';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateField } from '@/presentation/components/shared/DateField';
-import { disableFuture } from '@/presentation/components/shared/ui/calendar';
+import { combineDisabled, disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
@@ -48,7 +65,7 @@ import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { Textarea } from '@/presentation/components/shared/ui/textarea';
-import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { flattenViewRoutes, useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
@@ -63,6 +80,19 @@ const SOURCE_LABEL: Record<CashMovementListItem['source'], string> = {
   employee_debt: 'Pagado por un trabajador',
   employee_debt_payment: 'Reposición a trabajador',
 };
+
+// Botón de permiso que habilita corregir cada tipo de fila (el backend lo
+// vuelve a validar en el endpoint de cada módulo).
+const UPDATE_BUTTON_BY_SOURCE: Record<CashMovementSource, string> = {
+  manual: 'cash_movement.update.button',
+  quotation_payment: 'payment.update.button',
+  quotation_expense: 'cotizacion.expense.update.button',
+  employee_debt: 'employee_debt.update.button',
+  employee_debt_payment: 'employee_debt.payment.update.button',
+};
+
+// Una compra de orden (gasto con purchase_id) se corrige como compra.
+const PURCHASE_UPDATE_BUTTON = 'purchase_order.purchase.update.button';
 
 // Libro de caja: junta en un solo listado lo que ya se registra en
 // cotizaciones (Pagos = ingreso, Gastos = egreso, y toda compra de una
@@ -81,8 +111,17 @@ export function CashMovementsPage() {
   const [source, setSource] = useState<CashMovementSource | undefined>(undefined);
   const [account, setAccount] = useState<string | undefined>(undefined);
   const [category, setCategory] = useState<string | undefined>(undefined);
-  const [dateRange, setDateRange] = useState<DateRangeValue>({});
-  const [companyFilter, setCompanyFilter] = useState<string | undefined>(undefined);
+  // El enlace 'Ver movimientos en Caja' de Cierres de caja llega con el rango del mes.
+  const [searchParams] = useSearchParams();
+  const [dateRange, setDateRange] = useState<DateRangeValue>({
+    dateFrom: searchParams.get('dateFrom') ?? undefined,
+    dateTo: searchParams.get('dateTo') ?? undefined,
+  });
+  // ?companyId= (enlace desde Cierres de caja de un Super Administrador): empresa
+  // inicial del filtro. Solo es UX: el backend ignora la empresa de quien no es is_system.
+  const [companyFilter, setCompanyFilter] = useState<string | undefined>(
+    () => searchParams.get('companyId') ?? undefined,
+  );
   const { data: access } = useAccess();
   const isSystem = access?.isSystem ?? false;
   const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: isSystem });
@@ -98,6 +137,23 @@ export function CashMovementsPage() {
 
   const canCreate = usePermissionButton('cash_movement.create.button');
   const canDisable = usePermissionButton('cash_movement.disable.button');
+  const canViewHistory = usePermissionButton('cash_movement.corrections.button');
+  const canSeeBalances = usePermissionButton('cash_closing.balances.button');
+  // Filas de un mes cerrado: solo quien puede ajustar meses cerrados ve sus
+  // acciones (el backend respondería 403 CASH_PERIOD_ADJUST_FORBIDDEN).
+  const canAdjustClosed = useCanAdjustClosedPeriods();
+  const rowActionsLocked = (row: CashMovementListItem): boolean => row.period_status === 'closed' && !canAdjustClosed;
+  const canOpenClosings = flattenViewRoutes(access?.views ?? []).includes('/caja/cierres');
+  // Cada fila se corrige con el diálogo de su módulo, que llama a SU endpoint
+  // (Caja solo anula las filas manuales).
+  const canCorrect = (row: CashMovementListItem): boolean => {
+    // Una deuda de compra se corrige desde la compra, nunca desde acá.
+    if (row.source === 'employee_debt' && row.debt_origin !== 'manual') return false;
+    const code = row.source === 'quotation_expense' && row.purchase_id !== null ? PURCHASE_UPDATE_BUTTON : UPDATE_BUTTON_BY_SOURCE[row.source];
+    return Boolean(access?.buttons.includes(code));
+  };
+  const [correctingMovement, setCorrectingMovement] = useState<CashMovementListItem | null>(null);
+  const [historyMovement, setHistoryMovement] = useState<CashMovementListItem | null>(null);
 
   const { data, isLoading } = useCashMovements({
     companyId,
@@ -128,7 +184,27 @@ export function CashMovementsPage() {
     setter(value);
     setPage(1);
   };
-  const { mutate: toggleStatus, isPending: isToggling } = useToggleCashMovementStatus();
+  const { mutateAsync: toggleStatus, isPending: isToggling } = useToggleCashMovementStatus();
+  // Anular un movimiento de un mes cerrado se registra como ajuste y pide motivo.
+  const adjustmentReason = useAdjustmentReason<CashMovementListItem>({
+    run: (row, reason) => toggleStatus({ id: row.source_id, reason }),
+    successMessage: () => 'Movimiento anulado como ajuste de un mes cerrado',
+    fallbackErrorMessage: 'No se pudo actualizar el movimiento',
+  });
+  const disableMovement = async (row: CashMovementListItem) => {
+    if (row.period_status === 'closed') {
+      adjustmentReason.open(row, 'annul', formatPeriodEs(row.occurred_at.slice(0, 7)));
+      return;
+    }
+    // try/catch solo para avisar o pedir el motivo si el servidor lo exige.
+    try {
+      await toggleStatus({ id: row.source_id });
+      toast.success('Movimiento deshabilitado');
+    } catch (mutationError) {
+      if (adjustmentReason.absorbError(mutationError, row, 'annul')) return;
+      toast.error((mutationError as ApiClientError).message ?? 'No se pudo actualizar el movimiento');
+    }
+  };
 
   const summary = data?.summary;
   // La cuenta elegida pertenece a una empresa: al cambiar de empresa se suelta.
@@ -143,7 +219,17 @@ export function CashMovementsPage() {
         title="Caja"
         description="Ingresos y salidas de dinero — pagos, gastos y movimientos manuales"
         action={
-          <div className="flex items-center gap-3">{canCreate && <CreateCashMovementDialog />}</div>
+          <div className="flex items-center gap-3">
+            {canOpenClosings && (
+              <Button asChild variant="outline">
+                <Link to="/caja/cierres">
+                  <Lock className="size-4" />
+                  Cierres de caja
+                </Link>
+              </Button>
+            )}
+            {canCreate && <CreateCashMovementDialog />}
+          </div>
         }
       />
 
@@ -197,11 +283,21 @@ export function CashMovementsPage() {
         <DateRangeFilter placeholder="Fecha" value={dateRange} onChange={withPageReset(setDateRange)} />
       </FiltersBar>
 
-      <CashSummaryCards summary={summary} filtered={hasActiveFilters} />
+      <CashBalancesPanel companyId={companyId} enabled={canSeeBalances && (!isSystem || companyId !== undefined)} canOpenClosings={canOpenClosings} />
+
+      <CashSummaryCards summary={summary} filtered={hasActiveFilters} ledgerStarted={data?.cash_period?.started === true} />
 
       <DataTable<CashMovementListItem>
         columns={[
-          { header: 'Fecha', cell: (row) => new Date(`${row.occurred_at}T00:00:00`).toLocaleDateString('es-PE') },
+          {
+            header: 'Fecha',
+            cell: (row) => (
+              <span className="whitespace-nowrap">
+                {new Date(`${row.occurred_at}T00:00:00`).toLocaleDateString('es-PE')}
+                <PeriodLockIcon row={row} />
+              </span>
+            ),
+          },
           {
             header: 'Tipo',
             cell: (row) => (
@@ -210,13 +306,26 @@ export function CashMovementsPage() {
               </Badge>
             ),
           },
-          { header: 'Categoría', cell: (row) => (row.category ? (categoryNames.get(row.category) ?? row.category) : '—') },
+          {
+            header: 'Categoría',
+            cell: (row) =>
+              adjustmentCategoryText(row) ?? (row.category ? (categoryNames.get(row.category) ?? row.category) : '—'),
+          },
           {
             header: 'Descripción',
             className: 'min-w-56',
             cell: (row) => (
+              row.entry_kind !== 'movement' ? (
+                <AdjustmentEntryDescription row={row} />
+              ) : (
               <div>
                 <span>{row.description ?? '—'}</span>
+                {/* Fila corregida (cualquier fuente): badge + acceso a su historial. */}
+                <CorrectedBadge
+                  count={row.corrections_count}
+                  canOpen={canViewHistory}
+                  onOpen={() => setHistoryMovement(row)}
+                />
                 <span className="block text-[10px] text-muted-foreground">
                   {SOURCE_LABEL[row.source]}
                   {row.quotation_id && ` · COT-${String(row.quotation_id).padStart(4, '0')}`}
@@ -231,6 +340,7 @@ export function CashMovementsPage() {
                   </span>
                 )}
               </div>
+              )
             ),
           },
           {
@@ -246,10 +356,11 @@ export function CashMovementsPage() {
                 <span
                   className={cn(
                     'whitespace-nowrap font-semibold',
-                    row.direction === 'income' ? 'text-[var(--success)]' : 'text-destructive',
+                    netAmountOf(row) >= 0 ? 'text-[var(--success)]' : 'text-destructive',
+                    row.entry_kind === 'closing_hold' && 'opacity-60',
                   )}
                 >
-                  {row.direction === 'income' ? '+' : '-'} {money(row.amount)}
+                  {netAmountOf(row) >= 0 ? '+' : '-'} {money(Math.abs(row.amount))}
                 </span>
               ) : (
                 // No suma: se ve tachado para que nadie lo cuente como salida.
@@ -265,22 +376,28 @@ export function CashMovementsPage() {
           {
             header: '',
             align: 'right',
-            cell: (row) =>
-              row.source === 'manual' && canDisable ? (
-                <div className="flex justify-end">
+            cell: (row) => (
+              <div className="flex justify-end gap-1">
+                {row.entry_kind === 'movement' && canCorrect(row) && !rowActionsLocked(row) && (
+                  <button
+                    type="button"
+                    title="Corregir"
+                    onClick={() => setCorrectingMovement(row)}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                )}
+                {row.entry_kind === 'movement' && row.source === 'manual' && canDisable && !rowActionsLocked(row) && (
                   <ToggleStatusButton
                     active
                     disabled={isToggling}
                     entityLabel="movimiento"
-                    onToggle={() =>
-                      toggleStatus(row.source_id, {
-                        onSuccess: () => toast.success('Movimiento deshabilitado'),
-                        onError: () => toast.error('No se pudo actualizar el movimiento'),
-                      })
-                    }
+                    onToggle={() => disableMovement(row)}
                   />
-                </div>
-              ) : null,
+                )}
+              </div>
+            ),
           },
         ]}
         rows={data?.data ?? []}
@@ -300,8 +417,40 @@ export function CashMovementsPage() {
           }}
         />
       )}
+
+      {adjustmentReason.dialog}
+      {correctingMovement && <CorrectRowDialog row={correctingMovement} onClose={() => setCorrectingMovement(null)} />}
+      {historyMovement && (
+        <CorrectionHistoryDialog
+          title={historyMovement.description ?? SOURCE_LABEL[historyMovement.source]}
+          historyUrl={`/cash-movement/${historyMovement.source_id}/corrections?source=${historyMovement.source}`}
+          queryKey={moneyCorrectionsKeys.history(historyMovement.source, historyMovement.source_id)}
+          onClose={() => setHistoryMovement(null)}
+        />
+      )}
     </div>
   );
+}
+
+// Abre el diálogo de corrección del módulo dueño de la fila: cada uno
+// consulta su registro por id y llama a su propio endpoint.
+function CorrectRowDialog({ row, onClose }: { row: CashMovementListItem; onClose: () => void }) {
+  switch (row.source) {
+    case 'manual':
+      return <EditCashMovementDialog movement={row} onClose={onClose} />;
+    case 'quotation_payment':
+      return <CorrectPaymentDialog paymentId={row.source_id} onClose={onClose} />;
+    case 'quotation_expense':
+      return row.purchase_id !== null ? (
+        <CorrectPurchaseDialog purchaseId={row.purchase_id} onClose={onClose} />
+      ) : (
+        <CorrectQuotationExpenseDialog expenseId={row.source_id} onClose={onClose} />
+      );
+    case 'employee_debt':
+      return <CorrectManualDebtDialog debtId={row.source_id} onClose={onClose} />;
+    case 'employee_debt_payment':
+      return <CorrectReimbursementDialog reimbursementId={row.source_id} onClose={onClose} />;
+  }
 }
 
 // Gasto que un trabajador pagó con su plata: no salió de la caja de la
@@ -330,42 +479,79 @@ function EmployeeReimbursementNote({ row }: { row: CashMovementListItem }) {
 // con el banco o con el efectivo contado.
 const VISIBLE_ACCOUNTS = 6;
 
-function CashSummaryCards({ summary, filtered }: { summary: CashMovementSummary | undefined; filtered: boolean }) {
+// ledgerStarted: con el cierre configurado, el panel "Saldos de caja" ya muestra
+// el SALDO real por cuenta; estas tarjetas son entradas menos salidas de lo
+// filtrado, así que se rotulan "Neto" para no mostrar dos "saldos" distintos.
+function CashSummaryCards({
+  summary,
+  filtered,
+  ledgerStarted,
+}: {
+  summary: CashMovementSummary | undefined;
+  filtered: boolean;
+  ledgerStarted: boolean;
+}) {
+  const netWord = ledgerStarted ? 'Neto' : 'Saldo';
   const [showAllAccounts, setShowAllAccounts] = useState(false);
   const scope = filtered ? 'del filtro' : 'total';
   const net = summary?.net ?? 0;
   const accounts = summary?.by_account ?? [];
+  const adjustments = summary?.adjustments ?? 0;
   const visibleAccounts = showAllAccounts ? accounts : accounts.slice(0, VISIBLE_ACCOUNTS);
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className={cn('grid grid-cols-1 gap-4 sm:grid-cols-3', adjustments !== 0 && 'lg:grid-cols-4')}>
         <SummaryCard icon={ArrowUpCircle} iconClassName="text-[var(--success)]" label={`Ingresos (${scope})`} value={summary?.income ?? 0} />
         <SummaryCard icon={ArrowDownCircle} iconClassName="text-destructive" label={`Egresos (${scope})`} value={summary?.expense ?? 0} />
+        {adjustments !== 0 && (
+          <SummaryCard
+            icon={Lock}
+            iconClassName="text-muted-foreground"
+            label={`Ajustes de meses cerrados (${scope})`}
+            value={adjustments}
+          />
+        )}
         <SummaryCard
           icon={Scale}
           iconClassName={net < 0 ? 'text-destructive' : 'text-primary'}
-          label={`Saldo (${scope})`}
+          label={`${netWord} (${scope})`}
           value={net}
         />
       </div>
       {accounts.length > 0 && (
         <div className="rounded-xl border bg-card p-3 shadow-sm">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-muted-foreground">Saldo por cuenta</p>
+            <p className="text-xs font-medium text-muted-foreground">{netWord} por cuenta</p>
             {accounts.length > VISIBLE_ACCOUNTS && (
               <Button type="button" size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setShowAllAccounts((all) => !all)}>
                 {showAllAccounts ? 'Ver menos' : `Ver todas (${accounts.length})`}
               </Button>
             )}
           </div>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleAccounts.map((account) => (
-              <div key={account.payment_account_id ?? 'cash'} className="flex min-w-0 items-center justify-between gap-3 text-sm">
-                <span className="truncate">{account.payment_account_name}</span>
-                <span className={cn('whitespace-nowrap', account.net < 0 && 'text-destructive')}>{money(account.net)}</span>
-              </div>
-            ))}
+          {/* Con "Ver todas" desplegado (hay empresas con decenas de cuentas):
+              altura máxima y scroll, en vez de empujar la tabla hacia abajo. */}
+          <div className="scrollbar-thin -mr-1 max-h-56 overflow-y-auto pr-1" data-testid="cash-net-by-account">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleAccounts.map((account) => (
+                <div
+                  key={account.payment_account_id ?? 'cash'}
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-md px-1.5 py-1 text-sm hover:bg-muted/50"
+                >
+                  <span className="truncate" title={account.payment_account_name}>
+                    {account.payment_account_name}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                    {account.adjustments !== 0 && (
+                      <Badge variant="warning" className="px-1.5 py-0 text-[10px]" title="Incluye ajustes de meses cerrados">
+                        ajuste {money(account.adjustments)}
+                      </Badge>
+                    )}
+                    <span className={cn('tabular-nums', account.net < 0 && 'text-destructive')}>{money(account.net)}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -434,6 +620,8 @@ function CreateCashMovementDialog() {
     setValue('payment_account_id', null);
   };
 
+  // Fechas de meses cerrados no se pueden usar al registrar.
+  const { data: periodStatus } = useCashPeriodStatus(selectedCompanyId, { enabled: listsEnabled });
   const direction = watch('direction');
   const categoryOptions = (categories?.data ?? []).map((item) => ({ value: item.prefix_id, label: item.name }));
 
@@ -527,7 +715,7 @@ function CreateCashMovementDialog() {
                 id="cash-movement-date"
                 value={watch('occurred_at')}
                 onChange={(value) => setValue('occurred_at', value, { shouldValidate: true })}
-                disabled={disableFuture}
+                disabled={combineDisabled(disableFuture, lockedDatesExcept(periodStatus))}
               />
               {errors.occurred_at && <p className="text-sm text-destructive">{errors.occurred_at.message}</p>}
             </div>

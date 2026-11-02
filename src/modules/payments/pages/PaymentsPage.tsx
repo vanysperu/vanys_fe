@@ -1,43 +1,31 @@
-import { zodResolver } from '@hookform/resolvers/zod';
 import { CreditCard, Pencil, Search } from 'lucide-react';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import type { ApiClientError } from '@/config/api.types';
+import { useAdjustmentReason } from '@/modules/cashClosings/hooks/useAdjustmentReason';
+import { useClosedPeriodGuard } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
+import { closedPeriodLabelOf } from '@/modules/cashClosings/utils/period';
+
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
-import { usePayments, useTogglePaymentStatus, useUpdatePayment } from '@/modules/payments/hooks/usePayments';
-import {
-  CASH_PAYMENT_METHOD,
-  updatePaymentSchema,
-  type UpdatePaymentFormValues,
-} from '@/modules/payments/schemas/payment.schema';
-import { PaymentAccountSelect, usePaymentAccounts } from '@/modules/variableGeneral/components/PaymentAccountSelect';
+import { CorrectPaymentDialog } from '@/modules/payments/components/CorrectPaymentDialog';
+import { usePayments, useTogglePaymentStatus } from '@/modules/payments/hooks/usePayments';
+import { CorrectedBadge } from '@/modules/moneyCorrections/components/CorrectedBadge';
+import { CorrectionHistoryDialog } from '@/modules/moneyCorrections/components/CorrectionHistoryDialog';
+import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
+import { usePaymentAccounts } from '@/modules/variableGeneral/components/PaymentAccountSelect';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 import type { PaymentStatusFilter } from '@/modules/payments/types/payment.types';
 import type { PaymentListItem } from '@/modules/payments/types/payment.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
-import { DateField } from '@/presentation/components/shared/DateField';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { Pagination } from '@/presentation/components/shared/Pagination';
-import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/presentation/components/shared/ui/dialog';
-import { Button } from '@/presentation/components/shared/ui/button';
 import { Input } from '@/presentation/components/shared/ui/input';
-import { Label } from '@/presentation/components/shared/ui/label';
-import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
-import type { ApiClientError } from '@/config/api.types';
-import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -50,7 +38,9 @@ function money(amount: number) {
 export function PaymentsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [editingPayment, setEditingPayment] = useState<PaymentListItem | null>(null);
+  // Pago que se está corrigiendo y pago cuyo historial se está mirando.
+  const [correctingPaymentId, setCorrectingPaymentId] = useState<number | null>(null);
+  const [historyPayment, setHistoryPayment] = useState<PaymentListItem | null>(null);
   // Filtros (pedido explícito del usuario: rangos de fecha, estados, personas).
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [methodFilter, setMethodFilter] = useState<string | undefined>(undefined);
@@ -61,6 +51,7 @@ export function PaymentsPage() {
 
   const canUpdate = usePermissionButton('payment.update.button');
   const canDisable = usePermissionButton('payment.disable.button');
+  const canViewHistory = usePermissionButton('payment.corrections.button');
 
   // A diferencia de Caja (que oculta un movimiento deshabilitado para
   // siempre), acá SÍ se listan los anulados con su badge — la columna de
@@ -93,7 +84,31 @@ export function PaymentsPage() {
     setter(value);
     setPage(1);
   };
-  const { mutate: toggleStatus, isPending: isToggling } = useTogglePaymentStatus();
+  const { mutateAsync: toggleStatus, isPending: isToggling } = useTogglePaymentStatus();
+  // Anular o restaurar un pago de un mes cerrado se registra como ajuste y pide motivo.
+  // actionsLocked: fila de un mes cerrado sin permiso de ajustar → sin acciones.
+  const { status: periodStatus, actionsLocked } = useClosedPeriodGuard(undefined, undefined);
+  const adjustmentReason = useAdjustmentReason<PaymentListItem>({
+    run: (row, reason) => toggleStatus({ id: row.id, reason }),
+    successMessage: (row) => (row.is_deleted ? 'Pago restaurado como ajuste de un mes cerrado' : 'Pago anulado como ajuste de un mes cerrado'),
+    fallbackErrorMessage: 'No se pudo actualizar el pago',
+  });
+  const togglePayment = async (row: PaymentListItem) => {
+    const action = row.is_deleted ? 'restore' : 'annul';
+    const closedLabel = closedPeriodLabelOf(periodStatus, row.paid_at);
+    if (closedLabel) {
+      adjustmentReason.open(row, action, closedLabel);
+      return;
+    }
+    // try/catch solo para avisar o pedir el motivo si el servidor lo exige.
+    try {
+      await toggleStatus({ id: row.id });
+      toast.success(row.is_deleted ? 'Pago restaurado' : 'Pago anulado');
+    } catch (mutationError) {
+      if (adjustmentReason.absorbError(mutationError, row, action)) return;
+      toast.error((mutationError as ApiClientError).message ?? 'No se pudo actualizar el pago');
+    }
+  };
 
   // El backend guarda el prefix_id (ej. "cash"), no el nombre — mismo
   // criterio de resolución que QuotationPaymentsSection.tsx (acepta también
@@ -170,34 +185,38 @@ export function PaymentsPage() {
           },
           {
             header: 'Estado',
-            cell: (row) => <Badge variant={row.is_deleted ? 'destructive' : 'success'}>{row.is_deleted ? 'Anulado' : 'Activo'}</Badge>,
+            cell: (row) => (
+              <>
+                <Badge variant={row.is_deleted ? 'destructive' : 'success'}>{row.is_deleted ? 'Anulado' : 'Activo'}</Badge>
+                <CorrectedBadge
+                  count={row.corrections_count}
+                  canOpen={canViewHistory}
+                  onOpen={() => setHistoryPayment(row)}
+                />
+              </>
+            ),
           },
           {
             header: '',
             align: 'right',
             cell: (row) => (
               <div className="flex justify-end gap-1">
-                {canUpdate && !row.is_deleted && (
+                {canUpdate && !row.is_deleted && !actionsLocked(row.paid_at) && (
                   <button
                     type="button"
-                    title="Editar pago"
-                    onClick={() => setEditingPayment(row)}
+                    title="Corregir pago"
+                    onClick={() => setCorrectingPaymentId(row.id)}
                     className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                   >
                     <Pencil className="size-3.5" />
                   </button>
                 )}
-                {canDisable && (
+                {canDisable && !actionsLocked(row.paid_at) && (
                   <ToggleStatusButton
                     active={!row.is_deleted}
                     disabled={isToggling}
                     entityLabel="pago"
-                    onToggle={() =>
-                      toggleStatus(row.id, {
-                        onSuccess: () => toast.success(row.is_deleted ? 'Pago restaurado' : 'Pago anulado'),
-                        onError: () => toast.error('No se pudo actualizar el pago'),
-                      })
-                    }
+                    onToggle={() => togglePayment(row)}
                   />
                 )}
               </div>
@@ -222,125 +241,18 @@ export function PaymentsPage() {
         />
       )}
 
-      {editingPayment && <EditPaymentDialog payment={editingPayment} onClose={() => setEditingPayment(null)} />}
+      {adjustmentReason.dialog}
+      {correctingPaymentId !== null && (
+        <CorrectPaymentDialog paymentId={correctingPaymentId} onClose={() => setCorrectingPaymentId(null)} />
+      )}
+      {historyPayment && (
+        <CorrectionHistoryDialog
+          title={`Pago de COT-${String(historyPayment.quotation_id).padStart(4, '0')} · ${historyPayment.client_name}`}
+          historyUrl={`/payment/${historyPayment.id}/corrections`}
+          queryKey={moneyCorrectionsKeys.history('quotation_payment', historyPayment.id)}
+          onClose={() => setHistoryPayment(null)}
+        />
+      )}
     </div>
-  );
-}
-
-function EditPaymentDialog({ payment, onClose }: { payment: PaymentListItem; onClose: () => void }) {
-  const { data: methods } = useVariableGenerals({ category: 'payment_method', ignorePagination: true });
-  const { mutate: update, isPending, error } = useUpdatePayment();
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    setError,
-    watch,
-    formState: { errors },
-  } = useForm<UpdatePaymentFormValues>({
-    resolver: zodResolver(updatePaymentSchema),
-    defaultValues: {
-      amount: payment.amount,
-      method: payment.method ?? '',
-      paid_at: payment.paid_at,
-      notes: payment.notes ?? undefined,
-      operation_number: payment.operation_number ?? undefined,
-      payment_account_id: payment.payment_account_id,
-    },
-  });
-
-  const methodOptions = (methods?.data ?? []).map((item) => ({ value: item.prefix_id, label: item.name }));
-  const { data: accountsResult } = usePaymentAccounts();
-  const hasAccounts = (accountsResult?.data ?? []).some((account) => !account.is_deleted);
-  const isCash = watch('method') === CASH_PAYMENT_METHOD;
-
-  const onSubmit = (values: UpdatePaymentFormValues) => {
-    // Misma regla que al registrar: si no es efectivo y la empresa tiene
-    // cuentas, hay que decir a cuál entró.
-    if (!isCash && hasAccounts && values.payment_account_id == null) {
-      setError('payment_account_id', { message: 'Indica a qué cuenta (banco, Yape o Plin) entró el pago' });
-      return;
-    }
-    update(
-      { id: payment.id, dto: { ...values, payment_account_id: isCash ? null : (values.payment_account_id ?? null) } },
-      {
-        onSuccess: () => {
-          toast.success('Pago actualizado correctamente');
-          onClose();
-        },
-      },
-    );
-  };
-
-  const apiError = error as ApiClientError | null;
-
-  return (
-    <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Editar pago</DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="payment-amount">Monto (S/)</Label>
-              <Input id="payment-amount" type="number" step={DECIMAL_INPUT_STEP} {...register('amount', { valueAsNumber: true })} />
-              {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="payment-date">Fecha de pago</Label>
-              <DateField id="payment-date" value={watch('paid_at')} onChange={(value) => setValue('paid_at', value, { shouldValidate: true })} />
-              {errors.paid_at && <p className="text-sm text-destructive">{errors.paid_at.message}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Método de pago</Label>
-            <SearchableSelect
-              placeholder="Selecciona un método"
-              value={watch('method')}
-              onChange={(value) => setValue('method', value, { shouldValidate: true })}
-              options={methodOptions}
-            />
-            {errors.method && <p className="text-sm text-destructive">{errors.method.message}</p>}
-          </div>
-
-          {!isCash && (
-            <div className="space-y-2">
-              <Label htmlFor="payment-account">Cuenta de destino</Label>
-              <PaymentAccountSelect
-                id="payment-account"
-                allowCash={false}
-                value={watch('payment_account_id')}
-                onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
-              />
-              {errors.payment_account_id && <p className="text-sm text-destructive">{errors.payment_account_id.message}</p>}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="payment-operation-number">N° de operación</Label>
-            <Input id="payment-operation-number" {...register('operation_number')} />
-            {errors.operation_number && <p className="text-sm text-destructive">{errors.operation_number.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="payment-notes">Notas</Label>
-            <Textarea id="payment-notes" rows={2} {...register('notes')} />
-            {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
-          </div>
-
-          {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
-
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? 'Guardando...' : 'Guardar cambios'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

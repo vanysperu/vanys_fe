@@ -12,6 +12,10 @@ const badgeVariants = cva(
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
         success: 'border-transparent bg-success/10 text-success',
         destructive: 'border-transparent bg-destructive/10 text-destructive',
+        // Avisos suaves (ajustes de meses cerrados, "listo para cerrar").
+        warning: 'border-transparent bg-warning/12 text-warning',
+        // Estado neutro/informativo (valor al cierre, anulado sin acción).
+        muted: 'border-transparent bg-muted text-muted-foreground',
         outline: 'text-foreground',
       },
     },

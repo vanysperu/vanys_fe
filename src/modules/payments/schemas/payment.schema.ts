@@ -1,8 +1,12 @@
 import { z } from 'zod';
 
+import { correctionReasonSchema } from '@/modules/moneyCorrections/schemas/correctionReason.schema';
+
 export const CASH_PAYMENT_METHOD = 'cash';
 
-export const updatePaymentSchema = z
+// Corrección de un pago: cuerpo completo + motivo obligatorio (queda en el
+// historial inmutable del pago).
+export const correctPaymentSchema = z
   .object({
     amount: z.number({ error: 'El monto es obligatorio' }).positive('Debe ser mayor a 0'),
     // { error } en el z.string() base: method/paid_at se cargan con
@@ -16,10 +20,11 @@ export const updatePaymentSchema = z
     operation_number: z.string().max(50, 'Máximo 50 caracteres').optional(),
     // Cuenta a la que entró (null = efectivo); ver QuotationPaymentsSection.
     payment_account_id: z.number().nullable().optional(),
+    reason: correctionReasonSchema,
   })
   .refine((values) => values.method === CASH_PAYMENT_METHOD || Boolean(values.operation_number), {
     message: 'El número de operación es obligatorio para pagos que no son en efectivo',
     path: ['operation_number'],
   });
 
-export type UpdatePaymentFormValues = z.infer<typeof updatePaymentSchema>;
+export type CorrectPaymentFormValues = z.infer<typeof correctPaymentSchema>;

@@ -8,4 +8,6 @@ export const quotationsKeys = {
   // Cuelga del detalle: todo lo que invalida el detalle (cambio de estado,
   // pagos...) invalida también la vista previa del PDF ya generada.
   pdf: (id: number) => [...quotationsKeys.detail(id), 'pdf'] as const,
+  // Un gasto suelto (diálogo de corrección).
+  expense: (id: number) => [...quotationsKeys.all, 'expense', id] as const,
 };

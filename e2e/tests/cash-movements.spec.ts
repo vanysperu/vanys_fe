@@ -11,7 +11,9 @@ test.describe('Caja', () => {
     // Totales de todo lo filtrado (los calcula el backend), no de la página.
     await expect(page.locator('text=Ingresos (total)')).toBeVisible();
     await expect(page.locator('text=Egresos (total)')).toBeVisible();
-    await expect(page.locator('text=Saldo (total)')).toBeVisible();
+    // "Saldo" sin cierre de caja configurado; "Neto" con cierre (el saldo real
+    // por cuenta lo muestra entonces el panel "Saldos de caja").
+    await expect(page.getByText(/^(Saldo|Neto) \(total\)$/)).toBeVisible();
     await page.waitForTimeout(500);
     await expect(page.locator('h1', { hasText: 'Caja' }).locator('xpath=../..')).toHaveScreenshot('cash-header.png');
   });

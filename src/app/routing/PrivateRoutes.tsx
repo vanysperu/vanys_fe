@@ -41,6 +41,9 @@ const DocumentSettingsPage = lazy(() =>
 const CashMovementsPage = lazy(() =>
   import('@/modules/cashMovements/pages/CashMovementsPage').then((m) => ({ default: m.CashMovementsPage })),
 );
+const CashClosingsPage = lazy(() =>
+  import('@/modules/cashClosings/pages/CashClosingsPage').then((m) => ({ default: m.CashClosingsPage })),
+);
 const PaymentsPage = lazy(() =>
   import('@/modules/payments/pages/PaymentsPage').then((m) => ({ default: m.PaymentsPage })),
 );
@@ -98,6 +101,7 @@ export default function PrivateRoutes() {
           <Route path="/ordenes-compra" element={<PurchaseOrdersPage />} />
           <Route path="/configuracion/documentos" element={<DocumentSettingsPage />} />
           <Route path="/caja" element={<CashMovementsPage />} />
+          <Route path="/caja/cierres" element={<CashClosingsPage />} />
           <Route path="/pagos" element={<PaymentsPage />} />
           <Route path="/deudas-personal" element={<EmployeeDebtsPage />} />
           <Route path="/por-cobrar" element={<ReceivablesPage />} />

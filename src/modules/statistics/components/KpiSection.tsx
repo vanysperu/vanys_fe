@@ -76,6 +76,14 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
         delta={relative('net_cash')}
         caption={`Entró ${formatMoney(current.collected + current.other_income)} · salió ${formatMoney(current.expenses)}`}
       />
+      {current.adjustments !== 0 && (
+        <StatTile
+          testId="kpi-adjustments"
+          label="Ajustes de meses cerrados"
+          value={formatMoneyRounded(current.adjustments)}
+          caption="Correcciones a meses ya cerrados, anotadas en este periodo; ya están incluidas en el flujo neto"
+        />
+      )}
       <StatTile
         testId="kpi-margin"
         label="Margen estimado"

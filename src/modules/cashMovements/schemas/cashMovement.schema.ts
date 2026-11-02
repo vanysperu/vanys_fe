@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { moneyAmountSchema } from '@/lib/moneySchema';
+import { correctionReasonSchema } from '@/modules/moneyCorrections/schemas/correctionReason.schema';
 
 function startOfToday(): Date {
   const now = new Date();
@@ -36,3 +37,15 @@ export const createCashMovementSchema = z.object({
 });
 
 export type CreateCashMovementFormValues = z.infer<typeof createCashMovementSchema>;
+
+// Corrección de un movimiento manual: los mismos campos (y reglas) que al
+// registrarlo, sin el tipo — un ingreso que en realidad era un egreso no se
+// corrige: se anula y se registra el correcto. El motivo es obligatorio
+// (queda en el historial inmutable del movimiento).
+export const updateCashMovementSchema = createCashMovementSchema
+  .pick({ category: true, amount: true, description: true, occurred_at: true, payment_account_id: true })
+  .extend({
+    reason: correctionReasonSchema,
+  });
+
+export type UpdateCashMovementFormValues = z.infer<typeof updateCashMovementSchema>;

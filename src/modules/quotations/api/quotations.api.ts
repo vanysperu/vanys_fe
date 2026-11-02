@@ -1,8 +1,11 @@
 import { apiClient } from '@/config/apiClient';
+import type { ReasonedToggleInput } from '@/modules/cashClosings/types/cashClosings.types';
 import type { ApiResponse, PagedListResult } from '@/config/api.types';
 import type {
+  CorrectQuotationExpenseDto,
   CreateQuotationDto,
   CreateQuotationExpenseDto,
+  QuotationExpenseDetail,
   CreateQuotationPaymentDto,
   Quotation,
   QuotationDetail,
@@ -77,6 +80,28 @@ export async function downloadQuotationPdf(id: number): Promise<Blob> {
   const response = await apiClient.get(`/quotation/${id}/pdf`, { responseType: 'blob' });
   return response.data;
 }
+
+export async function getQuotationExpense(id: number): Promise<QuotationExpenseDetail> {
+  const response = await apiClient.get<ApiResponse<QuotationExpenseDetail>>(`/quotation/expense/find/${id}`);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+export async function correctQuotationExpense(id: number, dto: CorrectQuotationExpenseDto): Promise<{ id: number }> {
+  const response = await apiClient.put<ApiResponse<{ id: number }>>(`/quotation/expense/update/${id}`, dto);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Anula o restaura (toggle) un gasto manual.
+export async function toggleQuotationExpense({ id, reason }: ReasonedToggleInput): Promise<{ id: number; is_deleted: boolean }> {
+  const response = await apiClient.put<ApiResponse<{ id: number; is_deleted: boolean }>>(`/quotation/expense/disable/${id}`, reason ? { reason } : undefined);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// URL del historial de correcciones de un gasto (para CorrectionHistoryDialog).
+export const quotationExpenseCorrectionsUrl = (id: number) => `/quotation/expense/${id}/corrections`;
 
 export async function createQuotationExpense(
   quotationId: number,

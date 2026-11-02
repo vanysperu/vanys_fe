@@ -68,15 +68,19 @@ export function VariableGeneralPage() {
     name: columnFilters.name || undefined,
     status: columnFilters.status || undefined,
     category: categoryFilter,
+    scope: 'manage',
   });
   // Categorías existentes, para el filtro (son pocas filas: una sola consulta).
-  const { data: allForCategories } = useVariableGenerals({ ignorePagination: true });
+  // Mismo alcance que la tabla: así no se ofrece filtrar por una categoría que
+  // solo existe en filas globales (que un admin de empresa no ve aquí).
+  const { data: allForCategories } = useVariableGenerals({ ignorePagination: true, scope: 'manage' });
   const categoryOptions = Array.from(new Set((allForCategories?.data ?? []).map((row) => row.category)))
     .sort()
     .map((category) => ({ value: category, label: category }));
-  // Un admin de empresa solo ve sus propias variables (+ las globales, ver
-  // backend) — nunca necesita listar otras empresas, así que esta consulta
-  // (exclusiva de is_system) no se dispara para él.
+  // Un admin de empresa solo ve y gestiona sus propias variables (las globales
+  // son del Super Administrador, ver backend scope=manage) — nunca necesita
+  // listar otras empresas, así que esta consulta (exclusiva de is_system) no
+  // se dispara para él.
   const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: isSystem });
   const { mutate: toggleStatus, isPending: isToggling } = useToggleVariableGeneralStatus();
 
@@ -181,29 +185,36 @@ export function VariableGeneralPage() {
           {
             header: '',
             align: 'right',
-            cell: (row) => (
-              <div className="flex justify-end gap-1">
-                {canUpdate && (
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setToEdit(row)}>
-                    <Pencil className="size-4" />
-                  </Button>
-                )}
-                {canDisable && (
-                  <ToggleStatusButton
-                    active={!row.is_deleted}
-                    disabled={isToggling}
-                    entityLabel="variable"
-                    onToggle={() =>
-                      toggleStatus(row.id, {
-                        onSuccess: () =>
-                          toast.success(row.is_deleted ? 'Variable habilitada' : 'Variable deshabilitada'),
-                        onError: () => toast.error('No se pudo actualizar la variable'),
-                      })
-                    }
-                  />
-                )}
-              </div>
-            ),
+            cell: (row) => {
+              // Defensa de UX: las filas globales (company_id null) solo las
+              // gestiona el Super Administrador. El backend ya no las devuelve
+              // a un admin de empresa y rechaza cualquier escritura (403).
+              const canManageRow = isSystem || row.company_id !== null;
+              if (!canManageRow) return null;
+              return (
+                <div className="flex justify-end gap-1">
+                  {canUpdate && (
+                    <Button variant="ghost" size="icon" className="size-8" onClick={() => setToEdit(row)}>
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
+                  {canDisable && (
+                    <ToggleStatusButton
+                      active={!row.is_deleted}
+                      disabled={isToggling}
+                      entityLabel="variable"
+                      onToggle={() =>
+                        toggleStatus(row.id, {
+                          onSuccess: () =>
+                            toast.success(row.is_deleted ? 'Variable habilitada' : 'Variable deshabilitada'),
+                          onError: () => toast.error('No se pudo actualizar la variable'),
+                        })
+                      }
+                    />
+                  )}
+                </div>
+              );
+            },
           },
         ]}
         rows={data?.data ?? []}
@@ -266,6 +277,9 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
   // Trae TODAS las variables (sin paginar) solo para armar las opciones de
   // categoría del selector — las categorías válidas son las que ya existen
   // en la tabla, más lo que el usuario escriba libremente (allowCustomValue).
+  // Listado genérico (con globales) a propósito: solo se usan los NOMBRES de
+  // categoría como sugerencia (p. ej. "production_stage" para que un admin
+  // cree sus propias etapas); las filas globales no son editables desde aquí.
   const { data: allVariables } = useVariableGenerals({ ignorePagination: true });
   const categoryOptions = Array.from(new Set((allVariables?.data ?? []).map((item) => item.category))).map(
     (category) => ({ value: category, label: category }),
@@ -305,9 +319,13 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
   };
 
   const onSubmit = (values: CreateVariableGeneralFormValues) => {
+    // Solo el Super Administrador elige ámbito; para los demás el backend fuerza
+    // su empresa, así que ni se envía company_id.
+    const dto = isSystem ? values : { ...values, company_id: undefined };
+
     if (isEditing && variable) {
       update(
-        { id: variable.id, dto: values },
+        { id: variable.id, dto },
         {
           onSuccess: () => {
             toast.success('Variable actualizada correctamente');
@@ -318,7 +336,7 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
       return;
     }
 
-    create(values, {
+    create(dto, {
       onSuccess: () => {
         toast.success('Variable creada correctamente');
         reset();

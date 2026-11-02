@@ -12,7 +12,14 @@ const EVENT_STYLE: Record<QuotationEventAction, { icon: LucideIcon; tag: string;
   status_changed: { icon: ArrowRightLeft, fg: '#1F5FC0', bg: '#E6EEFB', tag: 'Estado' },
   item_stage_changed: { icon: Workflow, fg: '#9C6511', bg: '#FDF3E2', tag: 'Producción' },
   payment_added: { icon: CircleDollarSign, fg: '#1F8A5F', bg: '#E6F5EE', tag: 'Pago' },
+  payment_updated: { icon: CircleDollarSign, fg: '#1F8A5F', bg: '#E6F5EE', tag: 'Pago corregido' },
+  payment_disabled: { icon: CircleDollarSign, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Pago anulado' },
   expense_added: { icon: Receipt, fg: '#B4231F', bg: '#FBE9E8', tag: 'Gasto' },
+  expense_updated: { icon: Receipt, fg: '#B4231F', bg: '#FBE9E8', tag: 'Gasto corregido' },
+  expense_disabled: { icon: Receipt, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Gasto anulado' },
+  expense_restored: { icon: Receipt, fg: '#B4231F', bg: '#FBE9E8', tag: 'Gasto restaurado' },
+  purchase_updated: { icon: ShoppingCart, fg: '#B4231F', bg: '#FBE9E8', tag: 'Compra corregida' },
+  purchase_disabled: { icon: ShoppingCart, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Compra anulada' },
   updated: { icon: Pencil, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Edición' },
 };
 

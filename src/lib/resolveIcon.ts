@@ -11,6 +11,7 @@ import {
   HandCoins,
   HelpCircle,
   LayoutDashboard,
+  Lock,
   Package,
   Palette,
   Receipt,
@@ -60,6 +61,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   receipt: Receipt,
   bell: Bell,
   chart: BarChart3,
+  lock: Lock,
 };
 
 // Si un ícono no está mapeado, se usa uno de "falta configurar" (signo de

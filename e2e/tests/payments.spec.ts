@@ -75,12 +75,18 @@ test.describe('Pagos', () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText('S/ 80.00');
 
-    // Editar: cambiar el monto.
-    await row.locator('button[title="Editar pago"]').click();
-    await expect(page.locator('div[role="dialog"]', { hasText: 'Editar pago' })).toBeVisible();
-    await page.fill('#payment-amount', '95');
-    await page.click('div[role="dialog"] button:has-text("Guardar cambios")');
-    await expect(page.locator('text=Pago actualizado correctamente')).toBeVisible({ timeout: 10_000 });
+    // Corregir: cambiar el monto (pide motivo y confirmación).
+    await row.locator('button[title="Corregir pago"]').click();
+    await expect(page.locator('div[role="dialog"]', { hasText: 'Corregir pago' })).toBeVisible();
+    await page.fill('#correct-payment-amount', '95');
+    await page.fill('#correct-payment-reason', 'Se tipeó mal el monto del pago');
+    await page.click('div[role="dialog"] button:has-text("Guardar corrección")');
+    // ConfirmDialog es un Dialog (role="dialog"), se ubica por su título.
+    await page
+      .locator('div[role="dialog"]', { hasText: '¿Confirmas la corrección?' })
+      .locator('button:has-text("Sí, corregir")')
+      .click();
+    await expect(page.locator('text=Pago corregido correctamente')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('tr', { hasText: clientName })).toContainText('S/ 95.00');
 
     // Anular — ToggleStatusButton no pide confirmación.
@@ -102,7 +108,7 @@ test.describe('Pagos — RBAC de Gestor (solo lectura)', () => {
     // pagos registrados en esta misma empresa QA).
     await expect(page.locator('table tbody tr').first()).toBeVisible();
 
-    await expect(page.locator('button[title="Editar pago"]')).toHaveCount(0);
+    await expect(page.locator('button[title="Corregir pago"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Deshabilitar pago' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Habilitar pago' })).toHaveCount(0);
   });

@@ -4,4 +4,5 @@ export const paymentsKeys = {
   all: ['payments'] as const,
   lists: () => [...paymentsKeys.all, 'list'] as const,
   list: (params: PaymentListParams) => [...paymentsKeys.lists(), params] as const,
+  detail: (id: number) => [...paymentsKeys.all, 'detail', id] as const,
 };

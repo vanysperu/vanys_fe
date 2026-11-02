@@ -12,4 +12,7 @@ export const employeeDebtsKeys = {
   detail: (params: EmployeeDebtDetailParams) => [...employeeDebtsKeys.details(), params] as const,
   payments: () => [...employeeDebtsKeys.all, 'payments'] as const,
   paymentList: (params: EmployeeDebtPaymentListParams) => [...employeeDebtsKeys.payments(), params] as const,
+  // Una fila para su diálogo de corrección (GET .../find/:id).
+  record: (debtId: number) => [...employeeDebtsKeys.all, 'record', debtId] as const,
+  paymentRecord: (paymentId: number) => [...employeeDebtsKeys.all, 'payment-record', paymentId] as const,
 };
