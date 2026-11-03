@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Ban, RotateCcw, ShoppingCart } from 'lucide-react';
+import { Ban, ChevronDown, ChevronUp, RotateCcw, ShoppingCart } from 'lucide-react';
+import { PurchaseLinesList } from '@/modules/purchaseOrders/components/PurchaseLinesList';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -85,6 +86,10 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
   // Compra que superaba lo pedido y espera confirmación (pedido explícito del
   // usuario: en vez de solo avisar, preguntar "¿seguro quieres comprar más?").
   const [pendingExceed, setPendingExceed] = useState<PendingExceed | null>(null);
+  // Items con su lista de compras desplegada (corregir/anular cada una).
+  const [expandedItemIds, setExpandedItemIds] = useState<number[]>([]);
+  const toggleLines = (itemId: number) =>
+    setExpandedItemIds((current) => (current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId]));
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdatePurchaseOrderItemStatus();
   const { mutate: registerPurchase, isPending: isRegistering } = useCreatePurchaseOrderItemPurchase(quotationId);
 
@@ -115,7 +120,14 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
     );
 
   return (
-    <div className="space-y-2">
+    // Altura máxima con scroll: una orden con muchos productos (o con sus
+    // compras desplegadas) estiraba la fila de la tabla hacia abajo. Mientras
+    // se registra una compra no se limita, para que el formulario no quede
+    // cortado dentro del scroll.
+    <div
+      className={cn('space-y-2', openFormItemId === null && 'scrollbar-thin -mr-1 max-h-80 overflow-y-auto pr-1')}
+      data-testid="purchase-order-items"
+    >
       <ConfirmDialog
         open={pendingExceed !== null}
         onOpenChange={(open) => !open && setPendingExceed(null)}
@@ -130,10 +142,14 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
         }}
       />
       {items.map((item) => {
-        const purchasedQty = item.purchases.reduce((sum, purchase) => sum + purchase.quantity, 0);
-        const spentAmount = item.purchases.reduce((sum, purchase) => sum + Number(purchase.amount), 0);
-        const hasEmployeeFunding = item.purchases.some((purchase) => purchase.funding_source === 'employee');
+        // Una compra anulada no cuenta como comprada ni como gastada.
+        const activePurchases = item.purchases.filter((purchase) => !purchase.is_deleted);
+        const purchasedQty = activePurchases.reduce((sum, purchase) => sum + purchase.quantity, 0);
+        const spentAmount = activePurchases.reduce((sum, purchase) => sum + Number(purchase.amount), 0);
+        const hasEmployeeFunding = activePurchases.some((purchase) => purchase.funding_source === 'employee');
         const isFormOpen = openFormItemId === item.id;
+        const linesOpen = expandedItemIds.includes(item.id);
+        const productName = item.quotationItem?.product?.name ?? 'producto';
 
         return (
           <div key={item.id} className="space-y-1.5">
@@ -156,6 +172,16 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
                     Gastado: {money(spentAmount)}
                     {hasEmployeeFunding && <span className="ml-1 text-[var(--warning,#b45309)]">· incluye plata propia</span>}
                   </p>
+                )}
+                {item.purchases.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleLines(item.id)}
+                    className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {linesOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+                    {linesOpen ? 'Ocultar compras' : `Ver compras (${item.purchases.length})`}
+                  </button>
                 )}
               </div>
 
@@ -196,6 +222,8 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
                 </div>
               )}
             </div>
+
+            {linesOpen && <PurchaseLinesList purchases={item.purchases} productName={productName} />}
 
             {isFormOpen && (
               <RegisterPurchaseForm

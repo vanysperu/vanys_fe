@@ -1,8 +1,20 @@
-import { Ban, HandCoins, ReceiptText } from 'lucide-react';
+import { useAdjustmentReason } from '@/modules/cashClosings/hooks/useAdjustmentReason';
+import { useClosedPeriodGuard } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
+import { closedPeriodLabelOf } from '@/modules/cashClosings/utils/period';
+import { Ban, HandCoins, Pencil, ReceiptText } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import type { ApiClientError } from '@/config/api.types';
+import {
+  employeeDebtCorrectionsUrl,
+  employeeDebtPaymentCorrectionsUrl,
+} from '@/modules/employeeDebts/api/employeeDebts.api';
+import { CorrectManualDebtDialog } from '@/modules/employeeDebts/components/CorrectManualDebtDialog';
+import { CorrectReimbursementDialog } from '@/modules/employeeDebts/components/CorrectReimbursementDialog';
+import { CorrectedBadge } from '@/modules/moneyCorrections/components/CorrectedBadge';
+import { CorrectionHistoryDialog } from '@/modules/moneyCorrections/components/CorrectionHistoryDialog';
+import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
 import {
   useCancelManualEmployeeDebt,
   useEmployeeDebtDetail,
@@ -47,10 +59,12 @@ const STATUS_BADGE: Record<EmployeeDebtDetailItem['status'], 'secondary' | 'succ
 };
 
 // Detalle de lo que se le debe a un trabajador: cada deuda (compra de orden o
-// manual) y cada reposición. Acá se corrigen los errores, siempre por
-// anulación (nunca editando montos): una reposición mal registrada se anula y
-// sus deudas vuelven a pendiente; una deuda manual se anula solo si todavía
-// no se le repuso nada.
+// manual) y cada reposición. Acá se corrigen los errores (solo admin):
+//   - Corregir (lápiz): una deuda manual o una reposición se corrige en el
+//     lugar, con motivo e historial inmutable ("Corregido (n)"). Las deudas
+//     de compras se corrigen desde la compra.
+//   - Anular: una reposición mal registrada se anula y sus deudas vuelven a
+//     pendiente; una deuda manual se anula solo si todavía no se le repuso nada.
 export function EmployeeDebtDetailDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -81,13 +95,20 @@ export function EmployeeDebtDetailDialog({ debt, onClose }: { debt: EmployeeDebt
 function DebtsTab({ userId }: { userId: number }) {
   const [page, setPage] = useState(1);
   const [cancelling, setCancelling] = useState<EmployeeDebtDetailItem | null>(null);
+  const [correctingId, setCorrectingId] = useState<number | null>(null);
+  const [historyOf, setHistoryOf] = useState<EmployeeDebtDetailItem | null>(null);
   const canCancel = usePermissionButton('employee_debt.disable.button');
+  const canCorrect = usePermissionButton('employee_debt.update.button');
+  const canSeeHistory = usePermissionButton('employee_debt.corrections.button');
   const { data, isLoading } = useEmployeeDebtDetail({ userId, page, limit: PAGE_SIZE, status: 'all' });
   const { mutateAsync: cancelDebt } = useCancelManualEmployeeDebt();
 
   // Solo una deuda manual sin nada repuesto (el backend lo revalida).
   const isCancellable = (row: EmployeeDebtDetailItem) =>
     canCancel && row.origin === 'manual' && row.status === 'pending' && row.paid_amount === 0;
+  // Las deudas de compras se corrigen desde la compra (el backend responde
+  // DEBT_FROM_PURCHASE); una anulada no se corrige.
+  const isCorrectable = (row: EmployeeDebtDetailItem) => canCorrect && row.origin === 'manual' && row.status !== 'cancelled';
 
   return (
     <div className="space-y-3">
@@ -100,6 +121,7 @@ function DebtsTab({ userId }: { userId: number }) {
             cell: (row) => (
               <div>
                 <span>{row.description}</span>
+                <CorrectedBadge count={row.corrections_count} canOpen={canSeeHistory} onOpen={() => setHistoryOf(row)} />
                 <span className="block text-[10px] text-muted-foreground">
                   {row.origin === 'manual' ? 'Deuda manual' : 'Compra de orden'}
                   {row.purchase_order_id && ` · OC-${String(row.purchase_order_id).padStart(4, '0')}`}
@@ -128,12 +150,27 @@ function DebtsTab({ userId }: { userId: number }) {
           {
             header: '',
             align: 'right',
-            cell: (row) =>
-              isCancellable(row) ? (
-                <Button size="icon" variant="ghost" title="Anular deuda" aria-label="Anular deuda" onClick={() => setCancelling(row)}>
-                  <Ban className="size-4 text-destructive" />
-                </Button>
-              ) : null,
+            // Orden de acciones del proyecto: editar → anular.
+            cell: (row) => (
+              <div className="flex justify-end gap-1">
+                {isCorrectable(row) && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Corregir deuda"
+                    aria-label="Corregir deuda"
+                    onClick={() => setCorrectingId(row.id)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                )}
+                {isCancellable(row) && (
+                  <Button size="icon" variant="ghost" title="Anular deuda" aria-label="Anular deuda" onClick={() => setCancelling(row)}>
+                    <Ban className="size-4 text-destructive" />
+                  </Button>
+                )}
+              </div>
+            ),
           },
         ]}
         rows={data?.data ?? []}
@@ -168,6 +205,16 @@ function DebtsTab({ userId }: { userId: number }) {
           }
         }}
       />
+
+      {correctingId !== null && <CorrectManualDebtDialog debtId={correctingId} onClose={() => setCorrectingId(null)} />}
+      {historyOf && (
+        <CorrectionHistoryDialog
+          title={`Deuda: ${historyOf.description} (${money(historyOf.amount)})`}
+          historyUrl={employeeDebtCorrectionsUrl(historyOf.id)}
+          queryKey={moneyCorrectionsKeys.history('employee_debt', historyOf.id)}
+          onClose={() => setHistoryOf(null)}
+        />
+      )}
     </div>
   );
 }
@@ -175,9 +222,29 @@ function DebtsTab({ userId }: { userId: number }) {
 function PaymentsTab({ userId }: { userId: number }) {
   const [page, setPage] = useState(1);
   const [voiding, setVoiding] = useState<EmployeeDebtPaymentItem | null>(null);
+  const [correctingId, setCorrectingId] = useState<number | null>(null);
+  const [historyOf, setHistoryOf] = useState<EmployeeDebtPaymentItem | null>(null);
   const canVoid = usePermissionButton('employee_debt.payment.disable.button');
+  const canCorrect = usePermissionButton('employee_debt.payment.update.button');
+  const canSeeHistory = usePermissionButton('employee_debt.payment.corrections.button');
   const { data, isLoading } = useEmployeeDebtPayments({ userId, page, limit: PAGE_SIZE });
   const { mutateAsync: voidPayment } = useVoidEmployeeDebtPayment();
+  // Anular una reposición de un mes cerrado se registra como ajuste y pide motivo.
+  // actionsLocked: reposición de un mes cerrado sin permiso de ajustar → sin acciones.
+  const { status: periodStatus, actionsLocked } = useClosedPeriodGuard(undefined, undefined);
+  const adjustmentReason = useAdjustmentReason<EmployeeDebtPaymentItem>({
+    run: (payment, reason) => voidPayment({ id: payment.id, reason }),
+    successMessage: () => 'Reposición anulada como ajuste de un mes cerrado',
+    fallbackErrorMessage: 'No se pudo anular la reposición',
+  });
+  const requestVoid = (payment: EmployeeDebtPaymentItem) => {
+    const closedLabel = closedPeriodLabelOf(periodStatus, payment.paid_at);
+    if (closedLabel) {
+      adjustmentReason.open(payment, 'annul', closedLabel);
+      return;
+    }
+    setVoiding(payment);
+  };
 
   return (
     <div className="space-y-3">
@@ -188,7 +255,10 @@ function PaymentsTab({ userId }: { userId: number }) {
             header: 'Monto',
             align: 'right',
             cell: (row) => (
-              <Money amount={row.amount} className={row.is_deleted ? 'text-muted-foreground line-through' : 'font-semibold'} />
+              <span className="whitespace-nowrap">
+                <Money amount={row.amount} className={row.is_deleted ? 'text-muted-foreground line-through' : 'font-semibold'} />
+                <CorrectedBadge count={row.corrections_count} canOpen={canSeeHistory} onOpen={() => setHistoryOf(row)} />
+              </span>
             ),
           },
           { header: 'Desde', cell: (row) => row.payment_account_name ?? 'Efectivo' },
@@ -201,18 +271,35 @@ function PaymentsTab({ userId }: { userId: number }) {
           {
             header: '',
             align: 'right',
+            // Orden de acciones del proyecto: editar → anular. Una reposición
+            // anulada ya no se corrige (se registra una nueva).
             cell: (row) =>
-              canVoid && !row.is_deleted ? (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Anular reposición"
-                  aria-label="Anular reposición"
-                  onClick={() => setVoiding(row)}
-                >
-                  <Ban className="size-4 text-destructive" />
-                </Button>
-              ) : null,
+              row.is_deleted || actionsLocked(row.paid_at) ? null : (
+                <div className="flex justify-end gap-1">
+                  {canCorrect && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Corregir reposición"
+                      aria-label="Corregir reposición"
+                      onClick={() => setCorrectingId(row.id)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
+                  {canVoid && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Anular reposición"
+                      aria-label="Anular reposición"
+                      onClick={() => requestVoid(row)}
+                    >
+                      <Ban className="size-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+              ),
           },
         ]}
         rows={data?.data ?? []}
@@ -228,6 +315,7 @@ function PaymentsTab({ userId }: { userId: number }) {
         />
       )}
 
+      {adjustmentReason.dialog}
       <ConfirmDialog
         open={voiding !== null}
         onOpenChange={(open) => !open && setVoiding(null)}
@@ -238,15 +326,28 @@ function PaymentsTab({ userId }: { userId: number }) {
         onConfirm={async () => {
           if (!voiding) return;
           try {
-            await voidPayment(voiding.id);
+            await voidPayment({ id: voiding.id });
             toast.success('Reposición anulada');
           } catch (error) {
+            if (adjustmentReason.absorbError(error, voiding, 'annul')) return;
             toast.error((error as ApiClientError).message);
           } finally {
             setVoiding(null);
           }
         }}
       />
+
+      {correctingId !== null && (
+        <CorrectReimbursementDialog reimbursementId={correctingId} onClose={() => setCorrectingId(null)} />
+      )}
+      {historyOf && (
+        <CorrectionHistoryDialog
+          title={`Reposición del ${formatDate(historyOf.paid_at)} (${money(historyOf.amount)})`}
+          historyUrl={employeeDebtPaymentCorrectionsUrl(historyOf.id)}
+          queryKey={moneyCorrectionsKeys.history('employee_debt_payment', historyOf.id)}
+          onClose={() => setHistoryOf(null)}
+        />
+      )}
     </div>
   );
 }

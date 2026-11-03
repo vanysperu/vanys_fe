@@ -55,16 +55,31 @@ export function PaymentAccountSelect({
 
   const selected = value == null ? (allowCash ? CASH_VALUE : undefined) : String(value);
 
+  // Texto completo de la opción elegida: el trigger lo recorta con "…" y este
+  // título nativo deja leer el nombre entero al pasar el mouse.
+  const selectedAccount = accounts.find((account) => String(account.id) === selected);
+  const selectedLabel = selected === CASH_VALUE ? cashLabel : selectedAccount ? describePaymentAccount(selectedAccount) : undefined;
+
   return (
-    <div className="space-y-1">
+    // w-0 + min-w-full: corta la contribución de ancho intrínseco del selector.
+    // Sin esto, el nombre largo de una cuenta ensancha la pista `auto` del grid
+    // de DialogContent (y empuja el modal/botones fuera de su borde derecho);
+    // min-w-full hace que igual ocupe todo el ancho disponible de su contenedor.
+    <div className="w-0 min-w-full space-y-1">
       <Select value={selected} onValueChange={(next) => onChange(next === CASH_VALUE ? null : Number(next))}>
-        <SelectTrigger id={id}>
+        <SelectTrigger id={id} title={selectedLabel}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent>
-          {allowCash && <SelectItem value={CASH_VALUE}>{cashLabel}</SelectItem>}
+        {/* El popover nunca supera 24rem ni el espacio visible; las opciones
+            largas se recortan (SelectItem ya trunca) y llevan su title. */}
+        <SelectContent className="max-w-[min(24rem,var(--radix-select-content-available-width))]">
+          {allowCash && (
+            <SelectItem value={CASH_VALUE} title={cashLabel}>
+              {cashLabel}
+            </SelectItem>
+          )}
           {accounts.map((account) => (
-            <SelectItem key={account.id} value={String(account.id)}>
+            <SelectItem key={account.id} value={String(account.id)} title={describePaymentAccount(account)}>
               {describePaymentAccount(account)}
             </SelectItem>
           ))}

@@ -1,10 +1,20 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Pencil, Plus, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { useCreateQuotationExpense } from '@/modules/quotations/hooks/useQuotations';
+import { cn } from '@/lib/utils';
+import { CorrectedBadge } from '@/modules/moneyCorrections/components/CorrectedBadge';
+import { CorrectionHistoryDialog } from '@/modules/moneyCorrections/components/CorrectionHistoryDialog';
+import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
+import { CorrectPurchaseDialog } from '@/modules/purchaseOrders/components/CorrectPurchaseDialog';
+import { quotationExpenseCorrectionsUrl } from '@/modules/quotations/api/quotations.api';
+import { CorrectQuotationExpenseDialog } from '@/modules/quotations/components/CorrectQuotationExpenseDialog';
+import { useCreateQuotationExpense, useToggleQuotationExpenseStatus } from '@/modules/quotations/hooks/useQuotations';
+import { ConfirmDialog } from '@/presentation/components/shared/ConfirmDialog';
+import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
+import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { PaymentAccountSelect } from '@/modules/variableGeneral/components/PaymentAccountSelect';
 import {
   createQuotationExpenseSchema,
@@ -12,9 +22,12 @@ import {
 } from '@/modules/quotations/schemas/quotation.schema';
 import type { QuotationExpense } from '@/modules/quotations/types/quotation.types';
 import { CharCounter } from '@/presentation/components/shared/CharCounter';
+import { useAdjustmentReason } from '@/modules/cashClosings/hooks/useAdjustmentReason';
+import { useClosedPeriodGuard } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
+import { closedPeriodLabelOf } from '@/modules/cashClosings/utils/period';
 import { DateField } from '@/presentation/components/shared/DateField';
 import { ExpandableText } from '@/presentation/components/shared/ExpandableText';
-import { disableFuture } from '@/presentation/components/shared/ui/calendar';
+import { combineDisabled, disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
@@ -37,6 +50,8 @@ interface QuotationExpensesSectionProps {
 
 export function QuotationExpensesSection({ quotationId, expenses, canRegister, companyId }: QuotationExpensesSectionProps) {
   const [formOpen, setFormOpen] = useState(false);
+  // Un gasto no se puede fechar en un mes cerrado.
+  const closedGuard = useClosedPeriodGuard(companyId, undefined);
   const { mutate: createExpense, isPending } = useCreateQuotationExpense(quotationId);
   const {
     register,
@@ -50,7 +65,48 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
     defaultValues: { spent_at: todayLocalDateString(), payment_account_id: null },
   });
 
-  const total = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  // Un gasto (o compra) anulado se ve tachado pero no suma.
+  const total = expenses.filter((expense) => !expense.is_deleted).reduce((sum, expense) => sum + Number(expense.amount), 0);
+
+  // Acciones de corrección (solo administradores, según /auth/my-access).
+  const canCorrectExpense = usePermissionButton('cotizacion.expense.update.button');
+  const canToggleExpense = usePermissionButton('cotizacion.expense.disable.button');
+  const canOpenHistory = usePermissionButton('cotizacion.expense.corrections.button');
+  const canCorrectPurchase = usePermissionButton('purchase_order.purchase.update.button');
+  const [correctingExpenseId, setCorrectingExpenseId] = useState<number | null>(null);
+  const [correctingPurchaseId, setCorrectingPurchaseId] = useState<number | null>(null);
+  const [historyExpense, setHistoryExpense] = useState<QuotationExpense | null>(null);
+  const [togglingExpense, setTogglingExpense] = useState<QuotationExpense | null>(null);
+  const { mutateAsync: toggleExpense } = useToggleQuotationExpenseStatus();
+  // Anular/restaurar un gasto de un mes cerrado se registra como ajuste y pide motivo.
+  const adjustmentReason = useAdjustmentReason<QuotationExpense>({
+    run: (expense, reason) => toggleExpense({ id: expense.id, reason }),
+    successMessage: (expense) => (expense.is_deleted ? 'Gasto restaurado como ajuste de un mes cerrado' : 'Gasto anulado como ajuste de un mes cerrado'),
+    fallbackErrorMessage: 'No se pudo cambiar el gasto',
+  });
+  const requestToggle = (expense: QuotationExpense) => {
+    const closedLabel = closedPeriodLabelOf(closedGuard.status, expense.spent_at);
+    if (closedLabel) {
+      adjustmentReason.open(expense, expense.is_deleted ? 'restore' : 'annul', closedLabel);
+      return;
+    }
+    setTogglingExpense(expense);
+  };
+
+  const confirmToggle = async () => {
+    if (!togglingExpense) return;
+    const wasDeleted = togglingExpense.is_deleted;
+    // try/catch solo para cerrar la confirmación y avisar.
+    try {
+      await toggleExpense({ id: togglingExpense.id });
+      toast.success(wasDeleted ? 'Gasto restaurado' : 'Gasto anulado');
+    } catch (mutationError) {
+      if (adjustmentReason.absorbError(mutationError, togglingExpense, wasDeleted ? 'restore' : 'annul')) return;
+      toast.error((mutationError as ApiClientError).message ?? 'No se pudo cambiar el gasto');
+    } finally {
+      setTogglingExpense(null);
+    }
+  };
 
   const onSubmit = (values: CreateQuotationExpenseFormValues) => {
     createExpense(values, {
@@ -74,13 +130,53 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
         {expenses.length === 0 && (
           <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">Sin gastos registrados.</p>
         )}
-        {expenses.map((expense) => (
-          <div key={expense.id} className="space-y-1 rounded-lg border p-3">
+        {expenses.map((expense) => {
+          const isPurchase = expense.purchase_id !== null;
+          // Mes cerrado sin permiso de ajustar (cash_closing.adjust.button): sin acciones.
+          const locked = closedGuard.actionsLocked(expense.spent_at);
+          const canCorrect = !expense.is_deleted && !locked && (isPurchase ? canCorrectPurchase : canCorrectExpense);
+          const canToggle = !isPurchase && canToggleExpense && !locked;
+          return (
+          <div key={expense.id} className={cn('space-y-1 rounded-lg border p-3', expense.is_deleted && 'opacity-60')}>
             <div className="flex items-start justify-between gap-3">
-              <ExpandableText text={expense.description} className="min-w-0 flex-1 font-medium" />
-              <span className="font-mono-nums shrink-0 font-semibold text-destructive">{money(expense.amount)}</span>
+              <ExpandableText
+                text={expense.description}
+                className={cn('min-w-0 flex-1 font-medium', expense.is_deleted && 'line-through')}
+              />
+              <span className={cn('font-mono-nums shrink-0 font-semibold text-destructive', expense.is_deleted && 'line-through')}>
+                {money(expense.amount)}
+              </span>
+              {(canCorrect || canToggle) && (
+                <div className="flex shrink-0 items-center">
+                  {canCorrect && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      title={isPurchase ? 'Corregir compra' : 'Corregir gasto'}
+                      aria-label={isPurchase ? 'Corregir compra' : 'Corregir gasto'}
+                      onClick={() =>
+                        isPurchase ? setCorrectingPurchaseId(expense.purchase_id) : setCorrectingExpenseId(expense.id)
+                      }
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
+                  {/* El gasto de una compra se anula desde la orden de compra. */}
+                  {canToggle && (
+                    <ToggleStatusButton
+                      active={!expense.is_deleted}
+                      onToggle={() => requestToggle(expense)}
+                      entityLabel="gasto"
+                    />
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {expense.is_deleted && <span className="font-medium text-destructive">Anulado ·</span>}
+              {isPurchase && <span className="rounded-md bg-muted px-1.5 py-0.5 font-medium">Compra</span>}
               <span>{expense.spent_at}</span>
               {expense.category && (
                 <span className="rounded-md bg-muted px-1.5 py-0.5 font-medium capitalize">{expense.category}</span>
@@ -90,10 +186,45 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
                   · {expense.actor.name} {expense.actor.paternal_lastname}
                 </span>
               )}
+              <CorrectedBadge
+                count={expense.corrections_count}
+                canOpen={canOpenHistory}
+                onOpen={() => setHistoryExpense(expense)}
+              />
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
+
+      {correctingExpenseId !== null && (
+        <CorrectQuotationExpenseDialog expenseId={correctingExpenseId} onClose={() => setCorrectingExpenseId(null)} />
+      )}
+      {correctingPurchaseId !== null && (
+        <CorrectPurchaseDialog purchaseId={correctingPurchaseId} onClose={() => setCorrectingPurchaseId(null)} />
+      )}
+      {historyExpense && (
+        <CorrectionHistoryDialog
+          title={historyExpense.description}
+          historyUrl={quotationExpenseCorrectionsUrl(historyExpense.id)}
+          queryKey={moneyCorrectionsKeys.history('quotation_expense', historyExpense.id)}
+          onClose={() => setHistoryExpense(null)}
+        />
+      )}
+      {adjustmentReason.dialog}
+      <ConfirmDialog
+        open={togglingExpense !== null}
+        onOpenChange={(open) => !open && setTogglingExpense(null)}
+        title={togglingExpense?.is_deleted ? '¿Restaurar este gasto?' : '¿Anular este gasto?'}
+        description={
+          togglingExpense?.is_deleted
+            ? 'Vuelve a sumar en Caja, Estadísticas y el margen de la cotización.'
+            : 'Deja de sumar en Caja, Estadísticas y el margen de la cotización. Se puede restaurar después.'
+        }
+        confirmLabel={togglingExpense?.is_deleted ? 'Sí, restaurar' : 'Sí, anular'}
+        variant={togglingExpense?.is_deleted ? 'default' : 'destructive'}
+        onConfirm={confirmToggle}
+      />
 
       {canRegister && (
         <div>
@@ -138,7 +269,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
                     id="expense-date"
                     value={watch('spent_at')}
                     onChange={(value) => setValue('spent_at', value, { shouldValidate: true })}
-                    disabled={disableFuture}
+                    disabled={combineDisabled(disableFuture, closedGuard.lockedDates)}
                   />
                   {errors.spent_at && <p className="text-xs text-destructive">{errors.spent_at.message}</p>}
                 </div>

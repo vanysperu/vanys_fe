@@ -246,16 +246,62 @@ export interface QuotationExpense {
   spent_at: string;
   // Cuenta de la empresa desde la que se pagó (null = efectivo).
   payment_account_id: number | null;
+  // Anulado: se muestra tachado y no suma en el total.
+  is_deleted: boolean;
+  // Compra de orden de compra a la que pertenece (null = gasto manual): esos
+  // se corrigen/anulan como compra.
+  purchase_id: number | null;
+  // Cuántas correcciones tiene (badge "Corregido (n)").
+  corrections_count: number;
   created_at: string;
   actor?: QuotationActor;
 }
+
+// Gasto tal como lo devuelve GET /quotation/expense/find/:id (diálogo de
+// corrección).
+export interface QuotationExpenseDetail {
+  id: number;
+  quotation_id: number;
+  description: string;
+  amount: number;
+  category: string | null;
+  spent_at: string;
+  payment_account_id: number | null;
+  payment_account_name: string | null;
+  is_deleted: boolean;
+  purchase_id: number | null;
+  company_id: number;
+  business_unit_id: number | null;
+  quotation_status: QuotationStatus;
+  corrections_count: number;
+}
+
+// Solo lo que cambió (ausente = se queda como está) + motivo obligatorio.
+export interface CorrectQuotationExpenseDto {
+  amount?: number;
+  description?: string;
+  category?: string | null;
+  spent_at?: string;
+  payment_account_id?: number | null;
+  reason: string;
+}
+
+// Códigos estables con los que el backend rechaza corregir/anular un gasto.
+export const EXPENSE_BELONGS_TO_PURCHASE_CODE = 'EXPENSE_BELONGS_TO_PURCHASE';
 
 export type QuotationEventAction =
   | 'created'
   | 'status_changed'
   | 'item_stage_changed'
   | 'payment_added'
+  | 'payment_updated'
+  | 'payment_disabled'
   | 'expense_added'
+  | 'expense_updated'
+  | 'expense_disabled'
+  | 'expense_restored'
+  | 'purchase_updated'
+  | 'purchase_disabled'
   | 'updated';
 
 export interface QuotationEvent {

@@ -1,4 +1,10 @@
 import type { PagedListResult } from '@/config/api.types';
+import type {
+  CashEntryKind,
+  CashPeriodStatus,
+  CashRowAdjustmentInfo,
+  CashRowPeriodStatus,
+} from '@/modules/cashClosings/types/cashClosings.types';
 
 export type CashMovementDirection = 'income' | 'expense';
 
@@ -31,6 +37,9 @@ export interface CashMovementListItem {
   quotation_id: number | null;
   purchase_order_id: number | null;
   business_unit_id: number | null;
+  // Empresa del movimiento (el Super Administrador la usa para ofrecer las
+  // cuentas correctas al corregir uno).
+  company_id: number;
   // false = gasto pagado con plata de un trabajador: se muestra para saber
   // quién lo pagó, pero no suma (la empresa no soltó nada; su egreso es la
   // reposición).
@@ -47,7 +56,24 @@ export interface CashMovementListItem {
   // Solo en reposiciones: su monto total (con filtro de tienda o cotización,
   // amount es solo la parte que les corresponde).
   reimbursement_total: number | null;
+  // Cuántas correcciones tiene la fila, de cualquier fuente (badge
+  // "Corregido" + historial). Cada fuente guarda su historial en
+  // money_correction.
+  corrections_count: number;
+  // Solo en filas quotation_expense que son una COMPRA de una orden: id de la
+  // compra. Con él, Caja abre el diálogo de corregir compra en vez del de
+  // corregir gasto. Null = gasto manual.
+  purchase_id: number | null;
+  // Solo en filas employee_debt: origen de la deuda (Caja solo lista las
+  // manuales; las de compra se corrigen desde la compra).
+  debt_origin: 'manual' | 'purchase' | null;
   created_at: string;
+  // Cierre mensual: tipo de fila (movimiento real, 'Valor al cierre' o ajuste de
+  // un mes cerrado) y estado del mes de la fila (candado si está cerrado).
+  entry_kind: CashEntryKind;
+  period_status: CashRowPeriodStatus;
+  // Solo en filas entry_kind = 'adjustment' / 'closing_hold'.
+  adjustment: CashRowAdjustmentInfo | null;
 }
 
 export interface CashAccountSummary {
@@ -56,6 +82,8 @@ export interface CashAccountSummary {
   payment_account_name: string;
   income: number;
   expense: number;
+  // Ajustes de meses cerrados registrados en el rango (puede ser negativo).
+  adjustments: number;
   net: number;
 }
 
@@ -63,12 +91,16 @@ export interface CashAccountSummary {
 export interface CashMovementSummary {
   income: number;
   expense: number;
+  adjustments: number;
   net: number;
   by_account: CashAccountSummary[];
 }
 
 export interface CashMovementListResult extends PagedListResult<CashMovementListItem> {
   summary: CashMovementSummary;
+  // Estado de los meses de la empresa (null si un Super Administrador no
+  // eligió empresa).
+  cash_period: CashPeriodStatus | null;
 }
 
 export interface CashMovementListParams {
@@ -101,4 +133,20 @@ export interface CreateCashMovementDto {
   business_unit_id?: number;
   // Desde/hacia qué cuenta se movió el dinero (null = efectivo).
   payment_account_id?: number | null;
+}
+
+// Corrección de un movimiento manual (PUT /cash-movement/update/:id). Campo
+// ausente = se queda como está; null = se limpia. El tipo (ingreso/egreso) no
+// se corrige: un movimiento con el sentido equivocado se anula y se registra
+// de nuevo.
+export interface UpdateCashMovementDto {
+  amount?: number;
+  category?: string;
+  // "YYYY-MM-DD"
+  occurred_at?: string;
+  payment_account_id?: number | null;
+  description?: string | null;
+  quotation_id?: number | null;
+  purchase_order_id?: number | null;
+  reason: string;
 }

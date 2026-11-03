@@ -1,4 +1,6 @@
-import type { Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+import type { APIRequestContext, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 // Sufijo único por corrida para nombres de entidades creadas por las
@@ -143,4 +145,180 @@ export async function openMenuGroup(page: Page, groupLabel: string) {
 // prueba vence: se espera a que se vayan solas antes de tocar esos botones.
 export async function waitForToastsToClear(page: Page) {
   await expect(page.locator('[data-sonner-toast]')).toHaveCount(0, { timeout: 15_000 });
+}
+
+// ---------------------------------------------------------------------------
+// Cierre de caja: empresa desechable creada por API.
+// ---------------------------------------------------------------------------
+
+const E2E_API_URL = process.env.E2E_API_URL ?? 'http://localhost:4750/api';
+const TEMPORARY_PASSWORD = '123456';
+const READY_PASSWORD = 'Test1234';
+const ADMIN_ROLE_ID = 2;
+const GESTOR_ROLE_ID = 6;
+
+export interface DisposableCashCompany {
+  companyId: number;
+  companyName: string;
+  storeId: number;
+  adminEmail: string;
+  gestorEmail: string;
+  password: string;
+  bankAccountId: number;
+  bankAccountName: string;
+}
+
+// Token del Super Administrador QA guardado por global.setup (storageState).
+// NO se vuelve a loguear: cada login nuevo cierra la sesión anterior del
+// mismo usuario y rompería las demás suites.
+export function storedAuthToken(stateFile: string): string {
+  const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
+    origins: { localStorage: { name: string; value: string }[] }[];
+  };
+  const token = state.origins.flatMap((origin) => origin.localStorage).find((item) => item.name === 'auth_token')?.value;
+  if (!token) throw new Error(`No hay auth_token en ${stateFile}`);
+  return token;
+}
+
+export async function apiJson<T>(
+  request: APIRequestContext,
+  method: 'get' | 'post' | 'put' | 'patch',
+  path: string,
+  token: string | null,
+  body?: object,
+): Promise<{ status: number; body: T }> {
+  const response = await request.fetch(`${E2E_API_URL}${path}`, {
+    method,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    data: body,
+  });
+  return { status: response.status(), body: (await response.json()) as T };
+}
+
+interface ApiEnvelope<T> {
+  success: boolean;
+  data: T;
+  code?: string;
+  message?: string;
+}
+
+// Empresa "QA Cierre <stamp>" + tienda + admin sin tienda + gestor de la
+// tienda + una cuenta de banco. Los cierres no se pueden borrar: cada corrida
+// usa una empresa nueva (nunca "Acme Corp QA").
+export async function createDisposableCashCompany(
+  request: APIRequestContext,
+  superToken: string,
+): Promise<DisposableCashCompany> {
+  const suffix = wordStamp().slice(0, 10);
+  const companyName = `QA Cierre ${suffix}`;
+
+  const company = await apiJson<ApiEnvelope<{ id: number }>>(request, 'post', '/company/create', superToken, {
+    ruc: `207${Date.now().toString().slice(-8)}`,
+    business_name: companyName,
+  });
+  // Las altas de empresa y tienda responden 201.
+  expect(company.status, JSON.stringify(company.body)).toBe(201);
+  const companyId = company.body.data.id;
+
+  const store = await apiJson<ApiEnvelope<{ id: number }>>(request, 'post', '/business-unit/create', superToken, {
+    company_id: companyId,
+    business_code: `QC-${suffix.slice(0, 6)}`,
+  });
+  expect(store.status, JSON.stringify(store.body)).toBe(201);
+  const storeId = store.body.data.id;
+
+  const createUser = async (label: string, roleId: number, withStore: boolean): Promise<string> => {
+    const email = `cierre.${label}.${wordStamp()}@acme.test`;
+    const created = await apiJson<ApiEnvelope<unknown>>(request, 'post', '/user/create', superToken, {
+      name: 'Cierre',
+      paternal_lastname: label,
+      document_type: 1,
+      document_number: `${Date.now()}`.slice(-8),
+      date_of_birth: '01/01/1990',
+      email,
+      status: true,
+      gender: 4,
+      company_id: companyId,
+      ...(withStore ? { business_unit_id: storeId } : {}),
+      roleIds: roleId,
+    });
+    expect(created.status, JSON.stringify(created.body)).toBe(200);
+    // Primer login con la contraseña temporal + cambio obligatorio.
+    const first = await apiJson<ApiEnvelope<{ Jwt: string }>>(request, 'post', '/signin', null, {
+      email,
+      password: TEMPORARY_PASSWORD,
+    });
+    expect(first.status).toBe(200);
+    const changed = await apiJson<ApiEnvelope<unknown>>(request, 'patch', '/user/change/password', first.body.data.Jwt, {
+      oldPassword: TEMPORARY_PASSWORD,
+      newPassword: READY_PASSWORD,
+    });
+    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    return email;
+  };
+
+  const adminEmail = await createUser('Admin', ADMIN_ROLE_ID, false);
+  const gestorEmail = await createUser('Gestor', GESTOR_ROLE_ID, true);
+
+  // La cuenta la crea el admin (necesita sesión propia): se loguea por API y
+  // esa sesión se reemplaza luego por el login de la UI.
+  const adminSession = await apiJson<ApiEnvelope<{ Jwt: string }>>(request, 'post', '/signin', null, {
+    email: adminEmail,
+    password: READY_PASSWORD,
+  });
+  const bankAccountName = `BCP Cierre ${suffix.slice(0, 6)}`;
+  const account = await apiJson<ApiEnvelope<{ id: number }>>(request, 'post', '/variable_general/create', adminSession.body.data.Jwt, {
+    category: 'payment_account',
+    title: 'Cuenta',
+    prefix_id: 'bank',
+    name: bankAccountName,
+    ref1: '123',
+    company_id: companyId,
+  });
+  expect(account.status, JSON.stringify(account.body)).toBe(200);
+
+  return {
+    companyId,
+    companyName,
+    storeId,
+    adminEmail,
+    gestorEmail,
+    password: READY_PASSWORD,
+    bankAccountId: account.body.data.id,
+    bankAccountName,
+  };
+}
+
+// Login por la UI (deja el token en localStorage de la página).
+export async function loginViaUi(page: Page, email: string, password: string) {
+  await page.goto('/login');
+  await page.fill('#email', email);
+  await page.fill('#password', password);
+  await page.click('button:has-text("Ingresar")');
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('text=Bienvenido,')).toBeVisible({ timeout: 10_000 });
+}
+
+export async function pageAuthToken(page: Page): Promise<string> {
+  const token = await page.evaluate(() => localStorage.getItem('auth_token'));
+  if (!token) throw new Error('La página no tiene auth_token');
+  return token;
+}
+
+// Fecha 'YYYY-MM-DD' del día `day` del mes `monthsAgo` meses antes del actual
+// (mes y año de Lima).
+export function limaMonthDate(monthsAgo: number, day: number): string {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit' }).format(new Date());
+  const [year = 0, month = 1] = parts.split('-').map(Number);
+  const index = year * 12 + (month - 1) - monthsAgo;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+const SPANISH_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+// '2026-10-05' -> 'Octubre 2026' (nombre del mes como lo muestra la UI).
+export function periodTitleOf(date: string): string {
+  const [year, month = '1'] = date.split('-');
+  const name = SPANISH_MONTHS[Number(month) - 1] ?? date;
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
 }

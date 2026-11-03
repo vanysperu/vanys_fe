@@ -14,6 +14,9 @@ function SelectValue({ className, ...props }: React.ComponentProps<typeof Select
   // encogerse y empuja el botón (y hasta la columna del grid que lo
   // contiene) a ser más ancho de lo que debería, en vez de recortarse con
   // "…" (mismo motivo que los demás bugs de min-w-0 ya corregidos).
+  // OJO: Radix ignora className/style en Select.Value (no lo pasa al span),
+  // por eso el recorte real vive en SelectTrigger; este className queda solo
+  // por compatibilidad con quien lo pase.
   return <SelectPrimitive.Value data-slot="select-value" className={cn('min-w-0 truncate', className)} {...props} />;
 }
 
@@ -26,6 +29,10 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
+        // *:data-[slot=select-value]: Radix descarta el className que recibe
+        // SelectValue (ver arriba), así que el recorte con "…" de un valor
+        // largo se aplica desde el trigger sobre su hijo.
+        '*:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:overflow-hidden *:data-[slot=select-value]:text-ellipsis',
         'border-input data-[placeholder]:text-muted-foreground flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-sm whitespace-nowrap shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}

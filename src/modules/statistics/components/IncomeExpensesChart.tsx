@@ -45,7 +45,7 @@ export function IncomeExpensesChart({ trend, granularity }: IncomeExpensesChartP
             { header: granularity === 'day' ? 'Día' : 'Mes', cell: (row) => formatBucketLong(row.bucket, granularity) },
             { header: 'Ingresos', align: 'right', cell: (row) => formatMoney(row.income) },
             { header: 'Egresos', align: 'right', cell: (row) => formatMoney(row.expenses) },
-            { header: 'Neto', align: 'right', cell: (row) => formatMoney(row.income - row.expenses) },
+            { header: 'Neto', align: 'right', cell: (row) => formatMoney(row.income - row.expenses + row.adjustments) },
           ]}
           rows={trend}
           rowKey={(row) => row.bucket}
@@ -83,7 +83,7 @@ export function IncomeExpensesChart({ trend, granularity }: IncomeExpensesChartP
                   rows={[
                     { label: 'Ingresos', value: formatMoney(point.income), color: VIZ_COLOR.series1 },
                     { label: 'Egresos', value: formatMoney(point.expenses), color: VIZ_COLOR.series2 },
-                    { label: 'Neto', value: formatMoney(point.income - point.expenses) },
+                    { label: 'Neto', value: formatMoney(point.income - point.expenses + point.adjustments) },
                   ]}
                 />
               );

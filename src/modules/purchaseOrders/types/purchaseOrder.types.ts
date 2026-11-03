@@ -39,10 +39,51 @@ export interface PurchaseOrderActor {
 // una genera un gasto real de la cotización (toda compra ES un gasto).
 export interface PurchaseOrderItemPurchase {
   id: number;
+  purchase_order_item_id: number;
+  // Gasto de la cotización que genera la compra (la fila que muestra Caja).
+  quotation_expense_id: number;
   quantity: number;
   amount: number;
   funding_source: FundingSource;
+  paid_by_user_id: number | null;
+  paid_by_user_name: string | null;
+  // Anulada: se muestra tachada y no cuenta para lo comprado ni lo gastado.
+  is_deleted: boolean;
+  spent_at: string;
+  payment_account_id: number | null;
+  payment_account_name: string | null;
+  // Deuda VIGENTE con el trabajador (null si no hay).
+  debt_id: number | null;
+  debt_amount: number | null;
+  debt_paid_amount: number | null;
+  debt_status: string | null;
+  corrections_count: number;
   created_at: string;
+}
+
+// GET /purchase-order/purchase/find/:id (diálogo de corrección).
+export interface PurchaseDetail extends PurchaseOrderItemPurchase {
+  purchase_order_id: number;
+  quotation_id: number;
+  company_id: number;
+  business_unit_id: number | null;
+  product_name: string | null;
+  item_quantity: number;
+  // Lo que ya compraron las OTRAS compras vigentes del mismo producto.
+  other_purchased_quantity: number;
+}
+
+// Solo lo que cambió (ausente = se queda como está) + motivo obligatorio.
+export interface CorrectPurchaseDto {
+  amount?: number;
+  quantity?: number;
+  funding_source?: FundingSource;
+  paid_by_user_id?: number | null;
+  payment_account_id?: number | null;
+  spent_at?: string;
+  // true = ya se confirmó subir la cantidad por encima de lo que falta.
+  allow_exceed?: boolean;
+  reason: string;
 }
 
 export interface PurchaseOrderItem {

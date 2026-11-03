@@ -4,12 +4,13 @@ import {
   CASH_PAYMENT_METHOD,
   type CreateQuotationPaymentFormValues,
 } from '@/modules/quotations/schemas/quotation.schema';
+import { useClosedPeriodGuard } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
 import { PaymentAccountSelect } from '@/modules/variableGeneral/components/PaymentAccountSelect';
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import { NOTES_MAX_LENGTH } from '@/lib/constants';
 import { CharCounter } from '@/presentation/components/shared/CharCounter';
 import { DateField } from '@/presentation/components/shared/DateField';
-import { disableFuture } from '@/presentation/components/shared/ui/calendar';
+import { combineDisabled, disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
@@ -23,12 +24,17 @@ interface PaymentFormFieldsProps {
   // Prefijo de los ids de los campos: dos formularios de pago pueden estar
   // montados a la vez (el de la pestaña Pagos y el modal de adelanto).
   idPrefix?: string;
+  // Empresa de la cotización (solo hace falta para el Super Administrador:
+  // define de qué empresa son los meses cerrados que se bloquean).
+  companyId?: number;
 }
 
 // Campos de un pago (monto, fecha, método, cuenta, N° de operación,
 // comentario). Lo usan "Registrar pago" de la cotización y el modal de
 // adelanto al aceptarla, para que ambos pidan y validen exactamente lo mismo.
-export function PaymentFormFields({ form, idPrefix = 'payment' }: PaymentFormFieldsProps) {
+export function PaymentFormFields({ form, idPrefix = 'payment', companyId }: PaymentFormFieldsProps) {
+  // Un pago no se puede fechar en un mes cerrado.
+  const closedGuard = useClosedPeriodGuard(companyId, undefined);
   const {
     register,
     setValue,
@@ -55,7 +61,7 @@ export function PaymentFormFields({ form, idPrefix = 'payment' }: PaymentFormFie
             id={`${idPrefix}-date`}
             value={watch('paid_at')}
             onChange={(value) => setValue('paid_at', value, { shouldValidate: true })}
-            disabled={disableFuture}
+            disabled={combineDisabled(disableFuture, closedGuard.lockedDates)}
           />
           {errors.paid_at && <p className="text-xs text-destructive">{errors.paid_at.message}</p>}
         </div>

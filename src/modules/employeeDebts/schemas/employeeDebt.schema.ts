@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { moneyAmountSchema } from '@/lib/moneySchema';
+import { correctionReasonSchema } from '@/modules/moneyCorrections/schemas/correctionReason.schema';
 
 // Deuda manual con un trabajador (ej. pagó la luz con su plata). Mismos
 // topes que el backend (descripción 3–300, categoría del catálogo de Caja,
@@ -26,3 +27,21 @@ export type CreateManualDebtFormValues = z.infer<typeof createManualDebtSchema>;
 // (es un gasto). El catálogo no guarda el sentido; el backend descarta las
 // mismas.
 export const INCOME_ONLY_CATEGORIES = ['otro_ingreso', 'aporte_capital'];
+
+// Corregir una deuda MANUAL: los mismos campos (y reglas) que al
+// registrarla, más el motivo. Empresa y origen no se corrigen.
+export const correctManualDebtSchema = createManualDebtSchema
+  .pick({ user_id: true, description: true, category: true, amount: true, incurred_at: true, business_unit_id: true })
+  .extend({ reason: correctionReasonSchema });
+
+export type CorrectManualDebtFormValues = z.infer<typeof correctManualDebtSchema>;
+
+// Corregir una reposición: monto, fecha y cuenta (el trabajador no).
+export const correctReimbursementSchema = z.object({
+  amount: moneyAmountSchema(),
+  paid_at: z.string({ error: 'Indica la fecha en que se le repuso' }).min(1, 'Indica la fecha en que se le repuso'),
+  payment_account_id: z.number().nullable(),
+  reason: correctionReasonSchema,
+});
+
+export type CorrectReimbursementFormValues = z.infer<typeof correctReimbursementSchema>;

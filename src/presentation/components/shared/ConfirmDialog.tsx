@@ -53,7 +53,8 @@ export function ConfirmDialog({
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {/* min-w-0 + overflow-wrap: un motivo o nombre largo sin espacios no desborda el diálogo. */}
+          <DialogDescription className="min-w-0 [overflow-wrap:anywhere]">{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isConfirming}>

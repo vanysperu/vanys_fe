@@ -4,9 +4,13 @@ import {
   createCashMovement,
   getCashMovements,
   toggleCashMovementStatus,
+  updateCashMovement,
 } from '@/modules/cashMovements/api/cashMovements.api';
+import { cashClosingsKeys } from '@/modules/cashClosings/hooks/cashClosings.keys';
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
-import type { CashMovementListParams } from '@/modules/cashMovements/types/cashMovement.types';
+import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
+import { statisticsKeys } from '@/modules/statistics/hooks/statistics.keys';
+import type { CashMovementListParams, UpdateCashMovementDto } from '@/modules/cashMovements/types/cashMovement.types';
 
 export function useCashMovements(params: CashMovementListParams) {
   return useQuery({
@@ -16,11 +20,17 @@ export function useCashMovements(params: CashMovementListParams) {
   });
 }
 
+// Crear o anular un movimiento manual cambia los totales de Caja y los de
+// Estadísticas (suman en vivo desde la misma tabla).
 export function useCreateCashMovement() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createCashMovement,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: cashMovementsKeys.lists() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cashMovementsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: statisticsKeys.all });
+      queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
+    },
   });
 }
 
@@ -28,6 +38,25 @@ export function useToggleCashMovementStatus() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: toggleCashMovementStatus,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: cashMovementsKeys.lists() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cashMovementsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: statisticsKeys.all });
+      queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
+    },
+  });
+}
+
+// Corregir un movimiento manual: cambia los totales de Caja y Estadísticas y
+// suma una fila al historial de ese movimiento — se invalidan solo esas keys.
+export function useUpdateCashMovement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: UpdateCashMovementDto }) => updateCashMovement(id, dto),
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: cashMovementsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: moneyCorrectionsKeys.history('manual', id) });
+      queryClient.invalidateQueries({ queryKey: statisticsKeys.all });
+      queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
+    },
   });
 }

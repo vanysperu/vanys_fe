@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { NOTES_MAX_LENGTH } from '@/lib/constants';
 import { moneyAmountSchema } from '@/lib/moneySchema';
+import { correctionReasonSchema } from '@/modules/moneyCorrections/schemas/correctionReason.schema';
 
 // La cantidad es siempre obligatoria: cada modo de precio (unidad/ciento/
 // medio millar/millar/personalizado) es una tarifa POR UNIDAD, no el
@@ -95,3 +96,14 @@ export const createQuotationExpenseSchema = z.object({
 });
 
 export type CreateQuotationExpenseFormValues = z.infer<typeof createQuotationExpenseSchema>;
+
+// Motivo obligatorio de toda corrección de dinero: el esquema vive en el kit
+// compartido de correcciones; se re-exporta por compatibilidad con quien ya
+// lo importa desde acá.
+export { correctionReasonSchema };
+
+// Corrección de un gasto manual: los mismos campos (y reglas) que al
+// registrarlo + motivo. La cotización no se corrige.
+export const correctQuotationExpenseSchema = createQuotationExpenseSchema.extend({ reason: correctionReasonSchema });
+
+export type CorrectQuotationExpenseFormValues = z.infer<typeof correctQuotationExpenseSchema>;

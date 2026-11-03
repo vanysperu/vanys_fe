@@ -44,6 +44,12 @@ export interface VariableGeneralListParams {
   search?: string;
   category?: string;
   ignorePagination?: boolean;
+  // 'manage' = modo de la pantalla de gestión (Variables Generales): un usuario
+  // de empresa recibe SOLO las filas de su empresa, sin las globales (esas las
+  // gestiona únicamente el Super Administrador). Sin este valor el listado
+  // incluye las globales, que los selectores de otras pantallas necesitan
+  // (métodos de pago, etapas por defecto...). Solo la pantalla de gestión lo envía.
+  scope?: 'manage';
   orderBy?: string;
   orderDir?: 'asc' | 'desc';
   // Filtros por columna (buscadores del header de DataTable).

@@ -23,6 +23,8 @@ export interface KpiValues {
   collected: number;
   other_income: number;
   expenses: number;
+  // Ajustes de meses cerrados registrados en el periodo (puede ser negativo).
+  adjustments: number;
   net_cash: number;
   margin_amount: number;
   margin_rate: number | null;
@@ -34,6 +36,7 @@ export interface TrendPoint {
   won: number;
   income: number;
   expenses: number;
+  adjustments: number;
 }
 
 export interface StatusBreakdownItem {
