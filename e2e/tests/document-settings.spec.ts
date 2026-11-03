@@ -29,6 +29,25 @@ test.describe('Documentos de la empresa', () => {
     await expect(page.locator('text=Documentos actualizados')).toBeVisible({ timeout: 10_000 });
   });
 
+  test('muestra los formatos aceptados y rechaza una imagen inválida sin subirla', async ({ page }) => {
+    await page.goto('/configuracion/documentos');
+    await expect(page.locator('text=PNG, JPG o WEBP · máx. 2 MB').first()).toBeVisible();
+
+    const uploads: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/uploads/company-asset')) uploads.push(request.url());
+    });
+    const logoInput = page.locator('input[type="file"]').first();
+
+    await logoInput.setInputFiles({ name: 'pesada.png', mimeType: 'image/png', buffer: Buffer.alloc(2 * 1024 * 1024 + 1) });
+    await expect(page.locator('text=el máximo es 2 MB')).toBeVisible();
+
+    await logoInput.setInputFiles({ name: 'documento.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+    await expect(page.locator('text=Solo se permiten imágenes PNG, JPG o WEBP')).toBeVisible();
+
+    expect(uploads).toHaveLength(0);
+  });
+
   test('agregar una cuenta de pago y eliminarla', async ({ page }) => {
     const suffix = stamp();
     const accountName = `QA Cuenta ${suffix}`;
