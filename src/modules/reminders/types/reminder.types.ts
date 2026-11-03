@@ -48,8 +48,12 @@ export interface ReminderRecipient extends ReminderPerson {
 export type ReminderListResult = PagedListResult<Reminder>;
 
 export interface DueRemindersResult {
+  // Vencidos sin leer: uno nuevo = un toast.
   data: Reminder[];
+  // Cuántos sin leer hay en total (el número de la campana).
   total: number;
+  // Los últimos 10 que ya sonaron, vistos o no: la lista de la campana.
+  recent: Reminder[];
 }
 
 export interface ReminderListParams {

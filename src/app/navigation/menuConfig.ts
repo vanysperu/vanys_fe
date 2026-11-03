@@ -49,7 +49,7 @@ export const MENU_LAYOUT: readonly MenuLayoutEntry[] = [
       key: 'settings',
       label: 'Configuración',
       icon: Cog,
-      moduleCodes: ['users', 'roles_access', 'platform', 'variable_general', 'document_settings'],
+      moduleCodes: ['users', 'roles_access', 'platform', 'api_key', 'variable_general', 'document_settings'],
     },
   },
 ];

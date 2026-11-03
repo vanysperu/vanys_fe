@@ -136,7 +136,7 @@ export function RemindersPage() {
             cell: (row) => (
               <div>
                 <p className="font-medium">{row.title}</p>
-                {row.message && <p className="text-xs text-muted-foreground">{row.message}</p>}
+                {row.message && <p className="text-xs whitespace-pre-line text-muted-foreground">{row.message}</p>}
               </div>
             ),
           },

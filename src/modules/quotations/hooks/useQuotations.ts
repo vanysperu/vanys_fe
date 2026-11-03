@@ -8,6 +8,7 @@ import { statisticsKeys } from '@/modules/statistics/hooks/statistics.keys';
 import {
   changeQuotationItemStage,
   changeQuotationStatus,
+  completeQuotation,
   correctQuotationExpense,
   getQuotationExpense,
   toggleQuotationExpense,
@@ -23,6 +24,7 @@ import { paymentsKeys } from '@/modules/payments/hooks/payments.keys';
 import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
 import { receivablesKeys } from '@/modules/receivables/hooks/receivables.keys';
 import type {
+  CompleteQuotationDto,
   CorrectQuotationExpenseDto,
   CreateQuotationExpenseDto,
   CreateQuotationPaymentDto,
@@ -60,6 +62,18 @@ export function useUpdateQuotation(id: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: UpdateQuotationDto) => updateQuotation(id, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
+    },
+  });
+}
+
+// Completa una cotización "Pendiente de cotizar" (pedido de la web).
+export function useCompleteQuotation(id: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CompleteQuotationDto) => completeQuotation(id, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });

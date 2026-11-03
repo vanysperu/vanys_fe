@@ -135,7 +135,11 @@ test.describe('Recordatorios', () => {
     const bellItem = page.getByTestId('reminder-bell-item').filter({ hasText: title });
     await expect(bellItem).toBeVisible();
     await bellItem.getByRole('button', { name: `Marcar "${title}" como visto` }).click();
-    await expect(bellItem).toBeHidden({ timeout: 10_000 });
+    // La campana lista los últimos 10 avisos, vistos o no: el visto sigue en la
+    // lista, marcado como "Visto" y sin el botón.
+    await expect(bellItem).toHaveAttribute('data-state', 'read', { timeout: 10_000 });
+    await expect(bellItem).toContainText('Visto');
+    await expect(bellItem.getByRole('button', { name: `Marcar "${title}" como visto` })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
     await expect(page.locator('tr', { hasText: title })).toContainText('Visto');

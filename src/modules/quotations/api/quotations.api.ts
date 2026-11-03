@@ -2,6 +2,8 @@ import { apiClient } from '@/config/apiClient';
 import type { ReasonedToggleInput } from '@/modules/cashClosings/types/cashClosings.types';
 import type { ApiResponse, PagedListResult } from '@/config/api.types';
 import type {
+  CompleteQuotationDto,
+  CompleteQuotationResult,
   CorrectQuotationExpenseDto,
   CreateQuotationDto,
   CreateQuotationExpenseDto,
@@ -39,6 +41,12 @@ export async function createQuotation(dto: CreateQuotationDto): Promise<Quotatio
 
 export async function updateQuotation(id: number, dto: UpdateQuotationDto): Promise<unknown> {
   const response = await apiClient.put<ApiResponse<unknown>>(`/quotation/update/${id}`, dto);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+export async function completeQuotation(id: number, dto: CompleteQuotationDto): Promise<CompleteQuotationResult> {
+  const response = await apiClient.put<ApiResponse<CompleteQuotationResult>>(`/quotation/${id}/items`, dto);
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

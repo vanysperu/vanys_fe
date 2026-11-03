@@ -10,7 +10,8 @@ import { QuotationPaymentsSection } from '@/modules/quotations/components/Quotat
 import { QuotationTimeline } from '@/modules/quotations/components/QuotationTimeline';
 import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/QuotationPdfPreviewDialog';
 import { useChangeQuotationStatus, useDownloadQuotationPdf, useQuotation } from '@/modules/quotations/hooks/useQuotations';
-import { ArrowRight, Download, Eye } from 'lucide-react';
+import { ArrowRight, Download, Eye, PencilLine } from 'lucide-react';
+import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
 import {
   QUOTATION_ACTIVE_STATUSES,
   QUOTATION_ITEM_PRICING_MODE_LABEL,
@@ -114,6 +115,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const canRegisterPayment = usePermissionButton('cotizacion.payment.create.button');
   const canRegisterExpense = usePermissionButton('cotizacion.expense.create.button');
   const canCreatePurchaseOrder = usePermissionButton('purchase_order.create.button');
+  const canComplete = usePermissionButton('cotizacion.complete.button');
   const { mutate: downloadPdf } = useDownloadQuotationPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
   // Cotización que se está aceptando: abre el modal "¿pagó adelanto?".
@@ -166,11 +168,14 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   // adelanto al aceptar una Pendiente va por AcceptQuotationDialog y sigue
   // dependiendo solo del permiso (canRegisterPayment, en handleTransition).
   const isActive = Boolean(quotation && QUOTATION_ACTIVE_STATUSES.includes(quotation.status));
+  const isQuoteRequested = quotation?.status === 'quote_requested';
   const inactiveNotice = !quotation || isActive
     ? null
-    : quotation.status === 'pending'
-      ? 'Esta cotización todavía no fue aceptada. Acéptala para registrar pagos, gastos y compras, o avanzar la producción.'
-      : `Esta cotización está "${QUOTATION_STATUS_LABEL[quotation.status]}": ya no admite pagos, gastos, compras ni cambios en la producción.`;
+    : isQuoteRequested
+      ? 'Pedido recibido desde la web. Complétalo (técnica, precio y productos que falten — ver Historial) y pásalo a Pendiente para enviárselo al cliente.'
+      : quotation.status === 'pending'
+        ? 'Esta cotización todavía no fue aceptada. Acéptala para registrar pagos, gastos y compras, o avanzar la producción.'
+        : `Esta cotización está "${QUOTATION_STATUS_LABEL[quotation.status]}": ya no admite pagos, gastos, compras ni cambios en la producción.`;
   // IGV de cada ítem (pedido explícito del usuario: "no se ve claro cuánto
   // hay que pagar ni su IGV por fila"): el IGV real cobrado (total -
   // subtotal, así coincide aunque el % configurado cambie después) repartido
@@ -288,6 +293,23 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                 <p className="text-base font-semibold">{money(balance)}</p>
               </div>
             </div>
+
+            {/* Pedido de la web: se completa con el mismo formulario de
+                crear (técnica, modo de precio, productos que faltaban). */}
+            {isQuoteRequested && canComplete && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
+                <p className="text-sm text-muted-foreground">Revisa los productos y define técnica y precio.</p>
+                <CreateQuotationDialog
+                  completeQuotation={quotation}
+                  trigger={
+                    <Button size="sm" variant="outline" data-testid="complete-quotation-button">
+                      <PencilLine className="size-4" />
+                      Completar cotización
+                    </Button>
+                  }
+                />
+              </div>
+            )}
 
             {canChangeStatus && allowedNext.length > 0 && (
               <div className="space-y-2 border-b pb-4">

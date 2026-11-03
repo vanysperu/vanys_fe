@@ -9,14 +9,18 @@ import { useClients } from '@/modules/clients/hooks/useClients';
 import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { useProducts } from '@/modules/products/hooks/useProducts';
-import type { Product } from '@/modules/products/types/product.types';
+import type { CustomizationTechnique, Product } from '@/modules/products/types/product.types';
 import { useTechniques } from '@/modules/products/hooks/useTechniques';
 import { QuickCreateClientDialog } from '@/modules/quotations/components/QuickCreateClientDialog';
 import { QuickCreateProductDialog } from '@/modules/quotations/components/QuickCreateProductDialog';
 import { QuickCreateTechniqueDialog } from '@/modules/quotations/components/QuickCreateTechniqueDialog';
-import { useCreateQuotation } from '@/modules/quotations/hooks/useQuotations';
+import { useCompleteQuotation, useCreateQuotation } from '@/modules/quotations/hooks/useQuotations';
 import { createQuotationSchema, type CreateQuotationFormValues } from '@/modules/quotations/schemas/quotation.schema';
-import { QUOTATION_ITEM_PRICING_MODE_LABEL, type QuotationItemPricingMode } from '@/modules/quotations/types/quotation.types';
+import {
+  QUOTATION_ITEM_PRICING_MODE_LABEL,
+  type QuotationDetail,
+  type QuotationItemPricingMode,
+} from '@/modules/quotations/types/quotation.types';
 import {
   allocateIgvByLine,
   computeQuotationIgv,
@@ -193,9 +197,71 @@ interface CreateQuotationDialogProps {
   // detrás de un disparador distinto (ej. el botón flotante global en
   // Shell.tsx) sin duplicar todo el formulario en otro componente.
   trigger?: ReactNode;
+  // Modo "completar" (opcional, sin él el diálogo crea como siempre): la
+  // cotización llegó desde la web en "Pendiente de cotizar" y el equipo
+  // completa técnica, modo de precio y productos faltantes con este MISMO
+  // formulario (mismo cálculo de precios). Cliente, empresa y tienda quedan
+  // fijos; al guardar se reemplazan sus items (PUT /quotation/:id/items).
+  completeQuotation?: QuotationDetail;
 }
 
-export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = {}) {
+const EMPTY_ITEM = { product_id: undefined, technique_id: undefined, pricing_mode: 'unit', quantity: 1 } as const;
+
+// Al completar, los productos/técnicas que ya tiene la cotización se suman a
+// las opciones aunque no estén entre los que trae el selector (carga hasta
+// 100 activos): si no, el item mostraba el id en vez del nombre y no ofrecía
+// las tarifas del producto.
+function mergeById<T extends { id: number }>(rows: T[], extra: T[]): T[] {
+  const known = new Set(rows.map((row) => row.id));
+  return [...rows, ...extra.filter((row) => !known.has(row.id))];
+}
+
+// description/created_at no vienen en el detalle y el formulario no los usa.
+function quotationProducts(quotation: QuotationDetail | undefined): Product[] {
+  return (quotation?.items ?? []).flatMap((item) =>
+    item.product ? [{ ...item.product, description: null, created_at: '' }] : [],
+  );
+}
+
+function quotationTechniques(quotation: QuotationDetail | undefined): CustomizationTechnique[] {
+  return (quotation?.items ?? []).flatMap((item) =>
+    item.technique ? [{ ...item.technique, description: null, created_at: '' }] : [],
+  );
+}
+
+// Valores iniciales del formulario a partir de la cotización a completar.
+// Un item "personalizado" guarda solo el precio final por unidad: se carga
+// todo como precio del producto (la técnica en 0) para no cambiar el monto.
+function toCompleteFormValues(quotation: QuotationDetail): CreateQuotationFormValues {
+  return {
+    company_id: quotation.company_id,
+    client_id: quotation.client_id,
+    business_unit_id: quotation.business_unit_id ?? undefined,
+    notes: quotation.notes ?? undefined,
+    includes_delivery: quotation.includes_delivery,
+    includes_design: quotation.includes_design,
+    includes_igv: quotation.includes_igv,
+    billing_enabled: Boolean(quotation.billing_name),
+    billing_name: quotation.billing_name ?? undefined,
+    billing_document_number: quotation.billing_document_number ?? undefined,
+    production_days: quotation.production_days ?? undefined,
+    items:
+      quotation.items.length > 0
+        ? quotation.items.map((item) => ({
+            product_id: item.product_id,
+            technique_id: item.technique_id ?? undefined,
+            quantity: item.quantity,
+            pricing_mode: item.pricing_mode,
+            custom_price: item.pricing_mode === 'custom' ? Number(item.unit_price) : undefined,
+            custom_technique_price: item.pricing_mode === 'custom' && item.technique_id ? 0 : undefined,
+          }))
+        : // Pedido sin ningún producto existente (todos los SKU faltaban).
+          [{ ...EMPTY_ITEM, product_id: undefined as unknown as number }],
+  };
+}
+
+export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuotationDialogProps = {}) {
+  const isCompleting = Boolean(completeQuotation);
   const [open, setOpen] = useState(false);
   const { data: access } = useAccess();
   const isSystem = access?.isSystem ?? false;
@@ -213,7 +279,14 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
     Boolean(access?.isSystem) || Boolean(access?.buttons.includes('roles_access.viewAllBusinessUnits.button'));
   const fixedStoreName = access?.businessUnitId && !canViewAllStores ? access.businessUnitName : null;
   const defaultStoreId = access?.businessUnitId ?? undefined;
-  const { mutate: create, isPending, error } = useCreateQuotation();
+  const { mutate: create, isPending: isCreating, error: createError } = useCreateQuotation();
+  const {
+    mutate: complete,
+    isPending: isCompletingRequest,
+    error: completeError,
+  } = useCompleteQuotation(completeQuotation?.id ?? 0);
+  const isPending = isCreating || isCompletingRequest;
+  const error = isCompleting ? completeError : createError;
   // Los "+" de creación rápida aparecen solo si el rol puede crear eso. Antes
   // un Gestor veía el "+" de producto y al guardar recibía "no tiene
   // permisos": el Gestor no administra el catálogo (CLAUDE.md sección 11.1),
@@ -267,8 +340,8 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
   const ofSelectedCompany = <T extends { company_id: number }>(rows: T[] | undefined): T[] =>
     (rows ?? []).filter((row) => !isSystem || row.company_id === resolvedCompanyId);
   const companyClients = ofSelectedCompany(clients?.data);
-  const companyProducts = ofSelectedCompany(products?.data);
-  const companyTechniques = ofSelectedCompany(techniques?.data);
+  const companyProducts = mergeById(ofSelectedCompany(products?.data), quotationProducts(completeQuotation));
+  const companyTechniques = mergeById(ofSelectedCompany(techniques?.data), quotationTechniques(completeQuotation));
 
   // Los "+" de creación rápida: solo si el rol puede crear eso y, para el
   // Super Administrador, una vez elegida la empresa (se crea en esa).
@@ -312,6 +385,9 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
+    // Al abrir en modo "completar", el formulario arranca con lo que ya
+    // tiene la cotización (lo que eligió el cliente en la web).
+    if (next && completeQuotation) reset(toCompleteFormValues(completeQuotation));
     if (!next) reset({ items: [{ product_id: undefined, technique_id: undefined, pricing_mode: 'unit', quantity: 1 }] });
   };
 
@@ -334,26 +410,46 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
       return;
     }
 
+    const items = values.items.map((item) => ({
+      product_id: item.product_id,
+      technique_id: requiresCustomization(item.product_id) ? item.technique_id : null,
+      pricing_mode: item.pricing_mode,
+      quantity: item.quantity,
+      custom_price: item.pricing_mode === 'custom' ? item.custom_price : undefined,
+      custom_technique_price: item.pricing_mode === 'custom' ? item.custom_technique_price : undefined,
+    }));
+    const details = {
+      notes: values.notes,
+      // Al completar, desmarcar "otra persona" debe borrar lo que hubiera
+      // (null); al crear, simplemente no se manda.
+      billing_name: values.billing_enabled ? values.billing_name : isCompleting ? null : undefined,
+      billing_document_number: values.billing_enabled ? values.billing_document_number : isCompleting ? null : undefined,
+      production_days: values.production_days,
+      includes_delivery: values.includes_delivery,
+      includes_design: values.includes_design,
+      includes_igv: values.includes_igv,
+    };
+
+    if (isCompleting) {
+      complete(
+        { ...details, items },
+        {
+          onSuccess: () => {
+            toast.success('Cotización completada. Ya puedes pasarla a Pendiente.');
+            handleOpenChange(false);
+          },
+        },
+      );
+      return;
+    }
+
     create(
       {
+        ...details,
         company_id: companyId,
         client_id: values.client_id,
         business_unit_id: values.business_unit_id ?? defaultStoreId,
-        notes: values.notes,
-        billing_name: values.billing_enabled ? values.billing_name : undefined,
-        billing_document_number: values.billing_enabled ? values.billing_document_number : undefined,
-        production_days: values.production_days,
-        items: values.items.map((item) => ({
-          product_id: item.product_id,
-          technique_id: requiresCustomization(item.product_id) ? item.technique_id : null,
-          pricing_mode: item.pricing_mode,
-          quantity: item.quantity,
-          custom_price: item.pricing_mode === 'custom' ? item.custom_price : undefined,
-          custom_technique_price: item.pricing_mode === 'custom' ? item.custom_technique_price : undefined,
-        })),
-        includes_delivery: values.includes_delivery,
-        includes_design: values.includes_design,
-        includes_igv: values.includes_igv,
+        items,
       },
       {
         onSuccess: () => {
@@ -378,12 +474,22 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
       </DialogTrigger>
       <DialogContent expandable defaultExpanded className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Nueva cotización</DialogTitle>
+          <DialogTitle>{completeQuotation ? `Completar cotización #${completeQuotation.id}` : 'Nueva cotización'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Completar: el cliente (y su empresa/tienda) ya vienen del pedido
+              de la web y no se cambian acá. */}
+          {completeQuotation && (
+            <div className="space-y-1 rounded-lg border bg-muted/40 px-3 py-2" data-testid="complete-quotation-client">
+              <p className="text-xs text-muted-foreground">Cliente</p>
+              <p className="text-sm font-medium">{completeQuotation.client?.name}</p>
+            </div>
+          )}
+
           {/* Super Administrador: primero Empresa y Tienda, y recién ahí sus
               clientes/productos/técnicas (ver listCompanyId). */}
+          {!isCompleting && (
           <CompanyStoreFields
             companyId={watch('company_id')}
             onCompanyChange={handleCompanyChange}
@@ -391,7 +497,9 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
             onBusinessUnitChange={(value) => setValue('business_unit_id', value)}
             companyError={errors.company_id?.message}
           />
+          )}
 
+          {!isCompleting && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Cliente</Label>
@@ -461,6 +569,7 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
               )
             )}
           </div>
+          )}
 
           {/* El cliente vinculado (arriba) nunca cambia — esto solo pisa
               el nombre/documento que se IMPRIME en el PDF, para cuando el
@@ -835,7 +944,13 @@ export function CreateQuotationDialog({ trigger }: CreateQuotationDialogProps = 
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
               <Check className="size-4" />
-              {isPending ? 'Creando...' : 'Crear cotización'}
+              {isCompleting
+                ? isPending
+                  ? 'Guardando...'
+                  : 'Guardar cotización'
+                : isPending
+                  ? 'Creando...'
+                  : 'Crear cotización'}
             </Button>
           </DialogFooter>
         </form>

@@ -32,7 +32,7 @@ interface QuotationsKanbanBoardProps {
 }
 
 // Tablero de cotizaciones por estado: cada columna es un paso de la cadena
-// principal (pending -> accepted -> design_pending -> in_process -> ready
+// principal (quote_requested -> pending -> accepted -> design_pending -> in_process -> ready
 // -> delivered -> finished). Arrastrar una tarjeta solo se acepta si la
 // columna destino es la inmediatamente anterior o siguiente a la actual —
 // el mismo backend (quotation.service.ts) vuelve a validar esto y es quien

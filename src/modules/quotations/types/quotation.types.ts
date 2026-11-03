@@ -1,5 +1,8 @@
 // Espejo de QUOTATION_STATUSES (grulla_be: quotation.model.ts).
 export type QuotationStatus =
+  // Pedido que llegó desde la web (POST /public/quotation-request): el
+  // equipo lo completa (técnica, precio) y lo pasa a Pendiente.
+  | 'quote_requested'
   | 'pending'
   | 'accepted'
   | 'rejected'
@@ -12,6 +15,7 @@ export type QuotationStatus =
   | 'finished';
 
 export const QUOTATION_STATUS_LABEL: Record<QuotationStatus, string> = {
+  quote_requested: 'Pendiente de cotizar',
   pending: 'Pendiente',
   accepted: 'Aceptada',
   rejected: 'Rechazada',
@@ -29,6 +33,8 @@ export const QUOTATION_STATUS_LABEL: Record<QuotationStatus, string> = {
 // original no la nombra como columna propia) — se le da el mismo trato
 // visual que "rejected" por ser también una salida/excepción.
 export const QUOTATION_STATUS_COLOR: Record<QuotationStatus, { fg: string; bg: string }> = {
+  // No está en el spec de diseño (estado nuevo): magenta, distinto de los demás.
+  quote_requested: { fg: '#A3266F', bg: '#FBE8F3' },
   pending: { fg: '#9C6511', bg: '#FDF3E2' },
   design_pending: { fg: '#5B3FD6', bg: '#EFEBFF' },
   in_process: { fg: '#1F5FC0', bg: '#E6EEFB' },
@@ -45,7 +51,10 @@ export const QUOTATION_STATUS_COLOR: Record<QuotationStatus, { fg: string; bg: s
 // estados de salida (rejected/expired/cancelled) no son columnas del
 // tablero, se disparan con un botón dentro del detalle (ver
 // QuotationDetailDialog), igual que en el backend (quotation.service.ts).
+// "Pendiente de cotizar" es la primera columna: ahí caen los pedidos de la
+// web, y se arrastran a Pendiente una vez completados.
 export const QUOTATION_MAIN_CHAIN: QuotationStatus[] = [
+  'quote_requested',
   'pending',
   'accepted',
   'design_pending',
@@ -73,6 +82,7 @@ export const QUOTATION_STATUS_ORDER: QuotationStatus[] = [
 // automático según su `valid_until` (job en el backend), nunca un botón que
 // el usuario apriete — ver grulla_be: services/jobs/expireQuotations.job.ts.
 export const QUOTATION_TRANSITIONS: Record<QuotationStatus, QuotationStatus[]> = {
+  quote_requested: ['pending', 'rejected'],
   pending: ['accepted', 'rejected'],
   accepted: ['pending', 'design_pending', 'cancelled'],
   design_pending: ['accepted', 'in_process', 'cancelled'],
@@ -207,13 +217,26 @@ export interface QuotationItem {
   subtotal: number;
   product?: {
     id: number;
+    company_id: number;
+    name: string;
+    sku: string | null;
+    price_unit: number | null;
+    price_hundred: number | null;
+    price_half_thousand: number | null;
+    price_thousand: number | null;
+    requires_customization: boolean;
+    is_deleted: boolean;
+  };
+  technique?: {
+    id: number;
+    company_id: number;
     name: string;
     price_unit: number | null;
     price_hundred: number | null;
     price_half_thousand: number | null;
     price_thousand: number | null;
-  };
-  technique?: { id: number; name: string } | null;
+    is_deleted: boolean;
+  } | null;
   stage?: QuotationItemStage | null;
 }
 
@@ -365,6 +388,27 @@ export interface CreateQuotationDto {
   includes_delivery?: boolean;
   includes_design?: boolean;
   includes_igv?: boolean;
+}
+
+// PUT /quotation/:id/items — completa una cotización "Pendiente de cotizar"
+// (llegó desde la web): reemplaza todos sus items y los datos que se eligen
+// al cotizar. Cliente, empresa y tienda no cambian.
+export interface CompleteQuotationDto {
+  items: CreateQuotationItemDto[];
+  notes?: string;
+  billing_name?: string | null;
+  billing_document_number?: string | null;
+  production_days?: number | null;
+  includes_delivery?: boolean;
+  includes_design?: boolean;
+  includes_igv?: boolean;
+}
+
+export interface CompleteQuotationResult {
+  id: number;
+  subtotal: number;
+  total: number;
+  items_count: number;
 }
 
 export interface UpdateQuotationDto {

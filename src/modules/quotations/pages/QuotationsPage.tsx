@@ -62,7 +62,7 @@ export function QuotationsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Cotizaciones"
-        description="Flujo completo: pendiente → aceptada → diseño → producción → entrega"
+        description="Flujo completo: pendiente de cotizar → pendiente → aceptada → diseño → producción → entrega"
         action={
           // flex-wrap: en el celular Lista/Tablero + estado + crear no entran
           // en una fila y se salían de la pantalla.
