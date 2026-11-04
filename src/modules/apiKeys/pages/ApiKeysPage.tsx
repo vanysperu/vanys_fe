@@ -132,6 +132,11 @@ export function ApiKeysPage() {
               <div className="min-w-0">
                 <p>{apiKey.company.name}</p>
                 <p className="text-xs text-muted-foreground">{apiKey.business_unit?.code ?? 'Sin tienda específica'}</p>
+                {apiKey.replicate_companies.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Replica a: {apiKey.replicate_companies.map((company) => company.name).join(', ')}
+                  </p>
+                )}
               </div>
             ),
           },

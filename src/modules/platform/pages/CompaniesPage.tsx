@@ -21,6 +21,7 @@ import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
+import { Checkbox } from '@/presentation/components/shared/ui/checkbox';
 import { Button } from '@/presentation/components/shared/ui/button';
 import {
   Dialog,
@@ -133,6 +134,15 @@ export function CompaniesPage() {
             ),
           },
           {
+            header: 'Fotos de productos',
+            cell: (company) =>
+              company.product_images_enabled ? (
+                <Badge variant="success">Habilitadas</Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground">No</span>
+              ),
+          },
+          {
             header: 'Estado',
             filterable: true,
             filterKey: 'status',
@@ -231,6 +241,7 @@ function CompanyFormDialog({ company, onClose }: CompanyFormDialogProps) {
         phone: company.phone ?? '',
         address: company.address ?? '',
         theme_color: company.theme_color,
+        product_images_enabled: Boolean(company.product_images_enabled),
       });
     }
   }, [company, reset]);
@@ -319,6 +330,23 @@ function CompanyFormDialog({ company, onClose }: CompanyFormDialogProps) {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Pedido explícito del usuario: el Super Administrador decide qué
+              empresas usan fotos de productos. Apagado: no se suben ni se
+              muestran (las ya guardadas se conservan). */}
+          <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+            <Checkbox
+              className="mt-0.5"
+              checked={watch('product_images_enabled') ?? false}
+              onCheckedChange={(checked) => setValue('product_images_enabled', checked === true)}
+            />
+            <span>
+              <span className="font-medium">Fotos de productos</span>
+              <span className="block text-xs text-muted-foreground">
+                Permite subir una foto a cada producto y verla al hacer clic en él.
+              </span>
+            </span>
+          </label>
 
           {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
 

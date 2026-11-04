@@ -17,6 +17,8 @@ export interface ApiKey {
   created_at: LocalDateTime;
   created_by: { id: number; name: string } | null;
   revoked_at: LocalDateTime | null;
+  // Empresas extra a las que puede replicar productos en la subida masiva.
+  replicate_companies: { id: number; name: string }[];
 }
 
 // Solo al crear: la key completa viaja UNA vez y no se vuelve a mostrar.
@@ -38,9 +40,12 @@ export interface CreateApiKeyDto {
   company_id: number;
   business_unit_id?: number | null;
   name: string;
+  replicate_company_ids?: number[];
 }
 
 export interface UpdateApiKeyDto {
   name?: string;
   business_unit_id?: number | null;
+  // Reemplaza la lista completa.
+  replicate_company_ids?: number[];
 }

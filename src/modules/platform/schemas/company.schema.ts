@@ -13,6 +13,7 @@ export const createCompanySchema = z.object({
   phone: z.string().regex(PHONE_REGEX, 'El teléfono debe tener entre 6 y 15 dígitos, solo números').optional().or(z.literal('')),
   address: z.string().max(255, 'Máximo 255 caracteres').optional(),
   theme_color: z.string().optional(),
+  product_images_enabled: z.boolean().optional(),
 });
 
 export type CreateCompanyFormValues = z.infer<typeof createCompanySchema>;

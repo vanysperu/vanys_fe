@@ -10,6 +10,8 @@ export interface Company {
   tagline: string | null;
   logo_url: string | null;
   theme_color: string;
+  // Fotos de productos habilitadas para la empresa (las decide el Super Administrador).
+  product_images_enabled?: boolean;
   is_deleted: boolean;
   created_at: string;
   updated_at: string | null;
@@ -24,6 +26,7 @@ export interface CreateCompanyDto {
   phone?: string | null;
   email?: string | null;
   theme_color?: string;
+  product_images_enabled?: boolean;
 }
 
 export type UpdateCompanyDto = Partial<CreateCompanyDto>;

@@ -50,6 +50,10 @@ export interface MyAccess {
   // previsualizar el total antes de guardar — el backend siempre recalcula
   // con el valor real al crear/actualizar la cotización.
   igvRate: number;
+  // La empresa del usuario tiene habilitadas las fotos de productos (las
+  // habilita el Super Administrador). Para el Super Administrador viene en
+  // false: él usa la bandera images_enabled de cada producto.
+  productImagesEnabled: boolean;
 }
 
 // "Tienda o empresa": la etiqueta a mostrar en el bloque de usuario del

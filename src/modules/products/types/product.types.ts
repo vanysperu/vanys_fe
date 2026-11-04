@@ -16,8 +16,40 @@ export interface Product {
   // false = se cotiza sin técnica de personalización (ni en la cotización ni
   // en el PDF). Apagado por defecto en productos nuevos.
   requires_customization: boolean;
+  // Categoría/subcategoría: filas de Variables Generales (product_category /
+  // product_subcategory). El listado trae además sus nombres.
+  category_id?: number | null;
+  subcategory_id?: number | null;
+  category?: CatalogRef | null;
+  subcategory?: CatalogRef | null;
+  // Colores en los que viene el producto, en orden.
+  colors?: ProductColor[];
+  // Códigos de proveedores (el SKU es uno solo; estos son extra).
+  codes?: ProductCode[];
+  // Ruta relativa de la foto (ver buildAssetUrl).
+  image_path?: string | null;
+  // La empresa del producto tiene habilitadas las fotos: solo así se muestra
+  // (y se puede subir) la foto.
+  images_enabled?: boolean;
   is_deleted: boolean;
   created_at: string;
+}
+
+export interface CatalogRef {
+  id: number;
+  name: string;
+}
+
+export interface ProductColor {
+  name: string;
+  // "#RRGGBB" o null (sin muestra de color).
+  hex: string | null;
+}
+
+// Código con el que un proveedor identifica el producto.
+export interface ProductCode {
+  code: string;
+  supplier: string | null;
 }
 
 export interface CreateProductDto {
@@ -30,6 +62,11 @@ export interface CreateProductDto {
   price_half_thousand?: number | null;
   price_thousand?: number | null;
   requires_customization?: boolean;
+  category_id?: number | null;
+  subcategory_id?: number | null;
+  colors?: ProductColor[];
+  codes?: ProductCode[];
+  image_path?: string | null;
 }
 
 export type UpdateProductDto = Partial<Omit<CreateProductDto, 'company_id'>>;
@@ -82,4 +119,10 @@ export interface CatalogListParams {
   // Rango de fecha de registro (YYYY-MM-DD).
   dateFrom?: string;
   dateTo?: string;
+  // Solo productos: filtros por categoría, subcategoría y color.
+  categoryId?: number;
+  subcategoryId?: number;
+  color?: string;
+  // Productos con un código de proveedor que contiene el texto.
+  code?: string;
 }

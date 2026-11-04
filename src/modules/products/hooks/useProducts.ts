@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createProduct, getProducts, toggleProductStatus, updateProduct } from '@/modules/products/api/products.api';
+import { createProduct, getProducts, toggleProductStatus, updateProduct, uploadProductImage } from '@/modules/products/api/products.api';
 import { productsKeys } from '@/modules/products/hooks/products.keys';
 import type { CatalogListParams, UpdateProductDto } from '@/modules/products/types/product.types';
 
@@ -35,4 +35,9 @@ export function useToggleProductStatus() {
     mutationFn: toggleProductStatus,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: productsKeys.lists() }),
   });
+}
+
+// Subir la foto no cambia ningún listado: se asigna al guardar el producto.
+export function useUploadProductImage() {
+  return useMutation({ mutationFn: uploadProductImage });
 }

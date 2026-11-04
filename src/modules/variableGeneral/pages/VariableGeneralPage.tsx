@@ -207,7 +207,10 @@ export function VariableGeneralPage() {
                         toggleStatus(row.id, {
                           onSuccess: () =>
                             toast.success(row.is_deleted ? 'Variable habilitada' : 'Variable deshabilitada'),
-                          onError: () => toast.error('No se pudo actualizar la variable'),
+                          // El mensaje del servidor dice el porqué (ej. al
+                          // rehabilitar una categoría con nombre repetido).
+                          onError: (error) =>
+                            toast.error((error as ApiClientError).message || 'No se pudo actualizar la variable'),
                         })
                       }
                     />
@@ -259,6 +262,47 @@ interface VariableGeneralFormDialogProps {
 // número de una cuenta de pago, el color de una etapa de producción, etc.
 // (pedido explícito del usuario: "que los campos tomen la info que deben").
 // El QR de una cuenta (también en ref2) se maneja en Documentos de la empresa.
+// Categorías de productos (pedido explícito del usuario): siempre se ofrecen
+// en el selector, aunque todavía no exista ninguna fila. La subcategoría
+// guarda en ref1 el id de su categoría y se elige con un selector propio
+// (ver ProductSubcategoryParentField), no escribiendo el id a mano.
+const PRODUCT_CATEGORY = 'product_category';
+const PRODUCT_SUBCATEGORY = 'product_subcategory';
+const ALWAYS_OFFERED_CATEGORIES = [PRODUCT_CATEGORY, PRODUCT_SUBCATEGORY];
+
+function ProductSubcategoryParentField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string | undefined;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  const { data: categories } = useVariableGenerals({ category: PRODUCT_CATEGORY, ignorePagination: true, status: 'active' });
+  const options = (categories?.data ?? []).map((row) => ({
+    value: String(row.id),
+    label: row.company_id === null ? `${row.name} (global)` : row.name,
+  }));
+
+  return (
+    <div className="space-y-2">
+      <Label>Categoría a la que pertenece</Label>
+      <SearchableSelect
+        options={options}
+        value={value || undefined}
+        onChange={onChange}
+        placeholder="Elige la categoría"
+        emptyText="Primero crea una variable product_category"
+      />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <p className="text-xs text-muted-foreground">
+        Una subcategoría global solo puede colgar de una categoría global.
+      </p>
+    </div>
+  );
+}
+
 const REF_FIELDS: Record<string, { ref1?: string; ref2?: string; note?: string }> = {
   payment_account: {
     ref1: 'Número de cuenta / teléfono',
@@ -281,9 +325,9 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
   // categoría como sugerencia (p. ej. "production_stage" para que un admin
   // cree sus propias etapas); las filas globales no son editables desde aquí.
   const { data: allVariables } = useVariableGenerals({ ignorePagination: true });
-  const categoryOptions = Array.from(new Set((allVariables?.data ?? []).map((item) => item.category))).map(
-    (category) => ({ value: category, label: category }),
-  );
+  const categoryOptions = Array.from(
+    new Set([...ALWAYS_OFFERED_CATEGORIES, ...(allVariables?.data ?? []).map((item) => item.category)]),
+  ).map((category) => ({ value: category, label: category }));
   const { mutate: create, isPending: isCreating, error: createError } = useCreateVariableGeneral();
   const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateVariableGeneral();
 
@@ -402,6 +446,14 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
             <Label htmlFor="description">Descripción</Label>
             <Input id="description" {...register('description')} />
           </div>
+
+          {watch('category') === PRODUCT_SUBCATEGORY && (
+            <ProductSubcategoryParentField
+              value={watch('ref1')}
+              onChange={(value) => setValue('ref1', value, { shouldValidate: true })}
+              error={errors.ref1?.message}
+            />
+          )}
 
           {refFields && (
             <div className="space-y-2">

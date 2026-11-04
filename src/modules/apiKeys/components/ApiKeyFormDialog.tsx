@@ -9,6 +9,8 @@ import { apiKeyFormSchema, type ApiKeyFormValues } from '@/modules/apiKeys/schem
 import type { ApiKey, CreatedApiKey } from '@/modules/apiKeys/types/apiKey.types';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
+import { useCompanies } from '@/modules/platform/hooks/useCompanies';
+import { MultiSelect } from '@/presentation/components/shared/MultiSelect';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { Button } from '@/presentation/components/shared/ui/button';
 import {
@@ -80,21 +82,33 @@ export function ApiKeyFormDialog({ apiKey, onClose, onCreated }: ApiKeyFormDialo
   } = useForm<ApiKeyFormValues>({
     resolver: zodResolver(apiKeyFormSchema),
     defaultValues: apiKey
-      ? { company_id: apiKey.company.id, business_unit_id: apiKey.business_unit?.id, name: apiKey.name }
-      : undefined,
+      ? {
+          company_id: apiKey.company.id,
+          business_unit_id: apiKey.business_unit?.id,
+          name: apiKey.name,
+          replicate_company_ids: apiKey.replicate_companies.map((company) => company.id),
+        }
+      : { replicate_company_ids: [] },
   });
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) return;
-    if (!isEditing) reset({ company_id: undefined, business_unit_id: undefined, name: '' });
+    if (!isEditing) reset({ company_id: undefined, business_unit_id: undefined, name: '', replicate_company_ids: [] });
     onClose?.();
   };
 
   const onSubmit = (values: ApiKeyFormValues) => {
     if (apiKey) {
       update(
-        { id: apiKey.id, dto: { name: values.name, business_unit_id: values.business_unit_id ?? null } },
+        {
+          id: apiKey.id,
+          dto: {
+            name: values.name,
+            business_unit_id: values.business_unit_id ?? null,
+            replicate_company_ids: values.replicate_company_ids ?? [],
+          },
+        },
         {
           onSuccess: () => {
             toast.success('API key actualizada');
@@ -106,7 +120,12 @@ export function ApiKeyFormDialog({ apiKey, onClose, onCreated }: ApiKeyFormDialo
     }
 
     create(
-      { company_id: values.company_id, business_unit_id: values.business_unit_id ?? null, name: values.name },
+      {
+        company_id: values.company_id,
+        business_unit_id: values.business_unit_id ?? null,
+        name: values.name,
+        replicate_company_ids: values.replicate_company_ids ?? [],
+      },
       {
         onSuccess: (created) => {
           handleOpenChange(false);
@@ -115,6 +134,13 @@ export function ApiKeyFormDialog({ apiKey, onClose, onCreated }: ApiKeyFormDialo
       },
     );
   };
+
+  const { data: companies } = useCompanies({ page: 1, limit: 100 });
+  const ownCompanyId = apiKey?.company.id ?? watch('company_id');
+  // Empresas activas distintas de la propia (esa ya está implícita).
+  const replicateOptions = (companies?.data ?? [])
+    .filter((company) => !company.is_deleted && company.id !== ownCompanyId)
+    .map((company) => ({ value: String(company.id), label: company.business_name }));
 
   const apiError = (isEditing ? updateError : createError) as ApiClientError | null;
   const isPending = isCreating || isUpdating;
@@ -166,6 +192,26 @@ export function ApiKeyFormDialog({ apiKey, onClose, onCreated }: ApiKeyFormDialo
           <p className="text-xs text-muted-foreground">
             Con tienda, los pedidos de la web caen en esa tienda; sin tienda, quedan a nivel empresa.
           </p>
+
+          {/* Pedido explícito del usuario: la subida masiva de productos puede
+              copiar cada producto a otras empresas (replicate + company_ids),
+              pero solo a las que se marquen acá. */}
+          <div className="space-y-2">
+            <Label>
+              Puede replicar productos a <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <MultiSelect
+              placeholder="Solo su propia empresa"
+              value={(watch('replicate_company_ids') ?? []).map(String)}
+              onChange={(values) => setValue('replicate_company_ids', values.map(Number))}
+              options={replicateOptions}
+              emptyText="No se encontró esa empresa"
+            />
+            <p className="text-xs text-muted-foreground">
+              En la subida masiva, con <code className="font-mono">replicate: true</code> el producto también se crea
+              o actualiza en estas empresas.
+            </p>
+          </div>
 
           {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
 

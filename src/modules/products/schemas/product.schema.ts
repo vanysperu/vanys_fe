@@ -20,6 +20,28 @@ export const createProductSchema = z
     // Apagado por defecto (decisión del usuario): la mayoría no se personaliza.
     requires_customization: z.boolean().optional(),
     company_id: z.number().optional(),
+    // Categoría/subcategoría (Variables Generales), colores y foto: mismas
+    // reglas que el backend (product_catalog.rules.ts).
+    category_id: z.number().optional(),
+    subcategory_id: z.number().optional(),
+    colors: z
+      .array(
+        z.object({
+          name: z.string().min(1).max(60, 'Máximo 60 caracteres'),
+          hex: z
+            .string()
+            .regex(/^#[0-9A-Fa-f]{6}$/, 'Color inválido')
+            .nullable(),
+        }),
+      )
+      .max(30, 'Máximo 30 colores')
+      .optional(),
+    // Códigos de proveedores (mismas reglas que el backend).
+    codes: z
+      .array(z.object({ code: z.string().min(1).max(60), supplier: z.string().max(150).nullable() }))
+      .max(50, 'Máximo 50 códigos')
+      .optional(),
+    image_path: z.string().nullable().optional(),
   })
   .refine(
     (data) =>

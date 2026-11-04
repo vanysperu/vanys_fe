@@ -4,6 +4,8 @@ import { z } from 'zod';
 export const apiKeyFormSchema = z.object({
   company_id: z.number({ error: 'Selecciona la empresa' }),
   business_unit_id: z.number().optional(),
+  // Empresas extra para replicar productos (subida masiva).
+  replicate_company_ids: z.array(z.number()).optional(),
   name: z
     .string({ error: 'El nombre es obligatorio' })
     .trim()
