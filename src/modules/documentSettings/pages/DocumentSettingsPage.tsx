@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { IMAGE_INPUT_ACCEPT, IMAGE_UPLOAD_HINT, validateImageFile } from '@/lib/imageUpload';
 import { buildAssetUrl } from '@/lib/utils';
 import { useMyDocumentSettings, useUpdateMyDocumentSettings, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
 import {
@@ -111,6 +112,14 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const invalidReason = validateImageFile(file);
+    if (invalidReason) {
+      toast.error(invalidReason);
+      // Limpia el input para poder volver a elegir (incluso el mismo archivo).
+      event.target.value = '';
+      return;
+    }
+
     uploadAsset({ file, companyId }, {
       onSuccess: ({ path }) => {
         setPendingLogoUrl(path);
@@ -142,7 +151,7 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
               <Building2 className="size-8 text-muted-foreground" />
             )}
           </div>
-          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={handleLogoChange} />
+          <input ref={fileInputRef} type="file" accept={IMAGE_INPUT_ACCEPT} hidden onChange={handleLogoChange} />
           <Button
             type="button"
             size="sm"
@@ -152,6 +161,7 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
           >
             <Upload className="size-3.5" /> {isUploading ? 'Subiendo…' : 'Cambiar logo'}
           </Button>
+          <p className="text-center text-[11px] text-muted-foreground">{IMAGE_UPLOAD_HINT}</p>
           {pendingLogoUrl !== undefined && <p className="text-[11px] text-muted-foreground">Sin guardar</p>}
         </div>
 
@@ -269,6 +279,13 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const invalidReason = validateImageFile(file);
+    if (invalidReason) {
+      toast.error(invalidReason);
+      event.target.value = '';
+      return;
+    }
+
     uploadAsset({ file, companyId }, {
       onSuccess: ({ path }) => setPendingQrPath(path),
       onError: (error) => toast.error((error as ApiClientError).message),
@@ -369,10 +386,11 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
               <Input
                 id="account-qr"
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
+                accept={IMAGE_INPUT_ACCEPT}
                 disabled={isUploading}
                 onChange={handleQrChange}
               />
+              <p className="text-[11px] text-muted-foreground">{IMAGE_UPLOAD_HINT}</p>
               {isUploading && <p className="text-[11px] text-muted-foreground">Subiendo…</p>}
               {pendingQrPath && !isUploading && (
                 <p className="text-[11px] text-muted-foreground">QR cargado — se guarda junto con la cuenta.</p>
