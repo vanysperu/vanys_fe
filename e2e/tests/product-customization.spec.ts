@@ -24,7 +24,7 @@ test.describe('Productos con y sin personalización', () => {
     await expect(row.locator('td').filter({ hasText: /^No$/ })).toBeVisible();
 
     // Se puede encender al editar.
-    await row.locator('button').first().click();
+    await row.getByRole('button', { name: 'Editar producto' }).click();
     await page.click('#requires_customization');
     await page.click('div[role="dialog"] button:has-text("Guardar cambios")');
     await expect(page.locator('text=Producto actualizado correctamente')).toBeVisible({ timeout: 10_000 });

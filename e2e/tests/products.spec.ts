@@ -50,7 +50,7 @@ test.describe('Productos', () => {
     await expect(row).toBeVisible();
     await expect(row).toContainText('Unidad: S/ 12.50');
 
-    await row.locator('button').first().click();
+    await row.getByRole('button', { name: 'Editar producto' }).click();
     await expect(page.locator('div[role="dialog"]', { hasText: 'Editar producto' })).toBeVisible();
     await page.fill('#price_unit', '15.00');
     await page.click('div[role="dialog"] button:has-text("Guardar cambios")');

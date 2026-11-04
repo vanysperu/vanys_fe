@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
-import { Check, ImageIcon, Package, Pencil, Plus, Search, Sparkles } from 'lucide-react';
+import { Check, Package, Pencil, Plus, Search, Sparkles } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -23,7 +23,8 @@ import { PRODUCT_CATEGORY, ProductCategoryFields } from '@/modules/products/comp
 import { ProductColorsField } from '@/modules/products/components/ProductColorsField';
 import { ProductCodesField } from '@/modules/products/components/ProductCodesField';
 import { ProductImageField } from '@/modules/products/components/ProductImageField';
-import { ProductImageDialog } from '@/modules/products/components/ProductImageDialog';
+import { ProductDetailDialog } from '@/modules/products/components/ProductDetailDialog';
+import { useCompanies } from '@/modules/platform/hooks/useCompanies';
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { buildAssetUrl } from '@/lib/utils';
@@ -100,12 +101,28 @@ function ProductsTab() {
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
-  // Producto cuya foto se está viendo (clic en un producto con foto).
+  // Producto cuya ficha se está viendo (clic en su nombre).
   const [viewProduct, setViewProduct] = useState<Product | null>(null);
   const canCreate = usePermissionButton('producto.create.button');
   const canUpdate = usePermissionButton('producto.update.button');
   const canDisable = usePermissionButton('producto.disable.button');
-  const { data: categories } = useVariableGenerals({ category: PRODUCT_CATEGORY, ignorePagination: true, status: 'active' });
+  // Pedido explícito del usuario: el Super Administrador ve productos de todas
+  // las empresas, así que solo él tiene la columna y el filtro de empresa (el
+  // backend ignora companyId para los demás usuarios).
+  const { data: access } = useAccess();
+  const isSystem = access?.isSystem ?? false;
+  const [companyId, setCompanyId] = useState<number | undefined>(undefined);
+  const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: isSystem });
+  const companyOptions = (companies?.data ?? []).map((company) => ({
+    value: String(company.id),
+    label: company.business_name,
+  }));
+  const { data: categories } = useVariableGenerals({
+    category: PRODUCT_CATEGORY,
+    ignorePagination: true,
+    status: 'active',
+    companyId,
+  });
   const categoryOptions = (categories?.data ?? []).map((row) => ({ value: String(row.id), label: row.name }));
   // El Super Administrador también crea productos: elige la empresa en el
   // formulario (ver CompanyStoreFields en ProductFormDialog).
@@ -124,6 +141,7 @@ function ProductsTab() {
     dateTo: dateRange.dateTo,
     categoryId,
     color: columnFilters.color || undefined,
+    companyId,
   });
   const { mutate: toggleStatus, isPending: isToggling } = useToggleProductStatus();
 
@@ -142,11 +160,12 @@ function ProductsTab() {
     <div className="space-y-4 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <FiltersBar
-          hasActiveFilters={Boolean(search || dateRange.dateFrom || dateRange.dateTo || categoryId)}
+          hasActiveFilters={Boolean(search || dateRange.dateFrom || dateRange.dateTo || categoryId || companyId)}
           onClear={() => {
             setSearch('');
             setDateRange({});
             setCategoryId(undefined);
+            setCompanyId(undefined);
             setPage(1);
           }}
         >
@@ -170,6 +189,27 @@ function ProductsTab() {
               setPage(1);
             }}
           />
+          {isSystem && (
+            <SearchableSelect
+              className="w-56"
+              placeholder="Todas las empresas"
+              value={companyId ? String(companyId) : undefined}
+              onChange={(value) => {
+                setCompanyId(Number(value));
+                // Las categorías dependen de la empresa elegida.
+                setCategoryId(undefined);
+                setPage(1);
+              }}
+              onClear={() => {
+                setCompanyId(undefined);
+                setCategoryId(undefined);
+                setPage(1);
+              }}
+              clearLabel="Todas las empresas"
+              options={companyOptions}
+              emptyText="No se encontró esa empresa"
+            />
+          )}
           <SearchableSelect
             className="w-56"
             placeholder="Todas las categorías"
@@ -200,6 +240,14 @@ function ProductsTab() {
             filterKey: 'name',
             cell: (product) => <ProductNameCell product={product} onView={setViewProduct} />,
           },
+          ...(isSystem
+            ? [
+                {
+                  header: 'Empresa',
+                  cell: (product: Product) => <span className="text-sm">{product.company_name ?? '—'}</span>,
+                },
+              ]
+            : []),
           {
             header: 'SKU',
             sortable: true,
@@ -212,7 +260,7 @@ function ProductsTab() {
                 <p>{product.sku ?? '—'}</p>
                 {product.codes && product.codes.length > 0 && (
                   <p className="text-xs text-muted-foreground" title="Códigos de proveedores">
-                    {product.codes.map((entry) => entry.code).join(' · ')}
+                    {product.codes.map((entry) => (entry.color ? `${entry.code} (${entry.color})` : entry.code)).join(' · ')}
                   </p>
                 )}
               </div>
@@ -279,7 +327,14 @@ function ProductsTab() {
             cell: (product) => (
               <div className="flex justify-end gap-1">
                 {canUpdate && (
-                  <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditProduct(product)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    title="Editar producto"
+                    aria-label="Editar producto"
+                    onClick={() => setEditProduct(product)}
+                  >
                     <Pencil className="size-4" />
                   </Button>
                 )}
@@ -325,28 +380,26 @@ function ProductsTab() {
       )}
 
       {editProduct && <ProductFormDialog product={editProduct} onClose={() => setEditProduct(null)} />}
-      <ProductImageDialog product={viewProduct} onClose={() => setViewProduct(null)} />
+      <ProductDetailDialog product={viewProduct} onClose={() => setViewProduct(null)} />
     </div>
   );
 }
 
-// Nombre del producto. Con foto (y la empresa con fotos habilitadas, pedido
-// explícito del usuario) se ve una miniatura y el clic abre la foto en grande.
+// Nombre del producto: el clic abre su ficha completa, tenga foto o no (pedido
+// explícito del usuario). La miniatura sale solo si la empresa tiene fotos.
 function ProductNameCell({ product, onView }: { product: Product; onView: (product: Product) => void }) {
   const thumbnail = product.images_enabled ? buildAssetUrl(product.image_path) : null;
-  if (!thumbnail) return <span className="font-medium">{product.name}</span>;
 
   return (
     <button
       type="button"
       className="flex items-center gap-2 text-left font-medium hover:underline"
       onClick={() => onView(product)}
-      title="Ver foto"
-      data-testid="product-view-image"
+      title="Ver ficha del producto"
+      data-testid="product-view-detail"
     >
-      <img src={thumbnail} alt="" className="size-8 shrink-0 rounded border object-cover" />
+      {thumbnail && <img src={thumbnail} alt="" className="size-8 shrink-0 rounded border object-cover" />}
       {product.name}
-      <ImageIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
     </button>
   );
 }
@@ -498,8 +551,6 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
             <Input id="sku" {...register('sku')} />
           </div>
 
-          <ProductCodesField value={watch('codes') ?? []} onChange={(codes) => setValue('codes', codes)} />
-
           {/* Un producto puede tener los 4 precios cargados a la vez — el
               modo (unidad/ciento/medio millar/millar) se elige POR ITEM al
               armar la cotización, no acá (pedido explícito del usuario: "es
@@ -571,7 +622,26 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
             }}
           />
 
-          <ProductColorsField value={watch('colors') ?? []} onChange={(colors) => setValue('colors', colors)} />
+          <ProductColorsField
+            value={watch('colors') ?? []}
+            onChange={(colors) => {
+              setValue('colors', colors);
+              // Un código no puede quedar apuntando a un color que se quitó.
+              setValue(
+                'codes',
+                (watch('codes') ?? []).map((entry) =>
+                  colors.some((color) => color.name === entry.color) ? entry : { ...entry, color: null },
+                ),
+              );
+            }}
+          />
+
+          {/* Después de los colores: cada código se puede vincular con uno. */}
+          <ProductCodesField
+            value={watch('codes') ?? []}
+            onChange={(codes) => setValue('codes', codes)}
+            colors={watch('colors') ?? []}
+          />
 
           {/* Foto: solo empresas con fotos habilitadas (las habilita el Super
               Administrador). Al crear, el Super Administrador la ve siempre y

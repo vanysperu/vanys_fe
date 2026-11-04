@@ -31,6 +31,8 @@ export interface Product {
   // La empresa del producto tiene habilitadas las fotos: solo así se muestra
   // (y se puede subir) la foto.
   images_enabled?: boolean;
+  // Nombre de la empresa (columna exclusiva del Super Administrador).
+  company_name?: string | null;
   is_deleted: boolean;
   created_at: string;
 }
@@ -50,6 +52,8 @@ export interface ProductColor {
 export interface ProductCode {
   code: string;
   supplier: string | null;
+  // Nombre de uno de los colores del producto (opcional).
+  color?: string | null;
 }
 
 export interface CreateProductDto {

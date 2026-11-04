@@ -38,7 +38,13 @@ export const createProductSchema = z
       .optional(),
     // Códigos de proveedores (mismas reglas que el backend).
     codes: z
-      .array(z.object({ code: z.string().min(1).max(60), supplier: z.string().max(150).nullable() }))
+      .array(
+        z.object({
+          code: z.string().min(1).max(60),
+          supplier: z.string().max(150).nullable(),
+          color: z.string().max(60).nullable().optional(),
+        }),
+      )
       .max(50, 'Máximo 50 códigos')
       .optional(),
     image_path: z.string().nullable().optional(),
