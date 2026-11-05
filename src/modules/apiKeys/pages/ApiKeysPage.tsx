@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { ApiKeyFormDialog } from '@/modules/apiKeys/components/ApiKeyFormDialog';
 import { CreatedApiKeyDialog } from '@/modules/apiKeys/components/CreatedApiKeyDialog';
 import { useApiKeys, useRevokeApiKey } from '@/modules/apiKeys/hooks/useApiKeys';
-import type { ApiKey, ApiKeyStatusFilter, CreatedApiKey, LocalDateTime } from '@/modules/apiKeys/types/apiKey.types';
+import type { ApiKey, ApiKeyStatusFilter, CreatedApiKey } from '@/modules/apiKeys/types/apiKey.types';
 import { useCompanies } from '@/modules/platform/hooks/useCompanies';
 import { ConfirmDialog } from '@/presentation/components/shared/ConfirmDialog';
 import { DataTable } from '@/presentation/components/shared/DataTable';
@@ -18,6 +18,7 @@ import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
+import { formatDateTime } from '@/lib/dateUtils';
 
 const STATUS_FILTER_OPTIONS = [
   { value: 'active', label: 'Activa' },
@@ -32,7 +33,6 @@ const toStatusFilter = (value: string | undefined): ApiKeyStatusFilter => {
   return selected[0] === 'revoked' ? 'revoked' : 'active';
 };
 
-const formatDateTime = (value: LocalDateTime | null) => (value ? `${value.date} ${value.time}` : '—');
 
 // "API keys" de integración (ej. la web pública que envía pedidos de
 // cotización). Pantalla EXCLUSIVA del Super Administrador (pedido explícito
@@ -75,6 +75,8 @@ export function ApiKeysPage() {
     try {
       await revoke(revokeTarget.id);
       toast.success(`API key "${revokeTarget.name}" revocada: dejó de funcionar`);
+      // ConfirmDialog no se cierra solo: lo cierra quien confirma.
+      setRevokeTarget(null);
     } catch (error) {
       toast.error((error as ApiClientError).message);
     }

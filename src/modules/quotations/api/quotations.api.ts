@@ -11,6 +11,7 @@ import type {
   CreateQuotationPaymentDto,
   Quotation,
   QuotationDetail,
+  QuotationProfit,
   QuotationExpense,
   QuotationBoard,
   QuotationBoardParams,
@@ -32,6 +33,13 @@ export async function getQuotations(params: QuotationListParams): Promise<Quotat
 // Todas las columnas del tablero en una sola llamada.
 export async function getQuotationBoard(params: QuotationBoardParams & { perStatus: number }): Promise<QuotationBoard> {
   const response = await apiClient.get<ApiResponse<QuotationBoard>>('/quotation/board', { params });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Ganancia de la cotización (pagos, IGV, gastos, compras y neto).
+export async function getQuotationProfit(id: number): Promise<QuotationProfit> {
+  const response = await apiClient.get<ApiResponse<QuotationProfit>>(`/quotation/${id}/profit`);
   if (!response.data.success) throw response.data;
   return response.data.data;
 }
@@ -67,10 +75,14 @@ export async function changeQuotationStatus(
   id: number,
   status: QuotationStatus,
   advancePayment?: CreateQuotationPaymentDto,
-): Promise<unknown> {
-  const response = await apiClient.put<ApiResponse<unknown>>(`/quotation/status/${id}`, {
+  // Al pasar a Finalizada: ¿emitimos factura? La factura queda registrada y su
+  // archivo se sube aparte (invoice_id en la respuesta).
+  invoiceIssued?: boolean,
+): Promise<{ invoice_id?: number | null }> {
+  const response = await apiClient.put<ApiResponse<{ invoice_id?: number | null }>>(`/quotation/status/${id}`, {
     status,
     advance_payment: advancePayment ?? null,
+    ...(invoiceIssued !== undefined ? { invoice_issued: invoiceIssued } : {}),
   });
   if (!response.data.success) throw response.data;
   return response.data.data;

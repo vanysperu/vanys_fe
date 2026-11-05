@@ -24,11 +24,12 @@ import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
 import { employeeDebtsKeys } from '@/modules/employeeDebts/hooks/employeeDebts.keys';
 
-export function usePurchaseOrders(params: PurchaseOrderListParams, options?: { enabled?: boolean }) {
+export function usePurchaseOrders(params: PurchaseOrderListParams, options?: { enabled?: boolean; refetchInterval?: number }) {
   return useQuery({
     queryKey: purchaseOrderKeys.list(params),
     queryFn: () => getPurchaseOrders(params),
     enabled: options?.enabled,
+    refetchInterval: options?.refetchInterval,
     placeholderData: keepPreviousData,
   });
 }

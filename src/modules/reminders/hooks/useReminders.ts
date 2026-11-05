@@ -19,10 +19,12 @@ import type { ReminderDto, ReminderListParams } from '@/modules/reminders/types/
 // consulta en el momento (ver ReminderBell).
 const DUE_POLL_INTERVAL_MS = 5 * 60_000;
 
-export function useReminders(params: ReminderListParams) {
+// refetchInterval (opcional): recarga sola cada N ms. Sin él, como siempre.
+export function useReminders(params: ReminderListParams, options?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: remindersKeys.list(params),
     queryFn: () => getReminders(params),
+    refetchInterval: options?.refetchInterval,
     placeholderData: keepPreviousData,
   });
 }

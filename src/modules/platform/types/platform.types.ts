@@ -12,6 +12,9 @@ export interface Company {
   theme_color: string;
   // Fotos de productos habilitadas para la empresa (las decide el Super Administrador).
   product_images_enabled?: boolean;
+  // Dónde guarda sus facturas (solo lo cambia el Super Administrador).
+  invoice_storage_system?: boolean;
+  invoice_storage_drive?: boolean;
   is_deleted: boolean;
   created_at: string;
   updated_at: string | null;
@@ -27,6 +30,8 @@ export interface CreateCompanyDto {
   email?: string | null;
   theme_color?: string;
   product_images_enabled?: boolean;
+  invoice_storage_system?: boolean;
+  invoice_storage_drive?: boolean;
 }
 
 export type UpdateCompanyDto = Partial<CreateCompanyDto>;

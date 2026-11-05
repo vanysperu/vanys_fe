@@ -2,6 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, ChevronDown, ChevronUp, Eye, ImageIcon, RotateCcw, ShoppingCart } from 'lucide-react';
 import { PurchaseItemProductDialog } from '@/modules/purchaseOrders/components/PurchaseItemProductDialog';
 import { PurchaseLinesList } from '@/modules/purchaseOrders/components/PurchaseLinesList';
+import { EMPTY_INVOICE_ANSWER, InvoiceQuestion, type InvoiceAnswer } from '@/modules/invoices/components/InvoiceQuestion';
+import { useUploadInvoiceFile } from '@/modules/invoices/hooks/useInvoices';
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -49,6 +51,8 @@ type RegisterPurchaseFormValues = z.infer<typeof registerPurchaseSchema>;
 interface PendingExceed {
   itemId: number;
   dto: CreatePurchaseOrderItemPurchaseDto;
+  // Foto o archivo de la factura elegido antes de confirmar.
+  invoiceFile: File | null;
   detail: PurchaseExceedsRemainingDetail;
 }
 
@@ -101,21 +105,40 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
     updateStatus({ itemId, status }, { onError: (error) => toast.error((error as ApiClientError).message) });
   };
 
-  const submitPurchase = (itemId: number, dto: CreatePurchaseOrderItemPurchaseDto) =>
+  const { mutateAsync: uploadInvoice } = useUploadInvoiceFile();
+
+  // La compra se registra primero; si llevaba factura y se adjuntó la foto o
+  // el archivo, se sube enseguida. Si la subida falla, la compra ya quedó y la
+  // factura queda en "Faltan subir" (no se pierde nada).
+  const submitPurchase = (itemId: number, dto: CreatePurchaseOrderItemPurchaseDto, invoiceFile: File | null) =>
     registerPurchase(
       { itemId, dto },
       {
-        onSuccess: () => {
-          toast.success(dto.allow_exceed ? 'Compra adicional registrada' : 'Compra registrada');
+        onSuccess: async (purchase) => {
+          const label = dto.allow_exceed ? 'Compra adicional registrada' : 'Compra registrada';
           setOpenFormItemId(null);
           setPendingExceed(null);
+          if (!purchase.invoice_id || !invoiceFile) {
+            toast.success(dto.has_invoice ? `${label}. Falta subir la factura (Facturas → "Faltan subir").` : label);
+            return;
+          }
+          // mutateAsync y no mutate con callbacks: si con esta compra la orden
+          // queda completa, sale de "Órdenes a mi cargo" y esta lista se
+          // desmonta; los callbacks de mutate ya no correrían y nadie se
+          // enteraría de si la factura subió o no.
+          try {
+            await uploadInvoice({ invoiceId: purchase.invoice_id, file: invoiceFile });
+            toast.success(`${label} con su factura`);
+          } catch (error) {
+            toast.error(`${label}, pero la factura no se subió: ${(error as ApiClientError).message}. Quedó en "Faltan subir".`);
+          }
         },
         onError: (error) => {
           const apiError = error as ApiClientError;
           // El backend no registra nada sin confirmación: se pregunta y,
           // si la persona acepta, se reenvía la misma compra confirmada.
           if (apiError.code === PURCHASE_EXCEEDS_REMAINING_CODE && !dto.allow_exceed) {
-            setPendingExceed({ itemId, dto, detail: apiError.errors as PurchaseExceedsRemainingDetail });
+            setPendingExceed({ itemId, dto, invoiceFile, detail: apiError.errors as PurchaseExceedsRemainingDetail });
             return;
           }
           toast.error(apiError.message);
@@ -143,7 +166,7 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
         variant="default"
         onConfirm={() => {
           if (!pendingExceed) return;
-          submitPurchase(pendingExceed.itemId, { ...pendingExceed.dto, allow_exceed: true });
+          submitPurchase(pendingExceed.itemId, { ...pendingExceed.dto, allow_exceed: true }, pendingExceed.invoiceFile);
         }}
       />
       {items.map((item) => {
@@ -261,7 +284,7 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
                 companyId={companyId}
                 isPending={isRegistering}
                 onCancel={() => setOpenFormItemId(null)}
-                onSubmit={(values) => submitPurchase(item.id, values)}
+                onSubmit={(values, invoiceFile) => submitPurchase(item.id, values, invoiceFile)}
               />
             )}
           </div>
@@ -283,9 +306,13 @@ function RegisterPurchaseForm({
   remaining: number;
   companyId?: number;
   isPending: boolean;
-  onSubmit: (values: RegisterPurchaseFormValues) => void;
+  onSubmit: (values: RegisterPurchaseFormValues & { has_invoice: boolean }, invoiceFile: File | null) => void;
   onCancel: () => void;
 }) {
+  // ¿La compra llevaba factura? Es obligatorio responder (pedido explícito del
+  // usuario: tener mapeadas todas las facturas).
+  const [invoice, setInvoice] = useState<InvoiceAnswer>(EMPTY_INVOICE_ANSWER);
+  const [invoiceError, setInvoiceError] = useState<string | undefined>(undefined);
   const {
     register,
     handleSubmit,
@@ -300,8 +327,20 @@ function RegisterPurchaseForm({
 
   // Con plata del trabajador no se manda cuenta (el backend la rechaza): la
   // empresa no pagó nada todavía, su egreso será la reposición.
-  const submit = (values: RegisterPurchaseFormValues) =>
-    onSubmit({ ...values, payment_account_id: values.funding_source === 'company' ? values.payment_account_id : null });
+  const submit = (values: RegisterPurchaseFormValues) => {
+    if (invoice.hasInvoice === null) {
+      setInvoiceError('Indica si la compra tiene factura');
+      return;
+    }
+    onSubmit(
+      {
+        ...values,
+        payment_account_id: values.funding_source === 'company' ? values.payment_account_id : null,
+        has_invoice: invoice.hasInvoice,
+      },
+      invoice.hasInvoice ? invoice.file : null,
+    );
+  };
 
   // Panel del formulario un tono más oscuro que la tarjeta que lo contiene,
   // para que los campos blancos se distingan (pedido explícito del usuario:
@@ -369,6 +408,15 @@ function RegisterPurchaseForm({
           />
         </div>
       )}
+      <InvoiceQuestion
+        question="¿La compra tiene factura?"
+        value={invoice}
+        onChange={(next) => {
+          setInvoice(next);
+          setInvoiceError(undefined);
+        }}
+        error={invoiceError}
+      />
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancelar

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
 import { AcceptQuotationDialog, type AcceptQuotationTarget } from '@/modules/quotations/components/AcceptQuotationDialog';
+import { FinishQuotationDialog, type FinishQuotationTarget } from '@/modules/quotations/components/FinishQuotationDialog';
 import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import {
   useChangeQuotationStatusAny,
@@ -41,6 +42,8 @@ interface QuotationsKanbanBoardProps {
   filters: QuotationBoardParams;
   onSelect: (id: number) => void;
   canChangeStatus: boolean;
+  // Recarga sola cada N ms (Inicio). Sin él, como siempre.
+  refetchInterval?: number;
 }
 
 interface DraggedQuotation {
@@ -56,13 +59,15 @@ interface DraggedQuotation {
 // del usuario). Arrastrar una tarjeta solo se acepta si la columna destino es
 // la inmediatamente anterior o siguiente a la actual — el backend
 // (quotation.service.ts) lo vuelve a validar y es quien manda.
-export function QuotationsKanbanBoard({ filters, onSelect, canChangeStatus }: QuotationsKanbanBoardProps) {
-  const { data: board, isLoading } = useQuotationBoard(filters);
+export function QuotationsKanbanBoard({ filters, onSelect, canChangeStatus, refetchInterval }: QuotationsKanbanBoardProps) {
+  const { data: board, isLoading } = useQuotationBoard(filters, { refetchInterval });
   const [activeQuotation, setActiveQuotation] = useState<Quotation | null>(null);
   const { mutate: changeStatus } = useChangeQuotationStatusAny();
   const canRegisterPayment = usePermissionButton('cotizacion.payment.create.button');
   // Tarjeta soltada en "Aceptada": primero se pregunta por el adelanto.
   const [accepting, setAccepting] = useState<AcceptQuotationTarget | null>(null);
+  // Tarjeta soltada en "Finalizada": primero se pregunta por la factura.
+  const [finishing, setFinishing] = useState<FinishQuotationTarget | null>(null);
   // Mouse: arrastra tras moverse 6 px. Dedo: arrastra solo con pulsación larga
   // (250 ms), así deslizar sobre una tarjeta sigue desplazando la columna.
   const sensors = useSensors(
@@ -108,6 +113,11 @@ export function QuotationsKanbanBoard({ filters, onSelect, canChangeStatus }: Qu
       return;
     }
 
+    if (nextStatus === 'finished') {
+      setFinishing({ id: quotation.id, clientName: quotation.client?.name });
+      return;
+    }
+
     changeStatus(
       { id: quotation.id, status: nextStatus },
       {
@@ -148,6 +158,7 @@ export function QuotationsKanbanBoard({ filters, onSelect, canChangeStatus }: Qu
 
       <DragOverlay>{activeQuotation && <QuotationCard quotation={activeQuotation} dragging />}</DragOverlay>
       <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
+      <FinishQuotationDialog quotation={finishing} onClose={() => setFinishing(null)} />
     </DndContext>
   );
 }

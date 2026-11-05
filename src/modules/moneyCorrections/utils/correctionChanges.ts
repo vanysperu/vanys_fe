@@ -1,4 +1,4 @@
-import { parseLocalIsoDate } from '@/lib/dateUtils';
+import { formatDate } from '@/lib/dateUtils';
 import type {
   AllocationSnapshot,
   MoneyCorrectionValue,
@@ -67,7 +67,7 @@ const formatMoneyField: CorrectionFieldDefinition['format'] = (values, field) =>
 const formatDateField: CorrectionFieldDefinition['format'] = (values, field) => {
   const text = asText(values[field]);
   if (!text) return EMPTY;
-  return parseLocalIsoDate(text)?.toLocaleDateString('es-PE') ?? text;
+  return formatDate(text, text);
 };
 
 const formatTextField =

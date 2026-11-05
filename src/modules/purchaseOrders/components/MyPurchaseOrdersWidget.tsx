@@ -22,12 +22,15 @@ const OPEN_STORAGE_KEY = 'vanys.myPurchaseOrders.open';
 // Plegable con contador (pedido explícito: "se listan demasiado y se
 // pierde"): arranca cerrado mostrando cuántas órdenes y productos faltan, y
 // abierto queda en un contenedor de altura máxima con scroll.
-export function MyPurchaseOrdersWidget() {
-  const { data, isLoading } = usePurchaseOrders({
-    assignedToMe: true,
-    status: 'pending',
-    limit: WIDGET_LIMIT,
-  });
+export function MyPurchaseOrdersWidget({ refetchInterval }: { refetchInterval?: number }) {
+  const { data, isLoading } = usePurchaseOrders(
+    {
+      assignedToMe: true,
+      status: 'pending',
+      limit: WIDGET_LIMIT,
+    },
+    { refetchInterval },
+  );
   const [open, toggle] = usePersistentToggle(OPEN_STORAGE_KEY);
 
   const orders = data?.data ?? [];

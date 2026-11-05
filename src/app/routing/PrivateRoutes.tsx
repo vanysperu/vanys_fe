@@ -47,6 +47,9 @@ const CashClosingsPage = lazy(() =>
 const PaymentsPage = lazy(() =>
   import('@/modules/payments/pages/PaymentsPage').then((m) => ({ default: m.PaymentsPage })),
 );
+const InvoicesPage = lazy(() =>
+  import('@/modules/invoices/pages/InvoicesPage').then((m) => ({ default: m.InvoicesPage })),
+);
 const EmployeeDebtsPage = lazy(() =>
   import('@/modules/employeeDebts/pages/EmployeeDebtsPage').then((m) => ({ default: m.EmployeeDebtsPage })),
 );
@@ -111,6 +114,7 @@ export default function PrivateRoutes() {
           <Route path="/caja" element={<CashMovementsPage />} />
           <Route path="/caja/cierres" element={<CashClosingsPage />} />
           <Route path="/pagos" element={<PaymentsPage />} />
+          <Route path="/facturas" element={<InvoicesPage />} />
           <Route path="/deudas-personal" element={<EmployeeDebtsPage />} />
           <Route path="/por-cobrar" element={<ReceivablesPage />} />
           <Route path="/recordatorios" element={<RemindersPage />} />

@@ -2,6 +2,7 @@ import { ArrowRightLeft, CircleDollarSign, FilePlus, Pencil, Receipt, ShoppingCa
 import type { LucideIcon } from 'lucide-react';
 
 import type { QuotationEvent, QuotationEventAction } from '@/modules/quotations/types/quotation.types';
+import { formatDateTime } from '@/lib/dateUtils';
 
 // Un color + ícono + etiqueta por tipo de evento — antes todo el timeline
 // era gris parejo (mismo círculo, mismo ícono de lápiz de respaldo) y no
@@ -65,7 +66,7 @@ export function QuotationTimeline({ events }: QuotationTimelineProps) {
                 <p className="text-sm">{event.description}</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                {new Date(event.created_at).toLocaleString('es-PE')}
+                {formatDateTime(event.created_at)}
                 {event.actor ? ` · ${event.actor.name} ${event.actor.paternal_lastname}` : ' · Sistema'}
               </p>
             </div>

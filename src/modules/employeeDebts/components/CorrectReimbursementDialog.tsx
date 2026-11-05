@@ -3,7 +3,7 @@ import { AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
 import type { ApiClientError } from '@/config/api.types';
-import { parseLocalIsoDate } from '@/lib/dateUtils';
+import { formatDate } from '@/lib/dateUtils';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 import { useCorrectEmployeeDebtPayment, useEmployeeDebtPaymentRecord } from '@/modules/employeeDebts/hooks/useEmployeeDebts';
 import {
@@ -49,7 +49,6 @@ interface CorrectReimbursementDialogProps {
 
 const CORRECTABLE_FIELDS = ['amount', 'paid_at', 'payment_account_id'] as const;
 
-const formatDate = (dateOnly: string) => parseLocalIsoDate(dateOnly)?.toLocaleDateString('es-PE') ?? dateOnly;
 
 // Corregir una reposición a un trabajador (monto, fecha y cuenta). Se abre
 // desde el detalle del trabajador y desde Caja. Pide la reposición actual al

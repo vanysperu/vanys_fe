@@ -127,6 +127,8 @@ export interface CreatePurchaseOrderItemPurchaseDto {
   payment_account_id?: number | null;
   // true = la persona ya confirmó que quiere comprar por encima de lo pedido.
   allow_exceed?: boolean;
+  // ¿La compra llevaba factura? (el archivo se sube aparte).
+  has_invoice?: boolean;
 }
 
 // Código y detalle con los que el backend rechaza una compra que supera lo

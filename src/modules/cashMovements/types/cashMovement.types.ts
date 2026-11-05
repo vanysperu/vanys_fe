@@ -150,3 +150,28 @@ export interface UpdateCashMovementDto {
   purchase_order_id?: number | null;
   reason: string;
 }
+
+// Resultado de un mes y el IGV estimado para SUNAT (espejo de grulla_be
+// cash_movement/services/shared/period_finance.ts). Lo usan Caja y Cierres.
+export interface PeriodFinance {
+  period: string; // YYYY-MM
+  income: number;
+  expenses: number;
+  adjustments: number;
+  result: number; // ingresos − egresos + ajustes
+  igv_sales: number; // IGV de los cobros del mes
+  igv_purchases: number; // IGV de las compras con factura del mes
+  igv_balance: number; // positivo = a pagar; negativo = saldo a favor
+  igv_payable: number;
+  net_after_igv: number; // resultado − IGV a pagar
+}
+
+// GET /cash-movement/month-summary
+export interface MonthSummary extends PeriodFinance {
+  is_current: boolean; // mes en curso: "lo que va del mes"
+}
+
+export interface MonthSummaryParams {
+  period: string;
+  companyId?: number;
+}

@@ -479,3 +479,24 @@ export interface QuotationBoardColumn {
 export interface QuotationBoard {
   columns: QuotationBoardColumn[];
 }
+
+// GET /quotation/:id/profit (espejo de grulla_be quotation/types/profit.types.ts):
+// ganancia de la cotización con lo registrado hasta hoy. Solo en el sistema.
+export interface QuotationProfit {
+  quotation_id: number;
+  total: number;
+  subtotal: number;
+  igv_total: number;
+  igv_rate: number | null;
+  payments_received: number;
+  igv_in_payments: number;
+  pending: number;
+  expenses: number;
+  purchases: number;
+  purchases_with_invoice: number;
+  igv_credit: number;
+  net_profit: number;
+  net_margin_rate: number | null;
+  projected_profit: number;
+  projected_margin_rate: number | null;
+}

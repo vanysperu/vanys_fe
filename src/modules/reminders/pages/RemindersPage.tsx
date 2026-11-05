@@ -1,4 +1,4 @@
-import { Bell, Check, Pencil, Plus } from 'lucide-react';
+import { Bell, Check, Pencil, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -12,6 +12,8 @@ import {
   type ReminderStatusFilter,
 } from '@/modules/reminders/types/reminder.types';
 import { cn } from '@/lib/utils';
+import { AUTO_REFRESH_MS } from '@/lib/autoRefresh';
+import { Input } from '@/presentation/components/shared/ui/input';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
@@ -23,6 +25,7 @@ import { Button } from '@/presentation/components/shared/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
+import { formatDate } from '@/lib/dateUtils';
 
 const STATE_CLASS: Record<ReminderState, string> = {
   due: 'bg-destructive/10 text-destructive',
@@ -39,7 +42,7 @@ const STATUS_OPTIONS: { value: ReminderState; label: string }[] = [
 ];
 
 const formatWhen = (date: string, time: string) =>
-  `${new Date(`${date}T00:00:00`).toLocaleDateString('es-PE')} ${time}`;
+  `${formatDate(date)} ${time}`;
 
 // Recordatorios (pedido explícito del usuario: "notificaciones que salgan en
 // el tiempo que yo le coloque para que me recuerde cosas a mí o a otro
@@ -51,6 +54,7 @@ export function RemindersPage() {
   const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Reminder | null>(null);
 
@@ -58,21 +62,28 @@ export function RemindersPage() {
   const canUpdate = usePermissionButton('reminder.update.button');
   const canDisable = usePermissionButton('reminder.disable.button');
 
-  const { data, isLoading } = useReminders({
-    page,
-    limit: pageSize,
-    box,
-    // Sin filtro: todo menos los cancelados.
-    status: (statusFilter as ReminderStatusFilter | undefined) ?? 'active',
-    dateFrom: dateRange.dateFrom,
-    dateTo: dateRange.dateTo,
-  });
+  // Se recarga sola cada 10 minutos (pedido explícito del usuario), así un
+  // aviso nuevo aparece sin tener que actualizar la página.
+  const { data, isLoading } = useReminders(
+    {
+      page,
+      limit: pageSize,
+      box,
+      // Sin filtro: todo menos los cancelados.
+      status: (statusFilter as ReminderStatusFilter | undefined) ?? 'active',
+      dateFrom: dateRange.dateFrom,
+      dateTo: dateRange.dateTo,
+      search: search.trim() || undefined,
+    },
+    { refetchInterval: AUTO_REFRESH_MS },
+  );
   const { mutate: markRead } = useMarkReminderRead();
   const { mutate: toggleStatus, isPending: isToggling } = useToggleReminderStatus();
 
-  const hasActiveFilters = Boolean(statusFilter || dateRange.dateFrom || dateRange.dateTo);
+  const hasActiveFilters = Boolean(statusFilter || search || dateRange.dateFrom || dateRange.dateTo);
   const clearFilters = () => {
     setStatusFilter(undefined);
+    setSearch('');
     setDateRange({});
     setPage(1);
   };
@@ -114,6 +125,15 @@ export function RemindersPage() {
       </Tabs>
 
       <FiltersBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
+        <div className="relative">
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar recordatorio..."
+            className="h-9 w-56 pl-9"
+            value={search}
+            onChange={(event) => withPageReset(setSearch)(event.target.value)}
+          />
+        </div>
         <FilterSelect
           aria-label="Estado"
           allLabel="Todos (sin cancelados)"

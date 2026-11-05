@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { History, ShieldAlert } from 'lucide-react';
 
 import type { ApiClientError } from '@/config/api.types';
-import { parseLocalIsoDate } from '@/lib/dateUtils';
+import { formatDate } from '@/lib/dateUtils';
 import { formatDateEs, formatPeriodEs } from '@/modules/cashClosings/utils/period';
 import { formatMoney } from '@/modules/moneyCorrections/utils/correctionChanges';
 import { Badge } from '@/presentation/components/shared/ui/badge';
@@ -65,7 +65,7 @@ export function CorrectionHistoryDialog({ title, historyUrl, queryKey, onClose }
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{entry.created_by_name ?? `Usuario #${entry.created_by}`}</span>
                   <span>
-                    {parseLocalIsoDate(entry.created_date)?.toLocaleDateString('es-PE') ?? entry.created_date} ·{' '}
+                    {formatDate(entry.created_date)} ·{' '}
                     {entry.created_time}
                   </span>
                 </div>

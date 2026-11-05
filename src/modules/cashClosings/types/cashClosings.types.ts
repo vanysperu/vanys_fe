@@ -1,4 +1,5 @@
 import type { PagedListResult } from '@/config/api.types';
+import type { PeriodFinance } from '@/modules/cashMovements/types/cashMovement.types';
 import type { MoneyCorrectionSource } from '@/modules/moneyCorrections/types/moneyCorrection.types';
 
 // Espejo de grulla_be: api/modules/cash_closing/types/cash_closing.types.ts.
@@ -73,6 +74,8 @@ export interface CashClosingListItem {
   reopened_by_name: string | null;
   reopened_at: DateTimeParts | null;
   reopen_reason: string | null;
+  // Resultado del mes, IGV estimado y neto después del IGV.
+  finance: PeriodFinance | null;
 }
 
 export interface CashPeriodDetail extends CashClosingListItem {

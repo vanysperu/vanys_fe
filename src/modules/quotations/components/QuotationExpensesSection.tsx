@@ -32,7 +32,7 @@ import { Button } from '@/presentation/components/shared/ui/button';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import type { ApiClientError } from '@/config/api.types';
-import { todayLocalDateString } from '@/lib/dateUtils';
+import { formatDate, todayLocalDateString } from '@/lib/dateUtils';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 
 function money(n: number) {
@@ -177,7 +177,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
               {expense.is_deleted && <span className="font-medium text-destructive">Anulado ·</span>}
               {isPurchase && <span className="rounded-md bg-muted px-1.5 py-0.5 font-medium">Compra</span>}
-              <span>{expense.spent_at}</span>
+              <span>{formatDate(expense.spent_at)}</span>
               {expense.category && (
                 <span className="rounded-md bg-muted px-1.5 py-0.5 font-medium capitalize">{expense.category}</span>
               )}

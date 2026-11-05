@@ -36,6 +36,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/dateUtils';
 
 const PAGE_SIZE = 10;
 
@@ -46,10 +47,6 @@ function money(amount: number) {
 // Montos en una sola línea: en columnas angostas "S/" quedaba arriba del número.
 function Money({ amount, className }: { amount: number; className?: string }) {
   return <span className={cn('whitespace-nowrap', className)}>{money(amount)}</span>;
-}
-
-function formatDate(dateOnly: string | null) {
-  return dateOnly ? new Date(`${dateOnly}T00:00:00`).toLocaleDateString('es-PE') : '—';
 }
 
 const STATUS_BADGE: Record<EmployeeDebtDetailItem['status'], 'secondary' | 'success' | 'outline'> = {

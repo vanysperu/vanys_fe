@@ -5,6 +5,7 @@ import { resolvePresetRange, type PeriodRange } from '@/lib/periodPresets';
 import { cn } from '@/lib/utils';
 import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
 import { useCompanies } from '@/modules/platform/hooks/useCompanies';
+import { CashByCategoryCards } from '@/modules/statistics/components/CashByCategoryCards';
 import { IncomeExpensesChart } from '@/modules/statistics/components/IncomeExpensesChart';
 import { KpiSection } from '@/modules/statistics/components/KpiSection';
 import { QuotedWonChart } from '@/modules/statistics/components/QuotedWonChart';
@@ -137,6 +138,7 @@ export function StatisticsPage() {
           />
 
           <IncomeExpensesChart trend={data.trend} granularity={data.period.granularity} />
+          <CashByCategoryCards data={data.cash_by_category} />
           <QuotedWonChart trend={data.trend} granularity={data.period.granularity} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

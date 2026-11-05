@@ -10,6 +10,7 @@ import { useCashPeriodStatus } from '@/modules/cashClosings/hooks/useCashClosing
 import { useCanAdjustClosedPeriods } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
 import { formatPeriodEs, lockedDatesExcept } from '@/modules/cashClosings/utils/period';
 import { CashBalancesPanel } from '@/modules/cashMovements/components/CashBalancesPanel';
+import { MonthSummaryCard } from '@/modules/cashMovements/components/MonthSummaryCard';
 import { AdjustmentEntryDescription, PeriodLockIcon } from '@/modules/cashMovements/components/CashEntryParts';
 import { adjustmentCategoryText, netAmountOf } from '@/modules/cashMovements/utils/cashEntry';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
@@ -68,6 +69,7 @@ import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import { flattenViewRoutes, useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
+import { formatDate } from '@/lib/dateUtils';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -283,6 +285,9 @@ export function CashMovementsPage() {
         <DateRangeFilter placeholder="Fecha" value={dateRange} onChange={withPageReset(setDateRange)} />
       </FiltersBar>
 
+      {/* Resultado del mes e IGV para SUNAT (pedido explícito del usuario). */}
+      <MonthSummaryCard companyId={companyId} enabled />
+
       <CashBalancesPanel companyId={companyId} enabled={canSeeBalances && (!isSystem || companyId !== undefined)} canOpenClosings={canOpenClosings} />
 
       <CashSummaryCards summary={summary} filtered={hasActiveFilters} ledgerStarted={data?.cash_period?.started === true} />
@@ -293,7 +298,7 @@ export function CashMovementsPage() {
             header: 'Fecha',
             cell: (row) => (
               <span className="whitespace-nowrap">
-                {new Date(`${row.occurred_at}T00:00:00`).toLocaleDateString('es-PE')}
+                {formatDate(row.occurred_at)}
                 <PeriodLockIcon row={row} />
               </span>
             ),
@@ -459,7 +464,7 @@ function CorrectRowDialog({ row, onClose }: { row: CashMovementListItem; onClose
 function EmployeeReimbursementNote({ row }: { row: CashMovementListItem }) {
   const reimbursed = row.reimbursed_amount ?? 0;
   if (row.reimbursement_status === 'paid') {
-    const date = row.reimbursed_at ? new Date(`${row.reimbursed_at}T00:00:00`).toLocaleDateString('es-PE') : '';
+    const date = formatDate(row.reimbursed_at, '');
     return (
       <span className="mt-0.5 block text-[11px] text-[var(--success)]">
         Pagado por {row.paid_by_employee_name} con su plata · ya repuesto (último abono el {date})

@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Calendar, type DateRange } from '@/presentation/components/shared/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/components/shared/ui/popover';
+import { formatDate, toLocalIsoDate } from '@/lib/dateUtils';
 
 export type { DateRange };
 
@@ -19,12 +20,11 @@ interface DateRangePickerFieldProps {
   className?: string;
 }
 
-const RANGE_DISPLAY_FORMATTER = new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
 
 function formatRange(range: DateRange | undefined, placeholder: string): string {
   if (!range?.from) return placeholder;
-  if (!range.to) return RANGE_DISPLAY_FORMATTER.format(range.from);
-  return `${RANGE_DISPLAY_FORMATTER.format(range.from)} – ${RANGE_DISPLAY_FORMATTER.format(range.to)}`;
+  if (!range.to) return formatDate(toLocalIsoDate(range.from));
+  return `${formatDate(toLocalIsoDate(range.from))} – ${formatDate(toLocalIsoDate(range.to))}`;
 }
 
 // "Un solo selector de rango de fechas (no dos inputs separados de 'desde'/

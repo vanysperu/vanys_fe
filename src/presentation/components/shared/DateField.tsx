@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Calendar } from '@/presentation/components/shared/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/components/shared/ui/popover';
+import { formatDate, toLocalIsoDate } from '@/lib/dateUtils';
 
 interface DateFieldProps {
   // "YYYY-MM-DD" (mismo formato que ya devolvía el <input type="date">
@@ -34,7 +35,6 @@ function toIsoDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-const DATE_DISPLAY_FORMATTER = new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'long', year: 'numeric' });
 
 // Reemplaza el <input type="date"> nativo (pedido explícito del usuario:
 // "componente de calendario no aplicado") por un selector consistente con
@@ -54,7 +54,7 @@ export function DateField({ value, onChange, placeholder = 'Selecciona una fecha
           className={cn('w-full justify-start font-normal', !selectedDate && 'text-muted-foreground', className)}
         >
           <CalendarIcon className="size-4" />
-          {selectedDate ? DATE_DISPLAY_FORMATTER.format(selectedDate) : placeholder}
+          {selectedDate ? formatDate(toLocalIsoDate(selectedDate)) : placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-3" align="start">

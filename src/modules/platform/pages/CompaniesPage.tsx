@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
-import { Building2, Check, Pencil, Plus } from 'lucide-react';
+import { Building2, Check, HardDrive, Pencil, Plus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -34,7 +34,8 @@ import {
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
-import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { InvoiceStorageDialog } from '@/modules/invoices/components/InvoiceStorageDialog';
 import type { ApiClientError } from '@/config/api.types';
 
 export function CompaniesPage() {
@@ -48,6 +49,20 @@ export function CompaniesPage() {
   const canCreate = usePermissionButton('platform.company.create.button');
   const canUpdate = usePermissionButton('platform.company.update.button');
   const canDisable = usePermissionButton('platform.company.disable.button');
+  const { data: access } = useAccess();
+  const isSystem = access?.isSystem ?? false;
+  const [storageCompany, setStorageCompany] = useState<Company | null>(null);
+
+  // Vuelta de Google al conectar el Drive de una empresa: se avisa el resultado
+  // y se limpia la dirección (para no repetir el aviso al recargar).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const drive = params.get('drive');
+    if (!drive) return;
+    if (drive === 'connected') toast.success(`Google Drive conectado (${params.get('email') ?? ''})`);
+    else toast.error(params.get('reason') ?? 'No se pudo conectar Google Drive');
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
 
   const { data, isLoading } = useCompanies({
     page,
@@ -165,6 +180,20 @@ export function CompaniesPage() {
                     <Pencil className="size-4" />
                   </Button>
                 )}
+                {/* Almacenamiento de facturas y Google Drive: solo Super
+                    Administrador (pedido explícito del usuario). */}
+                {isSystem && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    title="Facturas: sistema y Google Drive"
+                    aria-label={`Facturas de ${company.business_name}`}
+                    onClick={() => setStorageCompany(company)}
+                  >
+                    <HardDrive className="size-4" />
+                  </Button>
+                )}
                 {canDisable && (
                   <ToggleStatusButton
                     active={!company.is_deleted}
@@ -207,6 +236,7 @@ export function CompaniesPage() {
       )}
 
       {editCompany && <CompanyFormDialog company={editCompany} onClose={() => setEditCompany(null)} />}
+      <InvoiceStorageDialog company={storageCompany} onClose={() => setStorageCompany(null)} />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { ClosePeriodDialog } from '@/modules/cashClosings/components/ClosePeriod
 import { PeriodAdjustmentsList } from '@/modules/cashClosings/components/PeriodAdjustmentsList';
 import { PeriodEventsList } from '@/modules/cashClosings/components/PeriodEventsList';
 import { ReopenPeriodDialog } from '@/modules/cashClosings/components/ReopenPeriodDialog';
+import { PeriodFinanceTiles } from '@/modules/cashMovements/components/PeriodFinanceTiles';
 import { useCashPeriodDetail } from '@/modules/cashClosings/hooks/useCashClosings';
 import { formatDateEs, formatPeriodTitle } from '@/modules/cashClosings/utils/period';
 import { totalsOfDetail } from '@/modules/cashClosings/utils/totals';
@@ -97,6 +98,13 @@ export function CashPeriodDetail({ period, companyId }: CashPeriodDetailProps) {
       )}
 
       <CashBalanceEquation totals={totalsOfDetail(detail)} isPreview={detail.is_preview} />
+      {/* Cuánto quedó neto en el mes, con el IGV para SUNAT (pedido explícito del usuario). */}
+      {detail.finance && (
+        <div className="space-y-2" data-testid="period-finance">
+          <p className="text-sm font-semibold">¿Cuánto quedó en el mes?</p>
+          <PeriodFinanceTiles finance={detail.finance} wideColumns={3} />
+        </div>
+      )}
       <CashPeriodAccountsTable balances={detail.balances} totals={totalsOfDetail(detail)} />
       <PeriodAdjustmentsList period={detail.period} periodTitle={title} companyId={companyId} counts={detail.counts} />
       <PeriodEventsList period={detail.period} companyId={companyId} />

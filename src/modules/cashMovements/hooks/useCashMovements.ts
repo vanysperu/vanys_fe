@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  getMonthSummary,
   createCashMovement,
   getCashMovements,
   toggleCashMovementStatus,
@@ -10,7 +11,7 @@ import { cashClosingsKeys } from '@/modules/cashClosings/hooks/cashClosings.keys
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
 import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
 import { statisticsKeys } from '@/modules/statistics/hooks/statistics.keys';
-import type { CashMovementListParams, UpdateCashMovementDto } from '@/modules/cashMovements/types/cashMovement.types';
+import type { CashMovementListParams, MonthSummaryParams, UpdateCashMovementDto } from '@/modules/cashMovements/types/cashMovement.types';
 
 export function useCashMovements(params: CashMovementListParams) {
   return useQuery({
@@ -58,5 +59,15 @@ export function useUpdateCashMovement() {
       queryClient.invalidateQueries({ queryKey: statisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
     },
+  });
+}
+
+// Resumen del mes de Caja (resultado, IGV y neto).
+export function useMonthSummary(params: MonthSummaryParams, enabled = true) {
+  return useQuery({
+    queryKey: cashMovementsKeys.monthSummary(params),
+    queryFn: () => getMonthSummary(params),
+    placeholderData: keepPreviousData,
+    enabled,
   });
 }

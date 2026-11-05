@@ -108,6 +108,8 @@ export function AdvertisementsPage() {
     try {
       await remove(deleteTarget.id);
       toast.success(`Anuncio "${deleteTarget.title}" eliminado, junto con su imagen`);
+      // ConfirmDialog no se cierra solo: lo cierra quien confirma.
+      setDeleteTarget(null);
     } catch (error) {
       showError(error);
     }

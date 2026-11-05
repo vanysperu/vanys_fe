@@ -10,11 +10,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/componen
 import { usePermission } from '@/presentation/hooks/shared/useAccess';
 import { cn } from '@/lib/utils';
 import type { ApiClientError } from '@/config/api.types';
+import { formatDate } from '@/lib/dateUtils';
 
 const notificationsSupported = () => typeof window !== 'undefined' && 'Notification' in window;
 
 const formatWhen = (reminder: Reminder) =>
-  `${new Date(`${reminder.remind_date}T00:00:00`).toLocaleDateString('es-PE')} ${reminder.remind_time}`;
+  `${formatDate(reminder.remind_date)} ${reminder.remind_time}`;
 
 // Aviso del sistema operativo solo si la pestaña no está a la vista (si
 // está a la vista ya se ve el toast) y el usuario dio permiso.

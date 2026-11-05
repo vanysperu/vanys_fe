@@ -19,7 +19,7 @@ import { ConfirmDialog } from '@/presentation/components/shared/ConfirmDialog';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
-import { parseLocalIsoDate } from '@/lib/dateUtils';
+import { formatDate } from '@/lib/dateUtils';
 
 interface PurchaseLinesListProps {
   purchases: PurchaseOrderItemPurchase[];
@@ -90,7 +90,7 @@ export function PurchaseLinesList({ purchases, productName }: PurchaseLinesListP
             <span className={cn('flex min-w-0 flex-col', purchase.is_deleted && 'text-muted-foreground line-through')}>
               <span className="text-sm font-semibold tabular-nums">{formatMoney(Number(purchase.amount))}</span>
               <span className="text-[11px] text-muted-foreground">
-                {parseLocalIsoDate(purchase.spent_at)?.toLocaleDateString('es-PE') ?? purchase.spent_at} · {purchase.quantity} u.
+                {formatDate(purchase.spent_at)} · {purchase.quantity} u.
               </span>
             </span>
             <FundingBadge purchase={purchase} />

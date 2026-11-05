@@ -31,6 +31,7 @@ import {
 import { Label } from '@/presentation/components/shared/ui/label';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
+import { formatDate } from '@/lib/dateUtils';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -145,7 +146,7 @@ export function EmployeeDebtsPage() {
                 {
                   header: 'Último pago',
                   cell: (row: EmployeeDebtSummaryItem) =>
-                    row.last_paid_at ? new Date(`${row.last_paid_at}T00:00:00`).toLocaleDateString('es-PE') : '—',
+                    formatDate(row.last_paid_at),
                 },
               ]
             : []),

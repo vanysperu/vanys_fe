@@ -103,6 +103,20 @@ export interface StatisticsOverview {
   receivables_aging: AgingItem[];
   payments_by_account: PaymentsByAccountItem[];
   sellers: SellerItem[];
+  // Ingresos y egresos por categoría (mayor a menor); cada lado suma lo mismo
+  // que los KPIs de caja.
+  cash_by_category: CashByCategory;
+}
+
+export interface CategoryAmount {
+  key: string;
+  label: string;
+  amount: number;
+}
+
+export interface CashByCategory {
+  income: CategoryAmount[];
+  expenses: CategoryAmount[];
 }
 
 export interface StatisticsParams {

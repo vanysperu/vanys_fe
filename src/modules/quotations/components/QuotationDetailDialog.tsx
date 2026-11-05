@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { AcceptQuotationDialog, type AcceptQuotationTarget } from '@/modules/quotations/components/AcceptQuotationDialog';
+import { FinishQuotationDialog, type FinishQuotationTarget } from '@/modules/quotations/components/FinishQuotationDialog';
 import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import { QuotationExpensesSection } from '@/modules/quotations/components/QuotationExpensesSection';
 import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/components/QuotationPurchaseOrdersSection';
@@ -9,6 +10,7 @@ import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationI
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { QuotationPaymentsSection } from '@/modules/quotations/components/QuotationPaymentsSection';
 import { QuotationTimeline } from '@/modules/quotations/components/QuotationTimeline';
+import { QuotationProfitSection } from '@/modules/quotations/components/QuotationProfitSection';
 import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/QuotationPdfPreviewDialog';
 import { useChangeQuotationStatus, useDownloadQuotationPdf, useQuotation } from '@/modules/quotations/hooks/useQuotations';
 import { ArrowRight, Download, Eye, PencilLine } from 'lucide-react';
@@ -91,7 +93,7 @@ function QuotationItemCards({
 // principal (primario) — mismo criterio visual que el diagrama de estados.
 const EXIT_STATUSES: QuotationStatus[] = ['rejected', 'expired', 'cancelled'];
 
-type QuotationDetailTab = 'products' | 'payments' | 'expenses' | 'purchase-orders' | 'timeline';
+type QuotationDetailTab = 'products' | 'payments' | 'expenses' | 'purchase-orders' | 'profit' | 'timeline';
 
 interface QuotationDetailDialogProps {
   quotationId: number | null;
@@ -118,10 +120,14 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const canRegisterExpense = usePermissionButton('cotizacion.expense.create.button');
   const canCreatePurchaseOrder = usePermissionButton('purchase_order.create.button');
   const canComplete = usePermissionButton('cotizacion.complete.button');
+  // Ganancia: información de gestión, solo para los roles con el permiso.
+  const canViewProfit = usePermissionButton('cotizacion.profit.view.button');
   const { mutate: downloadPdf } = useDownloadQuotationPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
   // Cotización que se está aceptando: abre el modal "¿pagó adelanto?".
   const [accepting, setAccepting] = useState<AcceptQuotationTarget | null>(null);
+  // Cotización que se está cerrando: abre el modal "¿emitimos factura?".
+  const [finishing, setFinishing] = useState<FinishQuotationTarget | null>(null);
 
   const handleTransition = (status: QuotationStatus) => {
     if (!quotation) return;
@@ -138,6 +144,10 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
         total_paid: Number(quotation.total_paid),
         clientName: quotation.client?.name,
       });
+      return;
+    }
+    if (status === 'finished') {
+      setFinishing({ id: quotation.id, clientName: quotation.client?.name });
       return;
     }
     changeStatus({ status }, {
@@ -224,6 +234,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
 
         <QuotationPdfPreviewDialog quotationId={previewOpen ? quotationId : null} onClose={() => setPreviewOpen(false)} />
         <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
+        <FinishQuotationDialog quotation={finishing} onClose={() => setFinishing(null)} />
 
         {isLoading && (
           <div className="space-y-3">
@@ -364,6 +375,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                 <TabsTrigger value="payments">Pagos</TabsTrigger>
                 <TabsTrigger value="expenses">Gastos</TabsTrigger>
                 <TabsTrigger value="purchase-orders">Compras</TabsTrigger>
+                {canViewProfit && <TabsTrigger value="profit">Ganancia</TabsTrigger>}
                 <TabsTrigger value="timeline">Historial</TabsTrigger>
               </TabsList>
 
@@ -479,6 +491,12 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   quotationActive={isActive}
                 />
               </TabsContent>
+
+              {canViewProfit && (
+                <TabsContent value="profit">
+                  <QuotationProfitSection quotationId={quotation.id} enabled={tab === 'profit'} />
+                </TabsContent>
+              )}
 
               <TabsContent value="timeline">
                 <QuotationTimeline events={quotation.events} />

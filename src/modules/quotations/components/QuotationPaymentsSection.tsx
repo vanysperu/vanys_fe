@@ -16,7 +16,7 @@ import type { QuotationPayment } from '@/modules/quotations/types/quotation.type
 import { useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import { Button } from '@/presentation/components/shared/ui/button';
 import type { ApiClientError } from '@/config/api.types';
-import { todayLocalDateString } from '@/lib/dateUtils';
+import { formatDate, todayLocalDateString } from '@/lib/dateUtils';
 
 function money(n: number) {
   return 'S/ ' + Number(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -95,7 +95,7 @@ export function QuotationPaymentsSection({
             <div>
               <p className="font-medium">{money(payment.amount)}</p>
               <p className="text-xs text-muted-foreground">
-                {payment.paid_at} {payment.method ? `· ${methodLabel(payment.method)}` : ''}
+                {formatDate(payment.paid_at)} {payment.method ? `· ${methodLabel(payment.method)}` : ''}
                 {accountName(payment.payment_account_id) ? ` · a ${accountName(payment.payment_account_id)}` : ''}
                 {payment.operation_number ? ` · Op. ${payment.operation_number}` : ''}
                 {payment.actor ? ` · ${payment.actor.name} ${payment.actor.paternal_lastname}` : ''}

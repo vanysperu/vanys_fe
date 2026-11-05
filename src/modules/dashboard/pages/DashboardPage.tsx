@@ -13,6 +13,12 @@ import { RECEIVABLE_STATUSES } from '@/modules/receivables/types/receivable.type
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
 import { useAccess, usePermission, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { cn } from '@/lib/utils';
+import { AUTO_REFRESH_MS } from '@/lib/autoRefresh';
+import { useClients } from '@/modules/clients/hooks/useClients';
+import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
+import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
+import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 
 type ViewMode = 'list' | 'board';
 type TabKey = 'todas' | 'accion' | 'cobrar' | 'produccion';
@@ -40,9 +46,6 @@ function matchesTab(quotation: Quotation, tab: TabKey): boolean {
 // Los KPIs mostrados son solo los calculables con datos reales hoy (no hay
 // módulo de Finanzas todavía) — el spec de diseño Vanys pide 7 KPIs, de los
 // cuales 5 dependen de Ingresos/Egresos, aún sin construir.
-// El tablero del Panel muestra todas las cotizaciones (sin filtros).
-const ALL_QUOTATIONS = {};
-
 export function DashboardPage() {
   const [tab, setTab] = useState<TabKey>('todas');
   const [view, setView] = useState<ViewMode>('list');
@@ -53,9 +56,30 @@ export function DashboardPage() {
   const canSeeQuotations = usePermission('cotizacion');
   const canChangeStatus = usePermissionButton('cotizacion.changeStatus.button');
 
+  // Filtros (pedido explícito del usuario): los mismos que en Cotizaciones y
+  // con el mismo criterio para la tienda (a un Gestor el backend ya lo limita
+  // a la suya). Aplican a la lista, al tablero y a los totales de arriba.
+  const [clientFilter, setClientFilter] = useState<string | undefined>(undefined);
+  const [businessUnitFilter, setBusinessUnitFilter] = useState<string | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  const canFilterByStore = !access?.isSystem && Boolean(access?.modules.includes('platform'));
+  const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: canFilterByStore && canSeeQuotations });
+  const { data: clients } = useClients({ page: 1, limit: 100 }, { enabled: canSeeQuotations });
+  const filters = {
+    clientId: clientFilter ? Number(clientFilter) : undefined,
+    businessUnitId: businessUnitFilter ? Number(businessUnitFilter) : undefined,
+    dateFrom: dateRange.dateFrom,
+    dateTo: dateRange.dateTo,
+  };
+  const hasActiveFilters = Boolean(clientFilter || businessUnitFilter || dateRange.dateFrom || dateRange.dateTo);
+
   // Las 100 que cambiaron de estado más recientemente, igual que Cotizaciones:
-  // una cotización recién pasada a Pendiente sale arriba de su grupo.
-  const { data, isLoading } = useQuotations({ page: 1, limit: 100, orderBy: 'status_changed_at', orderDir: 'desc' });
+  // una cotización recién pasada a Pendiente sale arriba de su grupo. Se
+  // recarga sola cada 10 minutos (pedido explícito del usuario).
+  const { data, isLoading } = useQuotations(
+    { ...filters, page: 1, limit: 100, orderBy: 'status_changed_at', orderDir: 'desc' },
+    { enabled: canSeeQuotations, refetchInterval: AUTO_REFRESH_MS },
+  );
 
   const quotations = data?.data ?? [];
   const filtered = quotations.filter((quotation) => matchesTab(quotation, tab));
@@ -82,7 +106,7 @@ export function DashboardPage() {
             Bienvenido{access?.isSystem ? '' : ''} — tu rol no tiene acceso al módulo de cotizaciones.
           </p>
         </div>
-        <MyPurchaseOrdersWidget />
+        <MyPurchaseOrdersWidget refetchInterval={AUTO_REFRESH_MS} />
       </div>
     );
   }
@@ -144,7 +168,35 @@ export function DashboardPage() {
         ))}
       </div>
 
-      <MyPurchaseOrdersWidget />
+      <MyPurchaseOrdersWidget refetchInterval={AUTO_REFRESH_MS} />
+
+      <FiltersBar
+        hasActiveFilters={hasActiveFilters}
+        onClear={() => {
+          setClientFilter(undefined);
+          setBusinessUnitFilter(undefined);
+          setDateRange({});
+        }}
+      >
+        <FilterSelect
+          aria-label="Cliente"
+          allLabel="Todos los clientes"
+          className="w-56"
+          value={clientFilter}
+          onChange={setClientFilter}
+          options={(clients?.data ?? []).map((client) => ({ value: String(client.id), label: client.name }))}
+        />
+        {canFilterByStore && (
+          <FilterSelect
+            aria-label="Tienda"
+            allLabel="Todas las tiendas"
+            value={businessUnitFilter}
+            onChange={setBusinessUnitFilter}
+            options={(businessUnits?.data ?? []).map((unit) => ({ value: String(unit.id), label: unit.business_code }))}
+          />
+        )}
+        <DateRangeFilter placeholder="Fecha de emisión" value={dateRange} onChange={setDateRange} />
+      </FiltersBar>
 
       {view === 'list' && (
         // Celular: las pestañas no entran; se deslizan de lado sin partirse.
@@ -175,7 +227,12 @@ export function DashboardPage() {
 
       {view === 'board' ? (
         // El tablero carga sus propias columnas, con sus totales reales.
-        <QuotationsKanbanBoard filters={ALL_QUOTATIONS} onSelect={setSelectedId} canChangeStatus={canChangeStatus} />
+        <QuotationsKanbanBoard
+          filters={filters}
+          onSelect={setSelectedId}
+          canChangeStatus={canChangeStatus}
+          refetchInterval={AUTO_REFRESH_MS}
+        />
       ) : isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-10 w-full" />

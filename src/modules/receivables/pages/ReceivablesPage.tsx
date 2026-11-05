@@ -19,12 +19,13 @@ import { Pagination } from '@/presentation/components/shared/Pagination';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { formatDate } from '@/lib/dateUtils';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const formatDateOnly = (value: string) => new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString('es-PE');
+const formatDateOnly = (value: string) => formatDate(value.slice(0, 10));
 
 // "Lo que me falta cobrar" (pedido explícito del usuario): cotizaciones
 // aceptadas (o más avanzadas) con saldo pendiente. Por defecto, la más
@@ -159,7 +160,7 @@ export function ReceivablesPage() {
             header: 'Emitida',
             sortable: true,
             sortKey: 'created_at',
-            cell: (row) => new Date(row.created_at).toLocaleDateString('es-PE'),
+            cell: (row) => formatDate(row.created_at),
           },
           {
             header: 'Total',

@@ -63,6 +63,8 @@ export interface ReminderListParams {
   status?: ReminderStatusFilter;
   dateFrom?: string;
   dateTo?: string;
+  // Busca en el título y el mensaje.
+  search?: string;
 }
 
 export interface ReminderDto {

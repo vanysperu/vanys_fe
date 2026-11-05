@@ -1,11 +1,20 @@
 import { apiClient } from '@/config/apiClient';
 import type { ApiResponse } from '@/config/api.types';
 import type {
+  MonthSummary,
+  MonthSummaryParams,
   CashMovementListParams,
   CashMovementListResult,
   CreateCashMovementDto,
   UpdateCashMovementDto,
 } from '@/modules/cashMovements/types/cashMovement.types';
+
+// Resultado del mes, IGV estimado y neto después del IGV.
+export async function getMonthSummary(params: MonthSummaryParams): Promise<MonthSummary> {
+  const response = await apiClient.get<ApiResponse<MonthSummary>>('/cash-movement/month-summary', { params });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
 
 export async function getCashMovements(params: CashMovementListParams): Promise<CashMovementListResult> {
   const response = await apiClient.get<ApiResponse<CashMovementListResult>>('/cash-movement/list', { params });

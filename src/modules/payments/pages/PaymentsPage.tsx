@@ -26,6 +26,7 @@ import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatu
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { formatDate } from '@/lib/dateUtils';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -164,7 +165,7 @@ export function PaymentsPage() {
 
       <DataTable<PaymentListItem>
         columns={[
-          { header: 'Fecha', cell: (row) => new Date(`${row.paid_at}T00:00:00`).toLocaleDateString('es-PE') },
+          { header: 'Fecha', cell: (row) => formatDate(row.paid_at) },
           {
             header: 'Cotización',
             cell: (row) => (

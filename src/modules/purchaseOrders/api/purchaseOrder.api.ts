@@ -60,8 +60,9 @@ export const purchaseCorrectionsUrl = (id: number) => `/purchase-order/purchase/
 export async function createPurchaseOrderItemPurchase(
   itemId: number,
   dto: CreatePurchaseOrderItemPurchaseDto,
-): Promise<PurchaseOrderItemPurchase> {
-  const response = await apiClient.post<ApiResponse<PurchaseOrderItemPurchase>>(
+): Promise<PurchaseOrderItemPurchase & { invoice_id?: number | null }> {
+  // invoice_id: la factura registrada si la compra la llevaba.
+  const response = await apiClient.post<ApiResponse<PurchaseOrderItemPurchase & { invoice_id?: number | null }>>(
     `/purchase-order/item/${itemId}/purchases`,
     dto,
   );

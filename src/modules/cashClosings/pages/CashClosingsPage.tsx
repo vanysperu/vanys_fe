@@ -130,6 +130,19 @@ export function CashClosingsPage() {
                   align: 'right',
                   cell: (row) => (row.totals ? <span className="whitespace-nowrap">{formatMoney(row.totals.closing)}</span> : '—'),
                 },
+                // Lo que quedó después de pagar el IGV (detalle completo en el panel).
+                {
+                  header: 'Neto tras IGV',
+                  align: 'right',
+                  cell: (row) =>
+                    row.finance ? (
+                      <span className={cn('whitespace-nowrap', row.finance.net_after_igv < 0 && 'text-destructive')}>
+                        {formatMoney(row.finance.net_after_igv)}
+                      </span>
+                    ) : (
+                      '—'
+                    ),
+                },
                 // "Cerrado por" no va en esta lista angosta (se cortaba junto al
                 // panel de detalle): el detalle del mes ya dice quién y cuándo.
               ]}

@@ -25,6 +25,7 @@ import {
   downloadQuotationPdf,
   getQuotation,
   getQuotationBoard,
+  getQuotationProfit,
   getQuotations,
   updateQuotation,
 } from '@/modules/quotations/api/quotations.api';
@@ -42,11 +43,13 @@ import type {
   UpdateQuotationDto,
 } from '@/modules/quotations/types/quotation.types';
 
-export function useQuotations(params: QuotationListParams, options?: { enabled?: boolean }) {
+// refetchInterval (opcional): recarga sola cada N ms (Inicio). Sin él, como siempre.
+export function useQuotations(params: QuotationListParams, options?: { enabled?: boolean; refetchInterval?: number }) {
   return useQuery({
     queryKey: quotationsKeys.list(params),
     queryFn: () => getQuotations(params),
     enabled: options?.enabled,
+    refetchInterval: options?.refetchInterval,
     placeholderData: keepPreviousData,
   });
 }
@@ -56,10 +59,11 @@ export const BOARD_PAGE_SIZE = 20;
 
 // Las primeras de cada columna del tablero, con sus totales reales: UNA llamada
 // para todas las columnas (nunca un pedido por columna).
-export function useQuotationBoard(params: QuotationBoardParams) {
+export function useQuotationBoard(params: QuotationBoardParams, options?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: quotationsKeys.board(params),
     queryFn: () => getQuotationBoard({ ...params, perStatus: BOARD_PAGE_SIZE }),
+    refetchInterval: options?.refetchInterval,
     placeholderData: keepPreviousData,
   });
 }
@@ -90,6 +94,15 @@ export function useQuotation(id: number, enabled = true) {
   return useQuery({
     queryKey: quotationsKeys.detail(id),
     queryFn: () => getQuotation(id),
+    enabled,
+  });
+}
+
+// Solo se pide al abrir la pestaña "Ganancia" y si el rol tiene el permiso.
+export function useQuotationProfit(id: number, enabled: boolean) {
+  return useQuery({
+    queryKey: quotationsKeys.profit(id),
+    queryFn: () => getQuotationProfit(id),
     enabled,
   });
 }
@@ -129,6 +142,8 @@ export interface ChangeQuotationStatusVariables {
   status: QuotationStatus;
   // Solo al aceptar: adelanto del cliente registrado en la misma operación.
   advancePayment?: CreateQuotationPaymentDto;
+  // Solo al cerrar (Finalizada): ¿emitimos factura?
+  invoiceIssued?: boolean;
 }
 
 // Registrar dinero (pago, adelanto al aceptar, gasto) cambia Caja, Estadísticas
@@ -142,8 +157,8 @@ function invalidateCashViews(queryClient: QueryClient) {
 export function useChangeQuotationStatus(id: number) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ status, advancePayment }: ChangeQuotationStatusVariables) =>
-      changeQuotationStatus(id, status, advancePayment),
+    mutationFn: ({ status, advancePayment, invoiceIssued }: ChangeQuotationStatusVariables) =>
+      changeQuotationStatus(id, status, advancePayment, invoiceIssued),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
@@ -159,8 +174,8 @@ export function useChangeQuotationStatus(id: number) {
 export function useChangeQuotationStatusAny() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status, advancePayment }: ChangeQuotationStatusVariables & { id: number }) =>
-      changeQuotationStatus(id, status, advancePayment),
+    mutationFn: ({ id, status, advancePayment, invoiceIssued }: ChangeQuotationStatusVariables & { id: number }) =>
+      changeQuotationStatus(id, status, advancePayment, invoiceIssued),
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
