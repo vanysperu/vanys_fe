@@ -1,6 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Ban, ChevronDown, ChevronUp, RotateCcw, ShoppingCart } from 'lucide-react';
+import { Ban, ChevronDown, ChevronUp, Eye, ImageIcon, RotateCcw, ShoppingCart } from 'lucide-react';
+import { PurchaseItemProductDialog } from '@/modules/purchaseOrders/components/PurchaseItemProductDialog';
 import { PurchaseLinesList } from '@/modules/purchaseOrders/components/PurchaseLinesList';
+import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -88,6 +90,8 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
   const [pendingExceed, setPendingExceed] = useState<PendingExceed | null>(null);
   // Items con su lista de compras desplegada (corregir/anular cada una).
   const [expandedItemIds, setExpandedItemIds] = useState<number[]>([]);
+  // Producto cuya foto y color se están viendo.
+  const [viewItem, setViewItem] = useState<PurchaseOrderItem | null>(null);
   const toggleLines = (itemId: number) =>
     setExpandedItemIds((current) => (current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId]));
   const { mutate: updateStatus, isPending: isUpdatingStatus } = useUpdatePurchaseOrderItemStatus();
@@ -120,10 +124,11 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
     );
 
   return (
-    // Altura máxima con scroll: una orden con muchos productos (o con sus
-    // compras desplegadas) estiraba la fila de la tabla hacia abajo. Mientras
-    // se registra una compra no se limita, para que el formulario no quede
-    // cortado dentro del scroll.
+    <>
+    {/* Altura máxima con scroll: una orden con muchos productos (o con sus
+        compras desplegadas) estiraba la fila de la tabla hacia abajo. Mientras
+        se registra una compra no se limita, para que el formulario no quede
+        cortado dentro del scroll. */}
     <div
       className={cn('space-y-2', openFormItemId === null && 'scrollbar-thin -mr-1 max-h-80 overflow-y-auto pr-1')}
       data-testid="purchase-order-items"
@@ -160,13 +165,38 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
                     la elipsis del nombre (antes iban en el mismo <span> con
                     truncate y "(comprado/total)" quedaba escondido). */}
                 <div className="flex items-baseline gap-1">
-                  <span className={cn('truncate', STATUS_STYLE[item.status])}>
-                    {item.quotationItem?.product?.name ?? '—'}
-                  </span>
+                  {item.quotationItem?.product ? (
+                    <button
+                      type="button"
+                      title={item.quotationItem.product.images_enabled ? 'Ver foto y color' : 'Ver color y código'}
+                      onClick={() => setViewItem(item)}
+                      className={cn(
+                        'inline-flex min-w-0 items-center gap-1 text-left underline-offset-2 hover:underline',
+                        STATUS_STYLE[item.status],
+                      )}
+                      data-testid="purchase-item-view-product"
+                    >
+                      {/* El ícono avisa que se puede abrir: el nombre solo
+                          parecía texto hasta pasar el mouse. */}
+                      {item.quotationItem.product.images_enabled ? (
+                        <ImageIcon className="size-3.5 shrink-0 text-primary" aria-hidden />
+                      ) : (
+                        <Eye className="size-3.5 shrink-0 text-primary" aria-hidden />
+                      )}
+                      <span className="truncate">{item.quotationItem.product.name}</span>
+                    </button>
+                  ) : (
+                    <span className={cn('truncate', STATUS_STYLE[item.status])}>
+                      —
+                    </span>
+                  )}
                   <span className="shrink-0 text-xs font-medium text-muted-foreground">
                     ({purchasedQty}/{item.quantity})
                   </span>
                 </div>
+                {/* El color y el código se ven siempre: quien compra los
+                    necesita, tenga la empresa fotos o no. */}
+                {item.quotationItem && <QuotationItemVariant item={item.quotationItem} />}
                 {purchasedQty > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Gastado: {money(spentAmount)}
@@ -238,6 +268,8 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
         );
       })}
     </div>
+    <PurchaseItemProductDialog item={viewItem} onClose={() => setViewItem(null)} />
+    </>
   );
 }
 

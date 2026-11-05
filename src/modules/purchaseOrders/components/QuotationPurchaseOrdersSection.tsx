@@ -140,7 +140,10 @@ export function QuotationPurchaseOrdersSection({
                         checked={selectedItemIds.includes(item.id)}
                         onCheckedChange={(checked) => toggleItem(item.id, Boolean(checked))}
                       />
-                      {item.product?.name} <span className="text-xs text-muted-foreground">(cant. {item.quantity})</span>
+                      {item.product?.name}{' '}
+                      <span className="text-xs text-muted-foreground">
+                        ({[item.color, item.product_code, `cant. ${item.quantity}`].filter(Boolean).join(' · ')})
+                      </span>
                     </label>
                   ))}
                 </div>

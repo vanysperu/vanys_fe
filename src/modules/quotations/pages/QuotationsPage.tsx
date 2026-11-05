@@ -40,21 +40,23 @@ export function QuotationsPage() {
   const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: canFilterByStore });
   const { data: clients } = useClients({ page: 1, limit: 100 });
 
-  // Mismo componente de lista agrupada que el Panel principal — se pide un
-  // límite alto porque el agrupamiento por estado es del lado del cliente
-  // (ver QuotationsByStatus); paginar por grupo queda para cuando el
-  // volumen real lo justifique. El tablero Kanban necesita ver TODOS los
-  // estados a la vez (son las columnas), así que ignora el filtro mientras
-  // esa vista está activa.
-  const { data, isLoading } = useQuotations({
-    page: 1,
-    limit: 200,
-    status: view === 'board' ? undefined : status,
+  // Filtros compartidos por las dos vistas.
+  const filters = {
     clientId: clientFilter ? Number(clientFilter) : undefined,
     businessUnitId: businessUnitFilter ? Number(businessUnitFilter) : undefined,
     dateFrom: dateRange.dateFrom,
     dateTo: dateRange.dateTo,
-  });
+  };
+
+  // Lista: mismo componente de lista agrupada que el Panel principal, con las
+  // 100 más recientes (el máximo del backend). Primero lo que cambió de estado
+  // más recientemente (pedido explícito del usuario: una cotización recién
+  // pasada a Pendiente no aparecía). El tablero pide sus columnas aparte
+  // (QuotationsKanbanBoard), así que esta lista solo se carga en la vista Lista.
+  const { data, isLoading } = useQuotations(
+    { ...filters, page: 1, limit: 100, status, orderBy: 'status_changed_at', orderDir: 'desc' },
+    { enabled: view === 'list' },
+  );
 
   const hasActiveFilters = Boolean(clientFilter || businessUnitFilter || dateRange.dateFrom || dateRange.dateTo);
 
@@ -143,13 +145,15 @@ export function QuotationsPage() {
         <DateRangeFilter placeholder="Fecha de emisión" value={dateRange} onChange={setDateRange} />
       </FiltersBar>
 
-      {isLoading ? (
+      {view === 'board' ? (
+        <QuotationsKanbanBoard filters={filters} onSelect={setSelectedId} canChangeStatus={canChangeStatus} />
+      ) : isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
-      ) : view === 'list' ? (
+      ) : (
         <QuotationsByStatus
           quotations={data?.data ?? []}
           onSelect={(id) => {
@@ -161,12 +165,6 @@ export function QuotationsPage() {
             setSelectedId(id);
           }}
           onPreviewPdf={setPreviewId}
-        />
-      ) : (
-        <QuotationsKanbanBoard
-          quotations={data?.data ?? []}
-          onSelect={setSelectedId}
-          canChangeStatus={canChangeStatus}
         />
       )}
 

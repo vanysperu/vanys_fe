@@ -27,6 +27,7 @@ import {
   roundMoney,
   type LineIgvAmounts,
 } from '@/modules/quotations/utils/quotationAmounts';
+import { itemCodeForColor, itemColorOptions } from '@/modules/quotations/utils/itemVariant';
 import { NOTES_MAX_LENGTH } from '@/lib/constants';
 import { CharCounter } from '@/presentation/components/shared/CharCounter';
 import { Button } from '@/presentation/components/shared/ui/button';
@@ -229,6 +230,22 @@ function quotationTechniques(quotation: QuotationDetail | undefined): Customizat
   );
 }
 
+// Precio pactado de un item que ya existe: se conserva mientras no cambien
+// producto, técnica ni modo (misma regla que keepsAgreedPrice en el backend).
+// Un precio "personalizado" va siempre por su propio campo.
+function agreedUnitPrice(
+  quotation: QuotationDetail | undefined,
+  item: CreateQuotationFormValues['items'][number] | undefined,
+): number | null {
+  const stored = quotation?.items.find((row) => row.id === item?.item_id);
+  if (!stored || !item || item.pricing_mode === 'custom') return null;
+  const isSameLine =
+    stored.product_id === item.product_id &&
+    (stored.technique_id ?? undefined) === (item.technique_id ?? undefined) &&
+    stored.pricing_mode === item.pricing_mode;
+  return isSameLine ? Number(stored.unit_price) : null;
+}
+
 // Valores iniciales del formulario a partir de la cotización a completar.
 // Un item "personalizado" guarda solo el precio final por unidad: se carga
 // todo como precio del producto (la técnica en 0) para no cambiar el monto.
@@ -248,8 +265,11 @@ function toCompleteFormValues(quotation: QuotationDetail): CreateQuotationFormVa
     items:
       quotation.items.length > 0
         ? quotation.items.map((item) => ({
+            item_id: item.id,
             product_id: item.product_id,
             technique_id: item.technique_id ?? undefined,
+            product_code: item.product_code ?? undefined,
+            color: item.color ?? undefined,
             quantity: item.quantity,
             pricing_mode: item.pricing_mode,
             custom_price: item.pricing_mode === 'custom' ? Number(item.unit_price) : undefined,
@@ -262,6 +282,9 @@ function toCompleteFormValues(quotation: QuotationDetail): CreateQuotationFormVa
 
 export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuotationDialogProps = {}) {
   const isCompleting = Boolean(completeQuotation);
+  // Un pedido de la web se "completa"; cualquier otra cotización se edita. Es
+  // el mismo formulario y el mismo guardado.
+  const isEditing = isCompleting && completeQuotation?.status !== 'quote_requested';
   const [open, setOpen] = useState(false);
   const { data: access } = useAccess();
   const isSystem = access?.isSystem ?? false;
@@ -307,7 +330,8 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
     formState: { errors },
   } = useForm<CreateQuotationFormValues>({
     resolver: zodResolver(createQuotationSchema),
-    defaultValues: { items: [{ product_id: undefined, technique_id: undefined, pricing_mode: 'unit', quantity: 1 }] },
+    // IGV activo por defecto (pedido explícito del usuario); se puede quitar.
+    defaultValues: { includes_igv: true, items: [{ product_id: undefined, technique_id: undefined, pricing_mode: 'unit', quantity: 1 }] },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
@@ -358,7 +382,13 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
       company_id: companyId,
       client_id: undefined,
       business_unit_id: undefined,
-      items: current.items.map((item) => ({ ...item, product_id: undefined, technique_id: undefined })),
+      items: current.items.map((item) => ({
+        ...item,
+        product_id: undefined,
+        technique_id: undefined,
+        product_code: undefined,
+        color: undefined,
+      })),
     });
   };
 
@@ -366,6 +396,10 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   const itemPrices = watchedItems.map((item) => {
     const product = companyProducts.find((row) => row.id === item.product_id);
     const technique = effectiveTechnique(product, companyTechniques.find((row) => row.id === item.technique_id));
+    const agreedPrice = agreedUnitPrice(completeQuotation, item);
+    if (agreedPrice != null && item.quantity) {
+      return { productPrice: agreedPrice, techniquePrice: 0, unitPrice: agreedPrice, total: roundMoney(agreedPrice * item.quantity) };
+    }
     return computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price);
   });
   const subtotal = roundMoney(itemPrices.reduce((sum, price) => sum + (price?.total ?? 0), 0));
@@ -388,7 +422,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
     // Al abrir en modo "completar", el formulario arranca con lo que ya
     // tiene la cotización (lo que eligió el cliente en la web).
     if (next && completeQuotation) reset(toCompleteFormValues(completeQuotation));
-    if (!next) reset({ items: [{ product_id: undefined, technique_id: undefined, pricing_mode: 'unit', quantity: 1 }] });
+    if (!next) reset({ includes_igv: true, items: [{ product_id: undefined, technique_id: undefined, pricing_mode: 'unit', quantity: 1 }] });
   };
 
   const requiresCustomization = (productId: number | undefined) =>
@@ -411,8 +445,11 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
     }
 
     const items = values.items.map((item) => ({
+      id: item.item_id ?? null,
       product_id: item.product_id,
       technique_id: requiresCustomization(item.product_id) ? item.technique_id : null,
+      product_code: item.product_code ?? null,
+      color: item.color ?? null,
       pricing_mode: item.pricing_mode,
       quantity: item.quantity,
       custom_price: item.pricing_mode === 'custom' ? item.custom_price : undefined,
@@ -435,7 +472,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
         { ...details, items },
         {
           onSuccess: () => {
-            toast.success('Cotización completada. Ya puedes pasarla a Pendiente.');
+            toast.success(isEditing ? 'Cotización actualizada' : 'Cotización completada. Ya puedes pasarla a Pendiente.');
             handleOpenChange(false);
           },
         },
@@ -474,7 +511,11 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
       </DialogTrigger>
       <DialogContent expandable defaultExpanded className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{completeQuotation ? `Completar cotización #${completeQuotation.id}` : 'Nueva cotización'}</DialogTitle>
+          <DialogTitle>
+            {completeQuotation
+              ? `${isEditing ? 'Editar' : 'Completar'} cotización #${completeQuotation.id}`
+              : 'Nueva cotización'}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -641,6 +682,8 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                 const price = itemPrices[index] ?? null;
                 const amounts = itemAmounts[index];
                 const modes = availablePricingModes(product, technique);
+                const colorOptions = itemColorOptions(product, item?.color);
+                const agreedPrice = agreedUnitPrice(completeQuotation, item);
 
                 return (
                   <div key={field.id} className="space-y-2 rounded-lg border bg-card p-3">
@@ -671,6 +714,9 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                           value={item?.product_id ? String(item.product_id) : undefined}
                           onChange={(value) => {
                             setValue(`items.${index}.product_id`, Number(value), { shouldValidate: true });
+                            // El color y el código eran del producto anterior.
+                            setValue(`items.${index}.color`, undefined);
+                            setValue(`items.${index}.product_code`, undefined);
                             // El modo elegido de un producto anterior puede no
                             // existir en el nuevo (ej. tenía "por millar" y el
                             // nuevo no) — vuelve a "por unidad" si eso pasa, o
@@ -695,7 +741,11 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                         {canQuickCreateProduct && (
                           <QuickCreateProductDialog
                             companyId={resolvedCompanyId}
-                            onCreated={(id) => setValue(`items.${index}.product_id`, id, { shouldValidate: true })}
+                            onCreated={(id) => {
+                              setValue(`items.${index}.product_id`, id, { shouldValidate: true });
+                              setValue(`items.${index}.color`, undefined);
+                              setValue(`items.${index}.product_code`, undefined);
+                            }}
                           />
                         )}
                       </div>
@@ -754,6 +804,26 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                   </div>
 
                   <div className="flex flex-wrap items-end gap-2">
+                    {colorOptions.length > 0 && (
+                      <div className="w-full space-y-1 sm:w-48">
+                        <Label className="text-xs">Color</Label>
+                        <SearchableSelect
+                          placeholder="Sin color"
+                          value={item?.color}
+                          onChange={(value) => {
+                            setValue(`items.${index}.color`, value);
+                            setValue(`items.${index}.product_code`, itemCodeForColor(product, item?.product_code, value));
+                          }}
+                          onClear={() => {
+                            setValue(`items.${index}.color`, undefined);
+                            setValue(`items.${index}.product_code`, itemCodeForColor(product, item?.product_code, undefined));
+                          }}
+                          clearLabel="Sin color"
+                          options={colorOptions}
+                          emptyText="No se encontró ese color"
+                        />
+                      </div>
+                    )}
                     <div className="w-full space-y-1 sm:w-48">
                       <Label className="text-xs">Modo de precio</Label>
                       {/* Sin producto elegido no hay precios: antes el campo
@@ -856,7 +926,9 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                   {price && amounts ? (
                     <div className="space-y-2 border-t border-dashed pt-2">
                       <p className="text-xs text-muted-foreground" data-testid={`item-price-breakdown-${index}`}>
-                        {technique === null
+                        {agreedPrice != null
+                          ? `Precio pactado S/ ${agreedPrice.toFixed(2)} c/u`
+                          : technique === null
                           ? `Producto S/ ${price.productPrice.toFixed(2)} c/u`
                           : `Producto S/ ${price.productPrice.toFixed(2)} + técnica S/ ${price.techniquePrice.toFixed(2)} = S/ ${price.unitPrice.toFixed(2)} c/u`}{' '}
                         × {item?.quantity} = S/ {price.total.toFixed(2)}

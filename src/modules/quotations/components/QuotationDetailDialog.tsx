@@ -6,6 +6,7 @@ import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import { QuotationExpensesSection } from '@/modules/quotations/components/QuotationExpensesSection';
 import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/components/QuotationPurchaseOrdersSection';
 import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationItemsKanban';
+import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { QuotationPaymentsSection } from '@/modules/quotations/components/QuotationPaymentsSection';
 import { QuotationTimeline } from '@/modules/quotations/components/QuotationTimeline';
 import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/QuotationPdfPreviewDialog';
@@ -55,6 +56,7 @@ function QuotationItemCards({
         return (
           <li key={item.id} className="rounded-lg border bg-card p-3 text-sm">
             <p className="font-medium">{item.product?.name}</p>
+            <QuotationItemVariant item={item} />
             <p className="text-xs text-muted-foreground">{item.technique?.name ?? 'Sin personalización'}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Cant. <span className="font-mono-nums text-foreground">{item.quantity}</span> ·{' '}
@@ -294,17 +296,26 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
               </div>
             </div>
 
-            {/* Pedido de la web: se completa con el mismo formulario de
-                crear (técnica, modo de precio, productos que faltaban). */}
-            {isQuoteRequested && canComplete && (
+            {/* Toda cotización se edita con el mismo formulario de crear
+                (pedido explícito del usuario). Un pedido de la web lo usa para
+                completarse: técnica, modo de precio y productos que faltaban. */}
+            {canComplete && (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed px-3 py-2">
-                <p className="text-sm text-muted-foreground">Revisa los productos y define técnica y precio.</p>
+                <p className="text-sm text-muted-foreground">
+                  {isQuoteRequested
+                    ? 'Revisa los productos y define técnica y precio.'
+                    : 'Cambia productos, cantidades, colores o datos de esta cotización.'}
+                </p>
                 <CreateQuotationDialog
                   completeQuotation={quotation}
                   trigger={
-                    <Button size="sm" variant="outline" data-testid="complete-quotation-button">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid={isQuoteRequested ? 'complete-quotation-button' : 'edit-quotation-button'}
+                    >
                       <PencilLine className="size-4" />
-                      Completar cotización
+                      {isQuoteRequested ? 'Completar cotización' : 'Editar cotización'}
                     </Button>
                   }
                 />
@@ -385,7 +396,10 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                     <tbody>
                       {itemRows.map(({ line: item, amounts }) => (
                         <tr key={item.id} className="border-t">
-                          <td className="px-3 py-2">{item.product?.name}</td>
+                          <td className="px-3 py-2">
+                            {item.product?.name}
+                            <QuotationItemVariant item={item} />
+                          </td>
                           <td className="px-3 py-2 text-muted-foreground">{item.technique?.name ?? '—'}</td>
                           {/* Cantidad: solo el número (pedido explícito del
                               usuario: "en cantidad debe salir número no

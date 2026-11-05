@@ -1,3 +1,4 @@
+import type { ProductColor } from '@/modules/products/types/product.types';
 import { QUOTATION_ACTIVE_STATUSES } from '@/modules/quotations/types/quotation.types';
 
 // Solo una orden de una cotización aceptada o en curso admite registrar
@@ -94,7 +95,17 @@ export interface PurchaseOrderItem {
   status: PurchaseOrderItemStatus;
   quotationItem?: {
     id: number;
-    product?: { id: number; name: string };
+    // Código de proveedor y color elegidos en la cotización.
+    product_code?: string | null;
+    color?: string | null;
+    product?: {
+      id: number;
+      name: string;
+      // Sin fotos habilitadas para la empresa, la foto llega en null.
+      images_enabled?: boolean;
+      image_path?: string | null;
+      colors?: ProductColor[];
+    };
   };
   purchases: PurchaseOrderItemPurchase[];
 }

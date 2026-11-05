@@ -63,8 +63,8 @@ test.describe('Adelanto al aceptar y Por cobrar', () => {
     await detail.getByRole('button', { name: 'Aceptada' }).click();
     const advance = page.locator('div[role="dialog"]', { hasText: '¿El cliente pagó adelanto?' });
     await expect(advance).toBeVisible();
-    // Mitad de S/ 250.00.
-    await expect(page.locator('#advance-amount')).toHaveValue('125');
+    // Mitad de S/ 295.00 (S/ 250.00 + IGV, activo por defecto).
+    await expect(page.locator('#advance-amount')).toHaveValue('147.5');
 
     await page.fill('#advance-amount', '100');
     await advance.getByRole('button', { name: 'Sí, registrar adelanto' }).click();
@@ -79,7 +79,7 @@ test.describe('Adelanto al aceptar y Por cobrar', () => {
     await page.fill('input[placeholder="Buscar cliente..."]', clientName);
     const row = page.locator('tr', { hasText: clientName });
     await expect(row).toBeVisible();
-    await expect(row).toContainText('S/ 150.00');
+    await expect(row).toContainText('S/ 195.00');
     await expect(row).toContainText('Aceptada');
   });
 

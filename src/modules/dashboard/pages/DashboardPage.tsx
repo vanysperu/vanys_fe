@@ -40,6 +40,9 @@ function matchesTab(quotation: Quotation, tab: TabKey): boolean {
 // Los KPIs mostrados son solo los calculables con datos reales hoy (no hay
 // módulo de Finanzas todavía) — el spec de diseño Vanys pide 7 KPIs, de los
 // cuales 5 dependen de Ingresos/Egresos, aún sin construir.
+// El tablero del Panel muestra todas las cotizaciones (sin filtros).
+const ALL_QUOTATIONS = {};
+
 export function DashboardPage() {
   const [tab, setTab] = useState<TabKey>('todas');
   const [view, setView] = useState<ViewMode>('list');
@@ -50,7 +53,9 @@ export function DashboardPage() {
   const canSeeQuotations = usePermission('cotizacion');
   const canChangeStatus = usePermissionButton('cotizacion.changeStatus.button');
 
-  const { data, isLoading } = useQuotations({ page: 1, limit: 100 });
+  // Las 100 que cambiaron de estado más recientemente, igual que Cotizaciones:
+  // una cotización recién pasada a Pendiente sale arriba de su grupo.
+  const { data, isLoading } = useQuotations({ page: 1, limit: 100, orderBy: 'status_changed_at', orderDir: 'desc' });
 
   const quotations = data?.data ?? [];
   const filtered = quotations.filter((quotation) => matchesTab(quotation, tab));
@@ -168,13 +173,16 @@ export function DashboardPage() {
         </nav>
       )}
 
-      {isLoading ? (
+      {view === 'board' ? (
+        // El tablero carga sus propias columnas, con sus totales reales.
+        <QuotationsKanbanBoard filters={ALL_QUOTATIONS} onSelect={setSelectedId} canChangeStatus={canChangeStatus} />
+      ) : isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
-      ) : view === 'list' ? (
+      ) : (
         <QuotationsByStatus
           quotations={filtered}
           onSelect={(id) => {
@@ -187,8 +195,6 @@ export function DashboardPage() {
           }}
           onPreviewPdf={setPreviewId}
         />
-      ) : (
-        <QuotationsKanbanBoard quotations={quotations} onSelect={setSelectedId} canChangeStatus={canChangeStatus} />
       )}
 
       <QuotationDetailDialog quotationId={selectedId} initialTab={initialTab} onClose={() => setSelectedId(null)} />

@@ -50,7 +50,10 @@ test.describe('Cambios pedidos: precios, compras, clientes y menú', () => {
 
     const breakdown = page.getByTestId('item-price-breakdown-0');
     await expect(breakdown).toHaveText('Producto S/ 0.90 + técnica S/ 0.95 = S/ 1.85 c/u × 10 = S/ 18.50');
-    // Montos del ítem a la vista: sin IGV y, al marcarlo, con su IGV por ítem.
+    // El IGV viene activo por defecto: al quitarlo y volver a marcarlo, los
+    // montos del ítem se actualizan.
+    await expect(page.getByTestId('item-igv-0')).toHaveText('S/ 3.33');
+    await page.locator('div[role="dialog"] label', { hasText: 'Incluye IGV' }).click();
     await expect(page.getByTestId('item-igv-0')).toHaveText('No incluido');
     await expect(page.getByTestId('item-total-0')).toHaveText('S/ 18.50');
     await page.locator('div[role="dialog"] label', { hasText: 'Incluye IGV' }).click();

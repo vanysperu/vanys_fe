@@ -10,11 +10,16 @@ import { correctionReasonSchema } from '@/modules/moneyCorrections/schemas/corre
 // en todos los casos.
 export const quotationItemSchema = z
   .object({
+    // Id del item al editar. No se llama `id`: useFieldArray usa ese nombre.
+    item_id: z.number().optional(),
     product_id: z.number({ error: 'Selecciona un producto' }),
     // Obligatoria solo si el producto requiere personalización — eso lo
     // revisa el formulario al enviar (depende del producto elegido) y lo
     // revalida el backend.
     technique_id: z.number().optional(),
+    // Variante elegida: el backend valida que el color sea del producto.
+    product_code: z.string().optional(),
+    color: z.string().optional(),
     quantity: z.number({ error: 'La cantidad es obligatoria' }).int().min(1, 'Mínimo 1'),
     pricing_mode: z.enum(['unit', 'hundred', 'half_thousand', 'thousand', 'custom'], {
       error: 'Selecciona un modo de precio',

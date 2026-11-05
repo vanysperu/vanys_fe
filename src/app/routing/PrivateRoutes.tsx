@@ -62,6 +62,9 @@ const StatisticsPage = lazy(() =>
 const ApiKeysPage = lazy(() =>
   import('@/modules/apiKeys/pages/ApiKeysPage').then((m) => ({ default: m.ApiKeysPage })),
 );
+const AdvertisementsPage = lazy(() =>
+  import('@/modules/advertisements/pages/AdvertisementsPage').then((m) => ({ default: m.AdvertisementsPage })),
+);
 const RemindersPage = lazy(() =>
   import('@/modules/reminders/pages/RemindersPage').then((m) => ({ default: m.RemindersPage })),
 );
@@ -101,6 +104,7 @@ export default function PrivateRoutes() {
           <Route path="/clientes" element={<ClientsPage />} />
           <Route path="/productos" element={<ProductsPage />} />
           <Route path="/productos/tecnicas" element={<ProductsPage />} />
+          <Route path="/anuncios" element={<AdvertisementsPage />} />
           <Route path="/cotizaciones" element={<QuotationsPage />} />
           <Route path="/ordenes-compra" element={<PurchaseOrdersPage />} />
           <Route path="/configuracion/documentos" element={<DocumentSettingsPage />} />

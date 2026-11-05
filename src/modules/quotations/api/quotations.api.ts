@@ -12,6 +12,8 @@ import type {
   Quotation,
   QuotationDetail,
   QuotationExpense,
+  QuotationBoard,
+  QuotationBoardParams,
   QuotationListParams,
   QuotationListSummary,
   QuotationPayment,
@@ -23,6 +25,13 @@ type QuotationListResult = PagedListResult<Quotation> & { summary: QuotationList
 
 export async function getQuotations(params: QuotationListParams): Promise<QuotationListResult> {
   const response = await apiClient.get<ApiResponse<QuotationListResult>>('/quotation/list', { params });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Todas las columnas del tablero en una sola llamada.
+export async function getQuotationBoard(params: QuotationBoardParams & { perStatus: number }): Promise<QuotationBoard> {
+  const response = await apiClient.get<ApiResponse<QuotationBoard>>('/quotation/board', { params });
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

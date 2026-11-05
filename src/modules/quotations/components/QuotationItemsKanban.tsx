@@ -180,7 +180,11 @@ function ItemCard({ item, dragging = false }: { item: QuotationItem; dragging?: 
       )}
     >
       <p className="truncate text-[11.5px] font-medium">{item.product?.name ?? '—'}</p>
-      <p className="text-[10.5px] text-muted-foreground">Cant. {item.quantity}</p>
+      {/* Producción necesita ver el color de cada lote. */}
+      <p className="truncate text-[10.5px] text-muted-foreground">
+        Cant. {item.quantity}
+        {item.color ? ` · ${item.color}` : ''}
+      </p>
     </div>
   );
 }

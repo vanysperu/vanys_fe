@@ -1,6 +1,13 @@
 import { cashClosingsKeys } from '@/modules/cashClosings/hooks/cashClosings.keys';
 import type { ReasonedToggleInput } from '@/modules/cashClosings/types/cashClosings.types';
-import { keepPreviousData, type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  type QueryClient,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
 import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
@@ -17,6 +24,7 @@ import {
   createQuotationPayment,
   downloadQuotationPdf,
   getQuotation,
+  getQuotationBoard,
   getQuotations,
   updateQuotation,
 } from '@/modules/quotations/api/quotations.api';
@@ -28,6 +36,7 @@ import type {
   CorrectQuotationExpenseDto,
   CreateQuotationExpenseDto,
   CreateQuotationPaymentDto,
+  QuotationBoardParams,
   QuotationListParams,
   QuotationStatus,
   UpdateQuotationDto,
@@ -39,6 +48,41 @@ export function useQuotations(params: QuotationListParams, options?: { enabled?:
     queryFn: () => getQuotations(params),
     enabled: options?.enabled,
     placeholderData: keepPreviousData,
+  });
+}
+
+// Cotizaciones por columna del tablero en cada carga (y en cada "Ver más").
+export const BOARD_PAGE_SIZE = 20;
+
+// Las primeras de cada columna del tablero, con sus totales reales: UNA llamada
+// para todas las columnas (nunca un pedido por columna).
+export function useQuotationBoard(params: QuotationBoardParams) {
+  return useQuery({
+    queryKey: quotationsKeys.board(params),
+    queryFn: () => getQuotationBoard({ ...params, perStatus: BOARD_PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+// "Ver más" de una columna: las páginas siguientes de ese estado, en el mismo
+// orden que el tablero (la que llegó al estado más recientemente, primero). Solo
+// se pide cuando el usuario lo abre (enabled).
+export function useQuotationBoardColumnMore(status: QuotationStatus, params: QuotationBoardParams, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: quotationsKeys.boardColumn(status, params),
+    queryFn: ({ pageParam }) =>
+      getQuotations({
+        ...params,
+        status,
+        orderBy: 'status_changed_at',
+        orderDir: 'desc',
+        page: pageParam,
+        limit: BOARD_PAGE_SIZE,
+      }),
+    // La página 1 ya vino con el tablero.
+    initialPageParam: 2,
+    getNextPageParam: (last) => (last.meta.page < last.meta.totalPages ? last.meta.page + 1 : undefined),
+    enabled,
   });
 }
 

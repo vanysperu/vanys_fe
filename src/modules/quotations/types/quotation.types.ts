@@ -1,3 +1,5 @@
+import type { ProductCode, ProductColor } from '@/modules/products/types/product.types';
+
 // Espejo de QUOTATION_STATUSES (grulla_be: quotation.model.ts).
 export type QuotationStatus =
   // Pedido que llegó desde la web (POST /public/quotation-request): el
@@ -211,6 +213,10 @@ export interface QuotationItem {
   product_id: number;
   technique_id: number | null;
   stage_id: number | null;
+  // Código de proveedor y color elegidos (copia: no cambian si se edita el
+  // catálogo del producto).
+  product_code?: string | null;
+  color?: string | null;
   quantity: number;
   pricing_mode: QuotationItemPricingMode;
   unit_price: number;
@@ -226,6 +232,8 @@ export interface QuotationItem {
     price_thousand: number | null;
     requires_customization: boolean;
     is_deleted: boolean;
+    colors?: ProductColor[];
+    codes?: ProductCode[];
   };
   technique?: {
     id: number;
@@ -361,9 +369,13 @@ export interface CreateQuotationExpenseDto {
 }
 
 export interface CreateQuotationItemDto {
+  // Solo al editar: el item que ya existe (sin id es un producto nuevo).
+  id?: number | null;
   product_id: number;
   // Solo para productos que requieren personalización (null si no).
   technique_id?: number | null;
+  product_code?: string | null;
+  color?: string | null;
   // Siempre obligatoria: cada modo de precio es una tarifa POR UNIDAD y el
   // subtotal es precio por unidad × cantidad.
   quantity?: number | null;
@@ -422,6 +434,9 @@ export interface UpdateQuotationDto {
   includes_igv?: boolean;
 }
 
+// Columnas por las que el backend deja ordenar el listado.
+export type QuotationListOrderBy = 'created_at' | 'status_changed_at' | 'updated_at' | 'total' | 'id';
+
 export interface QuotationListParams {
   // Solo tiene efecto para el Super Administrador: limita el listado a esa
   // empresa (ej. los selectores de un formulario, una vez elegida la empresa,
@@ -437,4 +452,30 @@ export interface QuotationListParams {
   // Rango de fecha de emisión (YYYY-MM-DD).
   dateFrom?: string;
   dateTo?: string;
+  // Por defecto, la más nueva primero (created_at desc).
+  orderBy?: QuotationListOrderBy;
+  orderDir?: 'asc' | 'desc';
+}
+
+// Filtros del tablero (GET /quotation/board): los mismos que el listado,
+// menos el estado (cada estado es una columna).
+export interface QuotationBoardParams {
+  companyId?: number;
+  clientId?: number;
+  businessUnitId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+// Una columna del tablero: sus primeras cotizaciones (la que llegó a ese estado
+// más recientemente, primero) y los totales de TODA la columna.
+export interface QuotationBoardColumn {
+  status: QuotationStatus;
+  total_count: number;
+  total_amount: number;
+  data: Quotation[];
+}
+
+export interface QuotationBoard {
+  columns: QuotationBoardColumn[];
 }
