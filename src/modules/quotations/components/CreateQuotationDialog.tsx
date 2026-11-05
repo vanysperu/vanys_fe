@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Check, Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
@@ -45,6 +45,7 @@ import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
+import { useDebouncedValue } from '@/presentation/hooks/shared/useDebouncedValue';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { cn } from '@/lib/utils';
 import type { ApiClientError } from '@/config/api.types';
@@ -212,6 +213,20 @@ const EMPTY_ITEM = { product_id: undefined, technique_id: undefined, pricing_mod
 // las opciones aunque no estén entre los que trae el selector (carga hasta
 // 100 activos): si no, el item mostraba el id en vez del nombre y no ofrecía
 // las tarifas del producto.
+// Texto secundario de un producto en el buscador: el código que coincidió con
+// lo escrito o, si no, su SKU (así se ve por qué apareció).
+// Código de proveedor del producto que coincide con lo buscado (si hay).
+function matchedProductCode(product: Product | undefined, search: string) {
+  const term = search.trim().toLowerCase();
+  return term ? product?.codes?.find((code) => code.code.toLowerCase().includes(term)) : undefined;
+}
+
+function productHint(product: Product, search: string): string | undefined {
+  const matchedCode = matchedProductCode(product, search);
+  if (matchedCode) return `Código ${matchedCode.code}`;
+  return product.sku ? `SKU ${product.sku}` : undefined;
+}
+
 function mergeById<T extends { id: number }>(rows: T[], extra: T[]): T[] {
   const known = new Set(rows.map((row) => row.id));
   return [...rows, ...extra.filter((row) => !known.has(row.id))];
@@ -351,10 +366,19 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
     { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
     { enabled: listsEnabled },
   );
-  const { data: products } = useProducts(
-    { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
+  // Buscador de productos en el SERVIDOR (pedido explícito del usuario: buscar
+  // también por código o SKU). Antes se cargaban los primeros 100 y se
+  // filtraba solo por nombre: un producto fuera de esos 100 no aparecía.
+  const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebouncedValue(productSearch.trim(), 300);
+  const { data: products, isFetching: isSearchingProducts } = useProducts(
+    { page: 1, limit: 100, status: 'active', companyId: listCompanyId, searchTerm: debouncedProductSearch || undefined },
     { enabled: listsEnabled },
   );
+  // Todo producto que ya trajo alguna búsqueda queda guardado: uno ya elegido
+  // (o recién creado con "+") sigue disponible para calcular su precio aunque
+  // la búsqueda actual ya no lo traiga. Es solo una caché de lectura.
+  const seenProducts = useRef(new Map<number, Product>());
   const { data: techniques } = useTechniques(
     { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
     { enabled: listsEnabled },
@@ -364,7 +388,17 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   const ofSelectedCompany = <T extends { company_id: number }>(rows: T[] | undefined): T[] =>
     (rows ?? []).filter((row) => !isSystem || row.company_id === resolvedCompanyId);
   const companyClients = ofSelectedCompany(clients?.data);
-  const companyProducts = mergeById(ofSelectedCompany(products?.data), quotationProducts(completeQuotation));
+  const productResults = ofSelectedCompany(products?.data);
+  for (const row of productResults) seenProducts.current.set(row.id, row);
+  const companyProducts = mergeById(
+    mergeById(productResults, quotationProducts(completeQuotation)),
+    ofSelectedCompany([...seenProducts.current.values()]),
+  );
+  const productOptions = productResults.map((row) => ({
+    value: String(row.id),
+    label: row.name,
+    hint: productHint(row, debouncedProductSearch),
+  }));
   const companyTechniques = mergeById(ofSelectedCompany(techniques?.data), quotationTechniques(completeQuotation));
 
   // Los "+" de creación rápida: solo si el rol puede crear eso y, para el
@@ -727,6 +761,13 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                             if (newProduct && !newProduct.requires_customization) {
                               setValue(`items.${index}.technique_id`, undefined);
                             }
+                            // Buscado por un código de proveedor: cada código es de un
+                            // color, así que ese código y su color quedan elegidos.
+                            const searchedCode = matchedProductCode(newProduct, debouncedProductSearch);
+                            if (searchedCode) {
+                              setValue(`items.${index}.color`, searchedCode.color ?? undefined);
+                              setValue(`items.${index}.product_code`, searchedCode.code);
+                            }
                             const newTechnique = effectiveTechnique(
                               newProduct,
                               companyTechniques.find((row) => row.id === item?.technique_id),
@@ -736,7 +777,12 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                               setValue(`items.${index}.pricing_mode`, newModes[0] ?? 'custom');
                             }
                           }}
-                          options={companyProducts.map((row) => ({ value: String(row.id), label: row.name }))}
+                          options={productOptions}
+                          serverSearch
+                          onSearchChange={setProductSearch}
+                          isSearching={isSearchingProducts}
+                          selectedLabel={companyProducts.find((row) => row.id === item?.product_id)?.name}
+                          emptyText="No hay productos con ese nombre, SKU o código"
                         />
                         {canQuickCreateProduct && (
                           <QuickCreateProductDialog

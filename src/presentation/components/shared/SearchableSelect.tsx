@@ -16,6 +16,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/componen
 export interface SearchableSelectOption {
   value: string;
   label: string;
+  // Opcional: texto secundario a la derecha (ej. el SKU o el código de un
+  // producto). También cuenta para la búsqueda local.
+  hint?: string;
 }
 
 interface SearchableSelectProps {
@@ -40,6 +43,17 @@ interface SearchableSelectProps {
   // forma de deshacerse una vez elegida una opción (bug reportado por QA).
   onClear?: () => void;
   clearLabel?: string;
+  // Opcional: búsqueda en el SERVIDOR (listas grandes, ej. productos). Con
+  // `onSearchChange` la pantalla recibe lo escrito y manda en `options` los
+  // resultados; `serverSearch` apaga el filtro local para no volver a filtrar
+  // lo que ya filtró la API (que puede buscar por campos que no se muestran,
+  // como el código). Sin estas props, todo funciona como antes.
+  onSearchChange?: (text: string) => void;
+  serverSearch?: boolean;
+  isSearching?: boolean;
+  // Texto del botón cuando la opción elegida no está entre los resultados
+  // actuales de la búsqueda.
+  selectedLabel?: string;
 }
 
 // Reemplazo de <Select> para listas largas cargadas de la API (clientes,
@@ -61,10 +75,19 @@ export function SearchableSelect({
   allowCustomValue = false,
   onClear,
   clearLabel = 'Ninguna',
+  onSearchChange,
+  serverSearch = false,
+  isSearching = false,
+  selectedLabel,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearchState] = useState('');
+  const setSearch = (text: string) => {
+    setSearchState(text);
+    onSearchChange?.(text);
+  };
   const selected = options.find((option) => option.value === value);
+  const triggerLabel = selected?.label ?? (value ? (selectedLabel ?? value) : undefined);
   // Si lo tipeado no matchea ninguna opción (por label ni por value), se
   // ofrece cargarlo tal cual como valor libre — cubre catálogos que crecen
   // con el uso (ej. categorías de variable general).
@@ -81,7 +104,14 @@ export function SearchableSelect({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        // Al cerrar sin elegir, la próxima vez arranca sin búsqueda.
+        if (!next && search) setSearch('');
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           id={id}
@@ -92,19 +122,19 @@ export function SearchableSelect({
           disabled={disabled}
           className={cn(
             'h-9 w-full min-w-0 justify-between font-normal',
-            !selected && !value && 'text-muted-foreground',
+            !triggerLabel && 'text-muted-foreground',
             className,
           )}
         >
-          <span className="min-w-0 truncate">{selected ? selected.label : value || placeholder}</span>
+          <span className="min-w-0 truncate">{triggerLabel ?? placeholder}</span>
           <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) min-w-[8rem] p-0" align="start">
-        <Command>
+        <Command shouldFilter={!serverSearch}>
           <CommandInput placeholder={placeholder} value={search} onValueChange={setSearch} />
           <CommandList>
-            {!showCustomValueOption && <CommandEmpty>{emptyText}</CommandEmpty>}
+            {!showCustomValueOption && <CommandEmpty>{isSearching ? 'Buscando…' : emptyText}</CommandEmpty>}
             <CommandGroup>
               {onClear && (
                 <CommandItem
@@ -122,7 +152,7 @@ export function SearchableSelect({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
+                  value={option.hint ? `${option.label} ${option.hint}` : option.label}
                   onSelect={() => {
                     onChange(option.value);
                     setSearch('');
@@ -131,6 +161,7 @@ export function SearchableSelect({
                 >
                   <Check className={cn('size-4', option.value === value ? 'opacity-100' : 'opacity-0')} />
                   <span className="min-w-0 truncate">{option.label}</span>
+                  {option.hint && <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">{option.hint}</span>}
                 </CommandItem>
               ))}
               {showCustomValueOption && (
