@@ -51,7 +51,7 @@ export function UploadInvoiceDialog({ invoice, onClose }: UploadInvoiceDialogPro
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {invoice?.has_file ? 'Reemplazar' : 'Subir'} factura · {invoice?.quotation_code}
+            {invoice?.has_file ? 'Reemplazar' : 'Subir'} factura · {invoice?.quotation_codes.join(', ')}
           </DialogTitle>
           <DialogDescription>
             {invoice ? `${INVOICE_TYPE_LABEL[invoice.type]} · ${invoice.description}` : ''}

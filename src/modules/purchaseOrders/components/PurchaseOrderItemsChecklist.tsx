@@ -118,6 +118,11 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
           const label = dto.allow_exceed ? 'Compra adicional registrada' : 'Compra registrada';
           setOpenFormItemId(null);
           setPendingExceed(null);
+          // Sumada a una factura ya registrada: no hay nada que subir acá.
+          if (dto.invoice_id) {
+            toast.success(`${label} en la factura elegida`);
+            return;
+          }
           if (!purchase.invoice_id || !invoiceFile) {
             toast.success(dto.has_invoice ? `${label}. Falta subir la factura (Facturas → "Faltan subir").` : label);
             return;
@@ -280,6 +285,7 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
 
             {isFormOpen && (
               <RegisterPurchaseForm
+                itemId={item.id}
                 remaining={item.quantity - purchasedQty}
                 companyId={companyId}
                 isPending={isRegistering}
@@ -297,16 +303,18 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
 }
 
 function RegisterPurchaseForm({
+  itemId,
   remaining,
   companyId,
   isPending,
   onSubmit,
   onCancel,
 }: {
+  itemId: number;
   remaining: number;
   companyId?: number;
   isPending: boolean;
-  onSubmit: (values: RegisterPurchaseFormValues & { has_invoice: boolean }, invoiceFile: File | null) => void;
+  onSubmit: (values: RegisterPurchaseFormValues & { has_invoice: boolean; invoice_id?: number }, invoiceFile: File | null) => void;
   onCancel: () => void;
 }) {
   // ¿La compra llevaba factura? Es obligatorio responder (pedido explícito del
@@ -332,13 +340,19 @@ function RegisterPurchaseForm({
       setInvoiceError('Indica si la compra tiene factura');
       return;
     }
+    const usesExisting = invoice.hasInvoice && invoice.usesExisting;
+    if (usesExisting && !invoice.existingInvoiceId) {
+      setInvoiceError('Elige la factura en la que va esta compra');
+      return;
+    }
     onSubmit(
       {
         ...values,
         payment_account_id: values.funding_source === 'company' ? values.payment_account_id : null,
         has_invoice: invoice.hasInvoice,
+        invoice_id: usesExisting ? (invoice.existingInvoiceId ?? undefined) : undefined,
       },
-      invoice.hasInvoice ? invoice.file : null,
+      invoice.hasInvoice && !usesExisting ? invoice.file : null,
     );
   };
 
@@ -416,6 +430,7 @@ function RegisterPurchaseForm({
           setInvoiceError(undefined);
         }}
         error={invoiceError}
+        purchaseItemId={itemId}
       />
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>

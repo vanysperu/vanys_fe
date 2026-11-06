@@ -6,6 +6,7 @@ import {
   getDriveStatus,
   getInvoiceFile,
   getInvoices,
+  getPurchaseInvoiceCandidates,
   retryInvoiceDrive,
   uploadInvoiceFile,
 } from '@/modules/invoices/api/invoices.api';
@@ -16,6 +17,14 @@ export function useInvoices(params: InvoiceListParams) {
   return useQuery({
     queryKey: invoicesKeys.list(params),
     queryFn: () => getInvoices(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePurchaseInvoiceCandidates(itemId: number, search: string) {
+  return useQuery({
+    queryKey: invoicesKeys.purchaseCandidates(itemId, search),
+    queryFn: () => getPurchaseInvoiceCandidates(itemId, search || undefined),
     placeholderData: keepPreviousData,
   });
 }

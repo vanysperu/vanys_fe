@@ -14,6 +14,7 @@ import {
   type InvoiceType,
 } from '@/modules/invoices/types/invoice.types';
 import { useCompanies } from '@/modules/platform/hooks/useCompanies';
+import { formatMoney } from '@/modules/moneyCorrections/utils/correctionChanges';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
@@ -167,10 +168,16 @@ export function InvoicesPage() {
             header: 'Cotización',
             cell: (row) => (
               <span>
-                {row.quotation_code}
+                {row.quotation_codes.join(', ')}
                 <span className="block max-w-64 truncate text-[10px] text-muted-foreground" title={row.description}>
                   {row.description}
                 </span>
+                {/* Una factura puede cubrir varios productos: el detalle está en el visor. */}
+                {row.purchases.length > 1 && (
+                  <span className="block text-[10px] text-muted-foreground" data-testid={`invoice-products-${row.id}`}>
+                    {row.purchases.length} productos · {formatMoney(row.purchases_total)}
+                  </span>
+                )}
               </span>
             ),
           },

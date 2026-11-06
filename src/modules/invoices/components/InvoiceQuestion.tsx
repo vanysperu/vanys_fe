@@ -1,4 +1,7 @@
+import type { ReactNode } from 'react';
+
 import { InvoiceFileField } from '@/modules/invoices/components/InvoiceFileField';
+import { PurchaseInvoicePicker } from '@/modules/invoices/components/PurchaseInvoicePicker';
 import { cn } from '@/lib/utils';
 import { Label } from '@/presentation/components/shared/ui/label';
 
@@ -6,47 +9,100 @@ export interface InvoiceAnswer {
   // null = todavía no respondió.
   hasInvoice: boolean | null;
   file: File | null;
+  // Solo en compras: true = va en una factura ya registrada (una factura puede
+  // cubrir varios productos) y existingInvoiceId dice en cuál.
+  usesExisting: boolean;
+  existingInvoiceId: number | null;
 }
 
-export const EMPTY_INVOICE_ANSWER: InvoiceAnswer = { hasInvoice: null, file: null };
+export const EMPTY_INVOICE_ANSWER: InvoiceAnswer = {
+  hasInvoice: null,
+  file: null,
+  usesExisting: false,
+  existingInvoiceId: null,
+};
 
 interface InvoiceQuestionProps {
   question: string;
   value: InvoiceAnswer;
   onChange: (value: InvoiceAnswer) => void;
   error?: string;
+  // Solo en compras: el item que se está comprando. Con esto se puede elegir
+  // una factura ya registrada en vez de una nueva.
+  purchaseItemId?: number;
+}
+
+interface ChoiceProps {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}
+
+function Choice({ active, onClick, children }: ChoiceProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-md border px-3 py-1.5 text-sm transition-colors',
+        active ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:bg-muted',
+      )}
+      aria-pressed={active}
+    >
+      {children}
+    </button>
+  );
 }
 
 // "¿Llevaba factura?" / "¿Emitimos factura?" (pedido explícito del usuario).
 // Con "Sí" se puede adjuntar la foto o el archivo en el momento; si no se
-// adjunta, la factura queda en "Faltan subir".
-export function InvoiceQuestion({ question, value, onChange, error }: InvoiceQuestionProps) {
-  const option = (answer: boolean, label: string) => (
-    <button
-      type="button"
-      onClick={() => onChange({ hasInvoice: answer, file: answer ? value.file : null })}
-      className={cn(
-        'rounded-md border px-3 py-1.5 text-sm transition-colors',
-        value.hasInvoice === answer ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:bg-muted',
-      )}
-      aria-pressed={value.hasInvoice === answer}
-    >
-      {label}
-    </button>
-  );
+// adjunta, la factura queda en "Faltan subir". En una compra, además, la
+// factura puede ser una ya registrada: varios productos, una sola factura.
+export function InvoiceQuestion({ question, value, onChange, error, purchaseItemId }: InvoiceQuestionProps) {
+  const canUseExisting = purchaseItemId !== undefined;
+  const usesExisting = canUseExisting && value.usesExisting;
 
   return (
     <div className="space-y-2" data-testid="invoice-question">
       <Label className="text-xs">{question}</Label>
       <div className="flex gap-2">
-        {option(true, 'Sí')}
-        {option(false, 'No')}
+        <Choice active={value.hasInvoice === true} onClick={() => onChange({ ...value, hasInvoice: true })}>
+          Sí
+        </Choice>
+        <Choice active={value.hasInvoice === false} onClick={() => onChange({ ...EMPTY_INVOICE_ANSWER, hasInvoice: false })}>
+          No
+        </Choice>
       </div>
+      {value.hasInvoice && canUseExisting && (
+        <div className="flex flex-wrap gap-2" data-testid="invoice-source">
+          <Choice active={!usesExisting} onClick={() => onChange({ ...value, usesExisting: false, existingInvoiceId: null })}>
+            Factura nueva
+          </Choice>
+          <Choice active={usesExisting} onClick={() => onChange({ ...value, usesExisting: true, file: null })}>
+            Va en una factura ya registrada
+          </Choice>
+        </div>
+      )}
       {error && <p className="text-xs text-destructive">{error}</p>}
-      {value.hasInvoice && (
+      {value.hasInvoice && usesExisting && purchaseItemId !== undefined && (
+        <div className="space-y-1">
+          <PurchaseInvoicePicker
+            itemId={purchaseItemId}
+            value={value.existingInvoiceId}
+            onChange={(invoiceId) => onChange({ ...value, existingInvoiceId: invoiceId })}
+          />
+          <p className="text-xs text-muted-foreground">Esta compra se suma a esa factura: no hace falta volver a subir el archivo.</p>
+        </div>
+      )}
+      {value.hasInvoice && !usesExisting && (
         <div className="space-y-1">
           <InvoiceFileField value={value.file} onChange={(file) => onChange({ ...value, file })} />
           {!value.file && <p className="text-xs text-muted-foreground">Si no la adjuntas ahora, quedará en Facturas → "Faltan subir".</p>}
+          {canUseExisting && (
+            <p className="text-xs text-muted-foreground">
+              ¿La misma factura cubre otros productos? Al registrar esas compras elige "Va en una factura ya registrada".
+            </p>
+          )}
         </div>
       )}
     </div>

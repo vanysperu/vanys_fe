@@ -11,12 +11,26 @@ export interface LocalDateTime {
   time: string;
 }
 
+// Una compra cubierta por una factura de compra (una factura puede cubrir
+// varios productos, incluso de cotizaciones distintas de la misma tienda).
+export interface InvoicePurchaseLine {
+  purchase_id: number;
+  product_name: string;
+  quantity: number;
+  amount: number;
+  quotation_code: string;
+}
+
 export interface Invoice {
   id: number;
   type: InvoiceType;
   quotation_id: number;
   quotation_code: string;
-  purchase_id: number | null;
+  // Todas las cotizaciones que cubre (la principal primero).
+  quotation_codes: string[];
+  // Compras vigentes de la factura (vacío en una emitida).
+  purchases: InvoicePurchaseLine[];
+  purchases_total: number;
   description: string;
   company_id: number;
   company_name: string | null;
@@ -29,6 +43,16 @@ export interface Invoice {
   stored_in_system: boolean;
   drive_status: InvoiceDriveStatus;
   drive_error: string | null;
+  created_at: LocalDateTime;
+  created_by_name: string | null;
+}
+
+// GET /invoice/purchase-candidates: factura a la que se puede sumar una compra.
+export interface PurchaseInvoiceCandidate {
+  id: number;
+  quotation_codes: string[];
+  description: string;
+  has_file: boolean;
   created_at: LocalDateTime;
   created_by_name: string | null;
 }

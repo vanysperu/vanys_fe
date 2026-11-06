@@ -129,6 +129,9 @@ export interface CreatePurchaseOrderItemPurchaseDto {
   allow_exceed?: boolean;
   // ¿La compra llevaba factura? (el archivo se sube aparte).
   has_invoice?: boolean;
+  // Factura de compra ya registrada a la que se suma esta compra (una factura
+  // puede cubrir varios productos). Sin esto, se registra una nueva.
+  invoice_id?: number | null;
 }
 
 // Código y detalle con los que el backend rechaza una compra que supera lo

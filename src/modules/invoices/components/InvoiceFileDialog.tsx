@@ -2,6 +2,7 @@ import { Download } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { InvoicePurchaseList } from '@/modules/invoices/components/InvoicePurchaseList';
 import { useInvoiceFile } from '@/modules/invoices/hooks/useInvoices';
 import { INVOICE_PDF_TYPE, INVOICE_TYPE_LABEL, type Invoice } from '@/modules/invoices/types/invoice.types';
 import { Button } from '@/presentation/components/shared/ui/button';
@@ -52,15 +53,20 @@ export function InvoiceFileDialog({ invoice, onClose }: InvoiceFileDialogProps) 
           <div className="flex items-center justify-between gap-3 pr-12">
             <div className="min-w-0 space-y-1">
               <DialogTitle>
-                Factura {invoice ? INVOICE_TYPE_LABEL[invoice.type].toLowerCase() : ''} · {invoice?.quotation_code}
+                Factura {invoice ? INVOICE_TYPE_LABEL[invoice.type].toLowerCase() : ''} · {invoice?.quotation_codes.join(', ')}
               </DialogTitle>
-              <DialogDescription className="truncate">{invoice?.description}</DialogDescription>
+              {/* Con varias compras, el detalle va abajo (InvoicePurchaseList). */}
+              <DialogDescription className="truncate">
+                {invoice && invoice.purchases.length > 1 ? `Cubre ${invoice.purchases.length} productos` : invoice?.description}
+              </DialogDescription>
             </div>
             <Button size="sm" disabled={!blobUrl} onClick={handleDownload}>
               <Download className="size-3.5" /> Descargar
             </Button>
           </div>
         </DialogHeader>
+
+        {invoice && invoice.purchases.length > 1 && <InvoicePurchaseList invoice={invoice} />}
 
         {isLoading && <Skeleton className="h-[70vh] w-full" />}
         {isError && !isLoading && (

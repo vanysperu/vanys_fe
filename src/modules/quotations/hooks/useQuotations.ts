@@ -29,6 +29,7 @@ import {
   getQuotations,
   updateQuotation,
 } from '@/modules/quotations/api/quotations.api';
+import { invoicesKeys } from '@/modules/invoices/hooks/invoices.keys';
 import { paymentsKeys } from '@/modules/payments/hooks/payments.keys';
 import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
 import { receivablesKeys } from '@/modules/receivables/hooks/receivables.keys';
@@ -162,6 +163,8 @@ export function useChangeQuotationStatus(id: number) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
+      // Cerrar con factura la deja en Facturas → "Faltan subir".
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
       invalidateCashViews(queryClient);
@@ -179,6 +182,7 @@ export function useChangeQuotationStatusAny() {
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
       invalidateCashViews(queryClient);

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Check, CreditCard, Plus, Trash2, Upload, X } from 'lucide-react';
+import { Building2, Check, CreditCard, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -7,27 +7,17 @@ import { toast } from 'sonner';
 import { IMAGE_INPUT_ACCEPT, IMAGE_UPLOAD_HINT, validateImageFile } from '@/lib/imageUpload';
 import { buildAssetUrl } from '@/lib/utils';
 import { useMyDocumentSettings, useUpdateMyDocumentSettings, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
-import {
-  createPaymentAccountSchema,
-  updateDocumentSettingsSchema,
-  type CreatePaymentAccountFormValues,
-  type UpdateDocumentSettingsFormValues,
-} from '@/modules/documentSettings/schemas/documentSettings.schema';
-import {
-  useCreateVariableGeneral,
-  useDeleteVariableGeneral,
-  useToggleVariableGeneralStatus,
-  useVariableGenerals,
-} from '@/modules/variableGeneral/hooks/useVariableGeneral';
+import { PaymentAccountForm } from '@/modules/documentSettings/components/PaymentAccountForm';
+import { updateDocumentSettingsSchema, type UpdateDocumentSettingsFormValues } from '@/modules/documentSettings/schemas/documentSettings.schema';
+import { useDeleteVariableGeneral, useToggleVariableGeneralStatus, useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
-import { useAccess } from '@/presentation/hooks/shared/useAccess';
+import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
 import { Textarea } from '@/presentation/components/shared/ui/textarea';
 import type { ApiClientError } from '@/config/api.types';
@@ -213,17 +203,13 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
 
 // companyId: solo para el Super Administrador (la empresa elegida).
 function PaymentAccountsCard({ companyId }: { companyId?: number }) {
-  const [formOpen, setFormOpen] = useState(false);
-  // El QR se sube al elegir el archivo (para poder subirlo una sola vez y
-  // previsualizarlo) pero la cuenta NO se crea hasta presionar "Guardar" —
-  // antes se creaba la cuenta apenas se elegía el archivo QR, sin dar
-  // chance de completar el resto del formulario primero (pedido explícito
-  // del usuario).
-  const [pendingQrPath, setPendingQrPath] = useState<string | undefined>(undefined);
+  // Qué formulario está abierto: 'new' = agregar, un id = editar esa cuenta.
+  // Uno solo a la vez.
+  const [openForm, setOpenForm] = useState<'new' | number | null>(null);
   const { data, isLoading } = useVariableGenerals({ category: PAYMENT_ACCOUNT_CATEGORY, ignorePagination: true, companyId });
-  const { mutate: create, isPending: isCreating } = useCreateVariableGeneral();
   const { mutate: remove, isPending: isRemoving } = useDeleteVariableGeneral();
   const { mutate: toggleStatus, isPending: isToggling } = useToggleVariableGeneralStatus();
+  const canUpdate = usePermissionButton('variable_general.update.button');
 
   // Una cuenta con movimientos no se elimina (su historial en Caja pasaría a
   // "Efectivo"): el backend lo rechaza y se explica por qué; se deshabilita.
@@ -237,60 +223,11 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
       onSuccess: () => toast.success(active ? 'Cuenta deshabilitada: ya no se ofrece, su historial se conserva' : 'Cuenta habilitada'),
       onError: (error) => toast.error((error as ApiClientError).message),
     });
-  const { mutate: uploadAsset, isPending: isUploading } = useUploadCompanyAsset();
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<CreatePaymentAccountFormValues>({ resolver: zodResolver(createPaymentAccountSchema) });
 
   // Para el Super Administrador, solo las de la empresa elegida (nunca las
   // de otras empresas mezcladas).
   const accounts = (data?.data ?? []).filter((account) => companyId === undefined || account.company_id === companyId);
-
-  const onSubmit = (values: CreatePaymentAccountFormValues) => {
-    create(
-      {
-        category: PAYMENT_ACCOUNT_CATEGORY,
-        title: 'Cuenta de pago',
-        prefix_id: values.prefix_id,
-        name: values.name,
-        ref1: values.ref1,
-        ref2: pendingQrPath,
-        company_id: companyId,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Cuenta agregada');
-          reset();
-          setPendingQrPath(undefined);
-          setFormOpen(false);
-        },
-        onError: (error) => toast.error((error as ApiClientError).message),
-      },
-    );
-  };
-
-  const handleQrChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const invalidReason = validateImageFile(file);
-    if (invalidReason) {
-      toast.error(invalidReason);
-      event.target.value = '';
-      return;
-    }
-
-    uploadAsset({ file, companyId }, {
-      onSuccess: ({ path }) => setPendingQrPath(path),
-      onError: (error) => toast.error((error as ApiClientError).message),
-    });
-  };
+  const closeForm = () => setOpenForm(null);
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm">
@@ -304,118 +241,72 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
       ) : (
         <div className="space-y-2">
           {accounts.length === 0 && <p className="text-sm text-muted-foreground">Sin cuentas registradas.</p>}
-          {accounts.map((account) => (
-            <div key={account.id} className="flex items-center justify-between gap-3 rounded-lg border p-2.5">
-              <div className="flex items-center gap-2.5">
-                {account.ref2 && (
-                  <img src={buildAssetUrl(account.ref2) ?? undefined} alt="QR" className="size-10 rounded border object-contain" />
-                )}
-                <div>
-                  <p className="flex items-center gap-1.5 text-sm font-medium">
-                    {account.name}
-                    {account.is_deleted && <Badge variant="outline">Deshabilitada</Badge>}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {TYPE_LABEL[account.prefix_id] ?? account.prefix_id} · {account.ref1}
-                  </p>
+          {accounts.map((account) =>
+            openForm === account.id ? (
+              <PaymentAccountForm key={account.id} account={account} companyId={companyId} onDone={closeForm} />
+            ) : (
+              <div key={account.id} className="flex items-center justify-between gap-3 rounded-lg border p-2.5">
+                <div className="flex items-center gap-2.5">
+                  {account.ref2 && (
+                    <img src={buildAssetUrl(account.ref2) ?? undefined} alt="QR" className="size-10 rounded border object-contain" />
+                  )}
+                  <div>
+                    <p className="flex items-center gap-1.5 text-sm font-medium">
+                      {account.name}
+                      {account.is_deleted && <Badge variant="outline">Deshabilitada</Badge>}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {TYPE_LABEL[account.prefix_id] ?? account.prefix_id} · {account.ref1}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {canUpdate && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      title="Editar cuenta"
+                      aria-label="Editar cuenta"
+                      data-testid={`account-edit-${account.id}`}
+                      onClick={() => setOpenForm(account.id)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
+                  <ToggleStatusButton
+                    active={!account.is_deleted}
+                    disabled={isToggling}
+                    entityLabel="cuenta"
+                    onToggle={() => toggleAccount(account.id, !account.is_deleted)}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    title="Eliminar cuenta"
+                    aria-label="Eliminar cuenta"
+                    disabled={isRemoving}
+                    onClick={() => removeAccount(account.id)}
+                  >
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <ToggleStatusButton
-                  active={!account.is_deleted}
-                  disabled={isToggling}
-                  entityLabel="cuenta"
-                  onToggle={() => toggleAccount(account.id, !account.is_deleted)}
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  title="Eliminar cuenta"
-                  aria-label="Eliminar cuenta"
-                  disabled={isRemoving}
-                  onClick={() => removeAccount(account.id)}
-                >
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       )}
 
       <div className="mt-3">
-        {!formOpen ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => setFormOpen(true)}>
+        {openForm === 'new' ? (
+          <PaymentAccountForm account={null} companyId={companyId} onDone={closeForm} />
+        ) : (
+          <Button type="button" size="sm" variant="outline" onClick={() => setOpenForm('new')}>
             <Plus className="size-4" />
             Agregar cuenta
           </Button>
-        ) : (
-          <form
-            onSubmit={handleSubmit((values) => onSubmit(values))}
-            className="space-y-2 rounded-lg border p-3"
-          >
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label>Tipo</Label>
-                <Select value={watch('prefix_id')} onValueChange={(value) => setValue('prefix_id', value as 'bank' | 'yape' | 'plin')}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bank">Cuenta bancaria</SelectItem>
-                    <SelectItem value="yape">Yape</SelectItem>
-                    <SelectItem value="plin">Plin</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.prefix_id && <p className="text-xs text-destructive">{errors.prefix_id.message}</p>}
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="account-name">Nombre</Label>
-                <Input id="account-name" placeholder="BCP - Cuenta corriente" {...register('name')} />
-                {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="account-ref1">Número de cuenta / teléfono</Label>
-              <Input id="account-ref1" {...register('ref1')} />
-              {errors.ref1 && <p className="text-xs text-destructive">{errors.ref1.message}</p>}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="account-qr">Imagen QR (opcional)</Label>
-              <Input
-                id="account-qr"
-                type="file"
-                accept={IMAGE_INPUT_ACCEPT}
-                disabled={isUploading}
-                onChange={handleQrChange}
-              />
-              <p className="text-[11px] text-muted-foreground">{IMAGE_UPLOAD_HINT}</p>
-              {isUploading && <p className="text-[11px] text-muted-foreground">Subiendo…</p>}
-              {pendingQrPath && !isUploading && (
-                <p className="text-[11px] text-muted-foreground">QR cargado — se guarda junto con la cuenta.</p>
-              )}
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setFormOpen(false);
-                  setPendingQrPath(undefined);
-                  reset();
-                }}
-              >
-                <X className="size-4" />
-                Cancelar
-              </Button>
-              <Button type="submit" size="sm" disabled={isCreating}>
-                <Check className="size-4" />
-                Guardar
-              </Button>
-            </div>
-          </form>
         )}
       </div>
     </div>

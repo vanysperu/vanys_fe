@@ -20,6 +20,7 @@ import type {
   PurchaseOrderItemStatus,
   PurchaseOrderListParams,
 } from '@/modules/purchaseOrders/types/purchaseOrder.types';
+import { invoicesKeys } from '@/modules/invoices/hooks/invoices.keys';
 import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
 import { employeeDebtsKeys } from '@/modules/employeeDebts/hooks/employeeDebts.keys';
@@ -103,6 +104,8 @@ export function useCreatePurchaseOrderItemPurchase(quotationId?: number) {
       createPurchaseOrderItemPurchase(itemId, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.lists() });
+      // Una compra con factura cambia Facturas ("Faltan subir") y sus opciones.
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: employeeDebtsKeys.lists() });
       queryClient.invalidateQueries({ queryKey: cashMovementsKeys.lists() });
       // Una compra pagada por la empresa mueve caja: Estadísticas y cierres también.

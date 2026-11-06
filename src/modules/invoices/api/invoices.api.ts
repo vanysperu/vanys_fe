@@ -5,8 +5,18 @@ import type {
   InvoiceDriveStatus,
   InvoiceListParams,
   InvoiceListResult,
+  PurchaseInvoiceCandidate,
   UploadInvoiceFileResult,
 } from '@/modules/invoices/types/invoice.types';
+
+// Facturas de compra a las que se puede sumar la compra de un item.
+export async function getPurchaseInvoiceCandidates(itemId: number, search?: string): Promise<PurchaseInvoiceCandidate[]> {
+  const response = await apiClient.get<ApiResponse<PurchaseInvoiceCandidate[]>>('/invoice/purchase-candidates', {
+    params: { itemId, search },
+  });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
 
 export async function getInvoices(params: InvoiceListParams): Promise<InvoiceListResult> {
   const response = await apiClient.get<ApiResponse<InvoiceListResult>>('/invoice/list', { params });

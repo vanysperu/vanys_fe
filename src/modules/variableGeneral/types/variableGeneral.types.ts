@@ -27,7 +27,8 @@ export interface CreateVariableGeneralDto {
   company_id?: number;
 }
 
-export type UpdateVariableGeneralDto = Partial<CreateVariableGeneralDto>;
+// ref2: null lo quita (ej. el QR de una cuenta de pago).
+export type UpdateVariableGeneralDto = Partial<Omit<CreateVariableGeneralDto, 'ref2'>> & { ref2?: string | null };
 
 // Shape propio de este listado (adminView, siempre activo desde el
 // frontend): ahora usa el formato de paginación uniforme del backend
