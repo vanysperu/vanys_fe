@@ -3,7 +3,8 @@ import { useState } from 'react';
 
 import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
 import { QuotationDetailDialog } from '@/modules/quotations/components/QuotationDetailDialog';
-import { QUOTATION_STATUS_COLOR, QUOTATION_STATUS_LABEL, type QuotationStatus } from '@/modules/quotations/types/quotation.types';
+import { QuotationStatusBadge } from '@/modules/quotations/components/QuotationStatusBadge';
+import { QUOTATION_STATUS_LABEL, type QuotationStatus } from '@/modules/quotations/types/quotation.types';
 import { useReceivables } from '@/modules/receivables/hooks/useReceivables';
 import {
   RECEIVABLE_STATUSES,
@@ -144,17 +145,7 @@ export function ReceivablesPage() {
           { header: 'Cliente', cell: (row) => <span className="font-medium">{row.client_name}</span> },
           {
             header: 'Estado',
-            cell: (row) => {
-              const color = QUOTATION_STATUS_COLOR[row.status];
-              return (
-                <span
-                  className="inline-flex h-[19px] items-center rounded-md px-2 text-[10px] font-bold"
-                  style={{ color: color.fg, background: color.bg }}
-                >
-                  {QUOTATION_STATUS_LABEL[row.status]}
-                </span>
-              );
-            },
+            cell: (row) => <QuotationStatusBadge status={row.status} />,
           },
           {
             header: 'Emitida',

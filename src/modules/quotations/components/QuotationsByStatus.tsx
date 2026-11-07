@@ -3,6 +3,7 @@ import { ChevronRight, CircleDollarSign, Download, Eye, FileText, Receipt, Shopp
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
+import { QuotationStatusBadge } from '@/modules/quotations/components/QuotationStatusBadge';
 import { useDownloadQuotationPdf } from '@/modules/quotations/hooks/useQuotations';
 import {
   QUOTATION_ACTIVE_STATUSES,
@@ -33,7 +34,9 @@ interface QuotationsByStatusProps {
   onPreviewPdf: (id: number) => void;
 }
 
-const GRID_COLS = '100px_minmax(150px,1.2fr)_110px_100px_100px_100px_150px';
+// La columna de estado tiene que dar para el más largo ("Diseño en aprobación"):
+// la etiqueta no se parte, así que con menos ancho pisaba la columna Total.
+const GRID_COLS = '100px_minmax(150px,1.2fr)_130px_100px_100px_100px_150px';
 
 // Lista agrupada por estado, mismo componente que usan el Panel principal y
 // Cotizaciones en el spec de diseño Vanys (una sola fuente de verdad para
@@ -186,12 +189,7 @@ export function QuotationsByStatus({ quotations, onSelect, onQuickAction, onPrev
                           COT-{String(quotation.id).padStart(4, '0')}
                         </span>
                         <span className="truncate text-[12.5px] font-semibold">{quotation.client?.name ?? '—'}</span>
-                        <span
-                          className="inline-flex h-[19px] w-fit items-center rounded-md px-2 text-[10px] font-bold"
-                          style={{ color: color.fg, background: color.bg }}
-                        >
-                          {QUOTATION_STATUS_LABEL[status]}
-                        </span>
+                        <QuotationStatusBadge status={status} className="w-fit" />
                         <span className="font-mono-nums text-right text-[12.5px] font-semibold">{money(quotation.total)}</span>
                         <span className="font-mono-nums text-right text-[12.5px] font-medium text-[var(--success)]">
                           {money(quotation.total_paid)}

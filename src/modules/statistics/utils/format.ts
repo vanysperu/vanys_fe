@@ -7,13 +7,6 @@ const moneyFormatter = new Intl.NumberFormat('es-PE', {
   maximumFractionDigits: 2,
 });
 
-// Sin decimales: para cifras grandes de un vistazo (indicadores).
-const roundMoneyFormatter = new Intl.NumberFormat('es-PE', {
-  style: 'currency',
-  currency: 'PEN',
-  maximumFractionDigits: 0,
-});
-
 // Compacto para ejes y etiquetas de barras: S/ 0 · S/ 950 · S/ 6.7 K.
 const compactMoneyFormatter = new Intl.NumberFormat('es-PE', {
   style: 'currency',
@@ -27,7 +20,6 @@ const integerFormatter = new Intl.NumberFormat('es-PE', { maximumFractionDigits:
 const percentFormatter = new Intl.NumberFormat('es-PE', { style: 'percent', maximumFractionDigits: 1 });
 
 export const formatMoney = (value: number) => moneyFormatter.format(value);
-export const formatMoneyRounded = (value: number) => roundMoneyFormatter.format(value);
 export const formatMoneyCompact = (value: number) => compactMoneyFormatter.format(value);
 export const formatInteger = (value: number) => integerFormatter.format(value);
 export const formatPercent = (value: number) => percentFormatter.format(value);

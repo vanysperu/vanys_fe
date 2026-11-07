@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AcceptQuotationDialog, type AcceptQuotationTarget } from '@/modules/quotations/components/AcceptQuotationDialog';
 import { FinishQuotationDialog, type FinishQuotationTarget } from '@/modules/quotations/components/FinishQuotationDialog';
+import { QuotationStatusBadge } from '@/modules/quotations/components/QuotationStatusBadge';
 import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import {
   useChangeQuotationStatusAny,
@@ -16,7 +17,6 @@ import {
 } from '@/modules/quotations/hooks/useQuotations';
 import {
   getKanbanDropTargets,
-  QUOTATION_STATUS_COLOR,
   QUOTATION_STATUS_LABEL,
   type Quotation,
   type QuotationBoardColumn,
@@ -176,7 +176,6 @@ function KanbanColumn({
 }) {
   const { status, total_count: totalCount, total_amount: totalAmount } = column;
   const { setNodeRef, isOver } = useDroppable({ id: status });
-  const color = QUOTATION_STATUS_COLOR[status];
   // "Ver más": recién al abrirlo se piden las páginas siguientes de la columna.
   const [showMore, setShowMore] = useState(false);
   const more = useQuotationBoardColumnMore(status, filters, showMore);
@@ -209,12 +208,7 @@ function KanbanColumn({
       data-testid={`kanban-column-${status}`}
     >
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2.5">
-        <span
-          className="inline-flex h-[19px] items-center rounded-md px-2 text-[10px] font-bold"
-          style={{ color: color.fg, background: color.bg }}
-        >
-          {QUOTATION_STATUS_LABEL[status]}
-        </span>
+        <QuotationStatusBadge status={status} />
         {/* Totales de TODA la columna, no solo de las tarjetas cargadas. */}
         <span className="font-mono-nums text-[11px] text-muted-foreground" data-testid={`kanban-count-${status}`}>
           {totalCount}

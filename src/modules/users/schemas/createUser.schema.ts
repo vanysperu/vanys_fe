@@ -47,7 +47,7 @@ const baseUserSchema = z
     document_type: z.number({ error: 'Selecciona un tipo de documento' }),
     document_number: z.string().min(1, 'El número de documento es obligatorio'),
     date_of_birth: z
-      .string()
+      .string({ error: 'La fecha de nacimiento es obligatoria' })
       .min(1, 'La fecha de nacimiento es obligatoria')
       .refine((value) => new Date(value).getTime() <= startOfToday().getTime(), {
         message: 'La fecha de nacimiento no puede ser una fecha futura',
@@ -64,8 +64,8 @@ const baseUserSchema = z
     // empresa nunca la elige (siempre la suya, forzada server-side) pero SÍ
     // necesita elegir tienda (business_unit_id obligatorio ahí). El refine
     // de abajo aplica cuál de las dos reglas corresponde según `isSystem`.
-    company_id: z.number().optional(),
-    business_unit_id: z.number().optional(),
+    company_id: z.number({ error: 'Selecciona una empresa' }).optional(),
+    business_unit_id: z.number({ error: 'Selecciona una tienda' }).optional(),
     roleId: z.number({ error: 'Selecciona un rol' }),
   })
   .superRefine((data, ctx) => {

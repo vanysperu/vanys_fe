@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
 import { Check, Pencil, Plus, Search, Users } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useForm, type DefaultValues } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
@@ -254,6 +254,22 @@ function documentNumberFilter(documentType: number | undefined) {
   return documentNumberOnlyDigits(documentType) ? digitsFilter(maxLength) : maxLengthFilter(maxLength);
 }
 
+const EMPTY_USER_FORM: DefaultValues<CreateUserFormValues> = {
+  name: '',
+  paternal_lastname: '',
+  maternal_lastname: '',
+  email: '',
+  document_type: undefined,
+  document_number: '',
+  date_of_birth: '',
+  phone_number: '',
+  address: '',
+  gender: undefined,
+  company_id: undefined,
+  business_unit_id: undefined,
+  roleId: undefined,
+};
+
 function CreateUserDialog() {
   const [open, setOpen] = useState(false);
   const { data: access } = useAccess();
@@ -266,7 +282,7 @@ function CreateUserDialog() {
   // ahora acepta ?companyId= solo para callers is_system). Un admin de
   // empresa no elige nada acá: el endpoint ya lo scopea a la suya.
   const { data: companies } = useCompanies({ page: 1, limit: 100 }, { enabled: isSystem });
-  const { mutate, isPending, error } = useCreateUser();
+  const { mutate, isPending, error, reset: clearCreateError } = useCreateUser();
 
   const {
     register,
@@ -275,7 +291,20 @@ function CreateUserDialog() {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<CreateUserFormValues>({ resolver: zodResolver(createUserSchema(isSystem)) });
+  } = useForm<CreateUserFormValues>({
+    resolver: zodResolver(createUserSchema(isSystem)),
+    defaultValues: EMPTY_USER_FORM,
+  });
+
+  // Cada apertura parte de cero, sin valores ni errores del intento anterior
+  // (reporte de QA: se abría con mensajes de error sin haber tocado nada).
+  const handleOpenChange = (next: boolean) => {
+    if (next) {
+      reset(EMPTY_USER_FORM);
+      clearCreateError();
+    }
+    setOpen(next);
+  };
 
   const selectedCompanyId = watch('company_id');
   const { data: businessUnits } = useBusinessUnits({
@@ -298,7 +327,6 @@ function CreateUserDialog() {
             description: `Contraseña temporal: ${result.temporaryPassword} (se le pedirá cambiarla al iniciar sesión)`,
             duration: 15000,
           });
-          reset();
           setOpen(false);
         },
       },
@@ -308,7 +336,7 @@ function CreateUserDialog() {
   const apiError = error as ApiClientError | null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="size-4" />

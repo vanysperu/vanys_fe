@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 import { RequiresCustomizationField } from '@/modules/products/components/RequiresCustomizationField';
 import { useCreateProduct } from '@/modules/products/hooks/useProducts';
-import { createProductSchema, type CreateProductFormValues } from '@/modules/products/schemas/product.schema';
+import { createProductSchema, EMPTY_PRODUCT_FORM, type CreateProductFormValues } from '@/modules/products/schemas/product.schema';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
@@ -36,8 +36,14 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
     formState: { errors },
   } = useForm<CreateProductFormValues>({
     resolver: zodResolver(createProductSchema),
-    defaultValues: { requires_customization: false },
+    defaultValues: EMPTY_PRODUCT_FORM,
   });
+
+  // Mismo criterio que ProductsPage: se limpia al abrir, no al cerrar.
+  const handleOpenChange = (next: boolean) => {
+    if (next) reset(EMPTY_PRODUCT_FORM);
+    setOpen(next);
+  };
 
   const onSubmit = (values: CreateProductFormValues) => {
     if (!companyId) return;
@@ -47,7 +53,6 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
         onSuccess: (product) => {
           toast.success('Producto creado');
           onCreated(product.id);
-          reset({ requires_customization: false });
           setOpen(false);
         },
         onError: (error) => toast.error((error as ApiClientError).message),
@@ -56,7 +61,7 @@ export function QuickCreateProductDialog({ companyId, onCreated }: QuickCreatePr
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button type="button" variant="ghost" size="icon" className="size-9 shrink-0" title="Nuevo producto">
           <Plus className="size-4" />

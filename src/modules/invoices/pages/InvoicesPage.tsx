@@ -188,7 +188,7 @@ export function InvoicesPage() {
               row.has_file ? (
                 <span className="text-xs">
                   <Badge variant="success">Subida</Badge>
-                  <span className="block text-[10px] text-muted-foreground">
+                  <span className="mt-1 block text-[10px] text-muted-foreground">
                     {formatDate(row.file_uploaded_at?.date)} · {sizeLabel(row.size_bytes)}
                   </span>
                 </span>

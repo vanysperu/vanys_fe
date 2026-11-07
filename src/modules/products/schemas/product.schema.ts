@@ -1,3 +1,4 @@
+import type { DefaultValues } from 'react-hook-form';
 import { z } from 'zod';
 
 // SKU: código alfanumérico (con guion/guion bajo) — mismo criterio que el backend.
@@ -59,6 +60,25 @@ export const createProductSchema = z
   );
 
 export type CreateProductFormValues = z.infer<typeof createProductSchema>;
+
+// Formulario vacío con TODOS los campos: un campo que falta en reset() conserva
+// lo último tipeado y reaparece al reabrir el modal (reporte de QA).
+export const EMPTY_PRODUCT_FORM: DefaultValues<CreateProductFormValues> = {
+  company_id: undefined,
+  name: '',
+  description: '',
+  sku: '',
+  price_unit: undefined,
+  price_hundred: undefined,
+  price_half_thousand: undefined,
+  price_thousand: undefined,
+  requires_customization: false,
+  category_id: undefined,
+  subcategory_id: undefined,
+  colors: [],
+  codes: [],
+  image_path: null,
+};
 
 // La técnica funciona igual que el producto: 4 precios por volumen, y con
 // uno cargado alcanza. El item cobra (producto + técnica) en el mismo modo ×

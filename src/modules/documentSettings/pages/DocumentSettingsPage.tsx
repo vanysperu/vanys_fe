@@ -5,10 +5,15 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { IMAGE_INPUT_ACCEPT, IMAGE_UPLOAD_HINT, validateImageFile } from '@/lib/imageUpload';
+import { digitsFilter, withInputFilter } from '@/lib/inputRestrictions';
 import { buildAssetUrl } from '@/lib/utils';
 import { useMyDocumentSettings, useUpdateMyDocumentSettings, useUpdatePaymentAccount, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
 import { PaymentAccountForm } from '@/modules/documentSettings/components/PaymentAccountForm';
-import { updateDocumentSettingsSchema, type UpdateDocumentSettingsFormValues } from '@/modules/documentSettings/schemas/documentSettings.schema';
+import {
+  COMPANY_PHONE_MAX_DIGITS,
+  updateDocumentSettingsSchema,
+  type UpdateDocumentSettingsFormValues,
+} from '@/modules/documentSettings/schemas/documentSettings.schema';
 import { useDeleteVariableGeneral, useToggleVariableGeneralStatus, useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
@@ -66,8 +71,9 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
   // y previsualizarlo), pero NO se guarda en la empresa hasta que se
   // presiona "Guardar" — antes se guardaba solo con seleccionar el
   // archivo, sin dar chance de arrepentirse (pedido explícito del
-  // usuario). `undefined` = sin cambio pendiente, se usa settings.logo_url.
-  const [pendingLogoUrl, setPendingLogoUrl] = useState<string | undefined>(undefined);
+  // usuario). `undefined` = sin cambio pendiente, se usa settings.logo_url;
+  // `null` = quitar el logo al guardar.
+  const [pendingLogoUrl, setPendingLogoUrl] = useState<string | null | undefined>(undefined);
 
   const {
     register,
@@ -119,11 +125,17 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
     });
   };
 
+  const handleRemoveLogo = () => {
+    setPendingLogoUrl(null);
+    // Sin esto, volver a elegir el mismo archivo no dispararía onChange.
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   if (isLoading) {
     return <Skeleton className="h-56 w-full" />;
   }
 
-  const logoUrl = buildAssetUrl(pendingLogoUrl ?? settings?.logo_url);
+  const logoUrl = buildAssetUrl(pendingLogoUrl === undefined ? settings?.logo_url : pendingLogoUrl);
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm">
@@ -151,6 +163,12 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
           >
             <Upload className="size-3.5" /> {isUploading ? 'Subiendo…' : 'Cambiar logo'}
           </Button>
+          {logoUrl && (
+            <Button type="button" size="sm" variant="ghost" disabled={isUploading} onClick={handleRemoveLogo}>
+              <Trash2 className="size-3.5 text-destructive" />
+              Quitar logo
+            </Button>
+          )}
           <p className="text-center text-[11px] text-muted-foreground">{IMAGE_UPLOAD_HINT}</p>
           {pendingLogoUrl !== undefined && <p className="text-[11px] text-muted-foreground">Sin guardar</p>}
         </div>
@@ -168,7 +186,12 @@ function CompanyBrandingCard({ companyId }: { companyId?: number }) {
           </div>
           <div className="space-y-1">
             <Label htmlFor="phone">Teléfono</Label>
-            <Input id="phone" {...register('phone')} />
+            <Input
+              id="phone"
+              inputMode="numeric"
+              maxLength={COMPANY_PHONE_MAX_DIGITS}
+              {...withInputFilter(register('phone'), digitsFilter(COMPANY_PHONE_MAX_DIGITS))}
+            />
             {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
           </div>
           <div className="space-y-1 sm:col-span-2">

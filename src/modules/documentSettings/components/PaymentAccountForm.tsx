@@ -6,9 +6,15 @@ import { toast } from 'sonner';
 
 import type { ApiClientError } from '@/config/api.types';
 import { IMAGE_INPUT_ACCEPT, IMAGE_UPLOAD_HINT, validateImageFile } from '@/lib/imageUpload';
+import { digitsFilter, withInputFilter } from '@/lib/inputRestrictions';
 import { buildAssetUrl } from '@/lib/utils';
 import { useUpdatePaymentAccount, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
-import { createPaymentAccountSchema, type CreatePaymentAccountFormValues } from '@/modules/documentSettings/schemas/documentSettings.schema';
+import {
+  createPaymentAccountSchema,
+  isMobileWallet,
+  MOBILE_WALLET_DIGITS,
+  type CreatePaymentAccountFormValues,
+} from '@/modules/documentSettings/schemas/documentSettings.schema';
 import { useCreateVariableGeneral } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import type { VariableGeneral } from '@/modules/variableGeneral/types/variableGeneral.types';
 import { Button } from '@/presentation/components/shared/ui/button';
@@ -61,6 +67,14 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
 
   const fieldId = (name: string) => `account-${name}-${account?.id ?? 'new'}`;
   const qrPreview = removeQr ? null : (pendingQrPath ?? account?.ref2 ?? null);
+  // Yape o Plin: el campo solo deja escribir los dígitos de un celular.
+  const walletNumberProps = isMobileWallet(watch('prefix_id'))
+    ? {
+        ...withInputFilter(register('ref1'), digitsFilter(MOBILE_WALLET_DIGITS)),
+        inputMode: 'numeric' as const,
+        maxLength: MOBILE_WALLET_DIGITS,
+      }
+    : register('ref1');
 
   const onSubmit = (values: CreatePaymentAccountFormValues) => {
     const fields = { prefix_id: values.prefix_id, name: values.name, ref1: values.ref1, show_in_quotation: values.show_in_quotation };
@@ -132,7 +146,7 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
       </div>
       <div className="space-y-1">
         <Label htmlFor={fieldId('ref1')}>Número de cuenta / teléfono</Label>
-        <Input id={fieldId('ref1')} {...register('ref1')} />
+        <Input id={fieldId('ref1')} {...walletNumberProps} />
         {errors.ref1 && <p className="text-xs text-destructive">{errors.ref1.message}</p>}
       </div>
       <div className="space-y-1">

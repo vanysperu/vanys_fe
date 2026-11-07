@@ -15,6 +15,7 @@ import {
 import {
   createProductSchema,
   createTechniqueSchema,
+  EMPTY_PRODUCT_FORM,
   type CreateProductFormValues,
   type CreateTechniqueFormValues,
 } from '@/modules/products/schemas/product.schema';
@@ -424,7 +425,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
   const isEditing = Boolean(product);
   const [open, setOpen] = useState(isEditing);
   const { data: access } = useAccess();
-  const { mutate: create, isPending: isCreating, error: createError } = useCreateProduct();
+  const { mutate: create, isPending: isCreating, error: createError, reset: clearCreateError } = useCreateProduct();
   const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateProduct();
 
   const {
@@ -437,7 +438,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
     formState: { errors },
   } = useForm<CreateProductFormValues>({
     resolver: zodResolver(createProductSchema),
-    defaultValues: { requires_customization: false, colors: [], codes: [], image_path: null },
+    defaultValues: EMPTY_PRODUCT_FORM,
   });
 
   useEffect(() => {
@@ -461,6 +462,13 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
   }, [product, reset]);
 
   const handleOpenChange = (next: boolean) => {
+    // "Nuevo producto" siempre parte de cero. Se limpia al ABRIR, cuando los
+    // campos todavía no están montados: al cerrar, la animación los mantiene
+    // vivos y el formulario volvía a leer de ellos lo último tipeado.
+    if (next && !product) {
+      reset(EMPTY_PRODUCT_FORM);
+      clearCreateError();
+    }
     setOpen(next);
     if (!next) onClose?.();
   };
@@ -502,7 +510,6 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
       {
         onSuccess: () => {
           toast.success('Producto creado correctamente');
-          reset({ requires_customization: false, colors: [], codes: [], image_path: null });
           handleOpenChange(false);
         },
       },
