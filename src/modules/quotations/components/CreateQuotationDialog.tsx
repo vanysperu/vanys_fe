@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Check, Plus, Trash2 } from 'lucide-react';
+import { MinOrderNotice } from '@/modules/quotations/components/MinOrderNotice';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -925,6 +926,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                         min={1}
                         {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                       />
+                      <MinOrderNotice quantity={item?.quantity} minOrderQuantity={product?.min_order_quantity} />
                       {errors.items?.[index] && 'quantity' in errors.items[index]! && (
                         <p className="text-[11px] text-destructive">{(errors.items[index] as any).quantity?.message}</p>
                       )}

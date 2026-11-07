@@ -81,6 +81,7 @@ function ProductDetailContent({ product }: { product: Product }) {
           </Fact>
           <Fact label="Categoría">{product.category?.name ?? '—'}</Fact>
           <Fact label="Subcategoría">{product.subcategory?.name ?? '—'}</Fact>
+          <Fact label="Pedido mínimo">{product.min_order_quantity != null ? `${product.min_order_quantity} u.` : 'Sin mínimo'}</Fact>
           <Fact label="Personalización">{product.requires_customization ? 'Requiere técnica' : 'No requiere'}</Fact>
           {/* Solo el Super Administrador ve productos de varias empresas. */}
           {access?.isSystem && <Fact label="Empresa">{product.company_name ?? '—'}</Fact>}

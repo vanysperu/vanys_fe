@@ -305,6 +305,15 @@ function ProductsTab() {
             ),
           },
           {
+            header: 'Pedido mín.',
+            cell: (product) =>
+              product.min_order_quantity != null ? (
+                <span className="font-mono-nums">{product.min_order_quantity}</span>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              ),
+          },
+          {
             header: 'Personalización',
             cell: (product) =>
               product.requires_customization ? (
@@ -452,6 +461,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
         price_half_thousand: product.price_half_thousand != null ? Number(product.price_half_thousand) : undefined,
         price_thousand: product.price_thousand != null ? Number(product.price_thousand) : undefined,
         requires_customization: product.requires_customization,
+        min_order_quantity: product.min_order_quantity ?? undefined,
         category_id: product.category_id ?? undefined,
         subcategory_id: product.subcategory_id ?? undefined,
         colors: product.colors ?? [],
@@ -479,6 +489,7 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
       // Al editar, lo que se vació se manda como null para limpiarlo.
       const dto = {
         ...rest,
+        min_order_quantity: values.min_order_quantity ?? null,
         category_id: values.category_id ?? null,
         subcategory_id: values.subcategory_id ?? null,
         colors: values.colors ?? [],
@@ -610,6 +621,26 @@ function ProductFormDialog({ product, onClose }: { product?: Product; onClose?: 
               Cada precio es una tarifa por unidad para ese volumen de pedido (suele bajar mientras más
               grande la modalidad) — al cotizar, se elige la tarifa y la cantidad real se multiplica por
               ella.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="min_order_quantity">Pedido mínimo (opcional)</Label>
+            {/* Sin min/step del navegador (mismo criterio que los precios): si
+                no, frena el guardado con su propio aviso en inglés y no se ven
+                los mensajes del formulario ("Debe ser al menos 1"). */}
+            <Input
+              id="min_order_quantity"
+              type="number"
+              step={DECIMAL_INPUT_STEP}
+              inputMode="numeric"
+              placeholder="Sin mínimo"
+              className="sm:w-48"
+              {...register('min_order_quantity', { setValueAs: toOptionalNumber })}
+            />
+            {errors.min_order_quantity && <p className="text-sm text-destructive">{errors.min_order_quantity.message}</p>}
+            <p className="text-xs text-muted-foreground">
+              La menor cantidad que se puede pedir. Es informativo: en la cotización se muestra como aviso, no la bloquea.
             </p>
           </div>
 

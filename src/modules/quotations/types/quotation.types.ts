@@ -232,6 +232,8 @@ export interface QuotationItem {
     price_half_thousand: number | null;
     price_thousand: number | null;
     requires_customization: boolean;
+    // Pedido mínimo (informativo): se marca el item si la cantidad es menor.
+    min_order_quantity?: number | null;
     is_deleted: boolean;
     colors?: ProductColor[];
     codes?: ProductCode[];

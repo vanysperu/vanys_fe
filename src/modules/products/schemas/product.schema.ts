@@ -20,6 +20,13 @@ export const createProductSchema = z
     price_thousand: z.number().min(0, 'Debe ser un número positivo').optional(),
     // Apagado por defecto (decisión del usuario): la mayoría no se personaliza.
     requires_customization: z.boolean().optional(),
+    // Pedido mínimo (opcional): entero de 1 a 1 000 000, igual que el backend.
+    min_order_quantity: z
+      .number({ error: 'Indica un número' })
+      .int('Debe ser un número entero')
+      .min(1, 'Debe ser al menos 1')
+      .max(1000000, 'Máximo 1 000 000')
+      .optional(),
     company_id: z.number().optional(),
     // Categoría/subcategoría (Variables Generales), colores y foto: mismas
     // reglas que el backend (product_catalog.rules.ts).
@@ -73,6 +80,7 @@ export const EMPTY_PRODUCT_FORM: DefaultValues<CreateProductFormValues> = {
   price_half_thousand: undefined,
   price_thousand: undefined,
   requires_customization: false,
+  min_order_quantity: undefined,
   category_id: undefined,
   subcategory_id: undefined,
   colors: [],

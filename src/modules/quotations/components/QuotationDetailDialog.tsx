@@ -8,6 +8,7 @@ import { QuotationExpensesSection } from '@/modules/quotations/components/Quotat
 import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/components/QuotationPurchaseOrdersSection';
 import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationItemsKanban';
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
+import { MinOrderNotice } from '@/modules/quotations/components/MinOrderNotice';
 import { QuotationPaymentsSection } from '@/modules/quotations/components/QuotationPaymentsSection';
 import { QuotationTimeline } from '@/modules/quotations/components/QuotationTimeline';
 import { QuotationProfitSection } from '@/modules/quotations/components/QuotationProfitSection';
@@ -60,6 +61,7 @@ function QuotationItemCards({
           <li key={item.id} className="rounded-lg border bg-card p-3 text-sm">
             <p className="font-medium">{item.product?.name}</p>
             <QuotationItemVariant item={item} />
+            <MinOrderNotice quantity={item.quantity} minOrderQuantity={item.product?.min_order_quantity} showWhenMet={false} />
             <p className="text-xs text-muted-foreground">{item.technique?.name ?? 'Sin personalización'}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Cant. <span className="font-mono-nums text-foreground">{item.quantity}</span> ·{' '}
@@ -426,6 +428,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                           <td className="px-3 py-2">
                             {item.product?.name}
                             <QuotationItemVariant item={item} />
+                            <MinOrderNotice quantity={item.quantity} minOrderQuantity={item.product?.min_order_quantity} showWhenMet={false} />
                           </td>
                           <td className="px-3 py-2 text-muted-foreground">{item.technique?.name ?? '—'}</td>
                           {/* Cantidad: solo el número (pedido explícito del
