@@ -5,6 +5,9 @@ import {
   updateMyDocumentSettings,
   uploadCompanyAsset,
 } from '@/modules/documentSettings/api/documentSettings.api';
+import { updateVariableGeneral } from '@/modules/variableGeneral/api/variableGeneral.api';
+import { variableGeneralKeys } from '@/modules/variableGeneral/hooks/variableGeneral.keys';
+import type { UpdateVariableGeneralDto } from '@/modules/variableGeneral/types/variableGeneral.types';
 
 const documentSettingsKeys = {
   all: ['documentSettings', 'mine'] as const,
@@ -27,6 +30,22 @@ export function useUpdateMyDocumentSettings() {
   return useMutation({
     mutationFn: updateMyDocumentSettings,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: documentSettingsKeys.all }),
+  });
+}
+
+// La vista previa del PDF se guarda 1 minuto (usePreviewQuotationPdf): sin esto,
+// una cuenta recién ocultada seguiría apareciendo y parecería que no se guardó.
+const isQuotationPdfQuery = ({ queryKey }: { queryKey: readonly unknown[] }) =>
+  queryKey[0] === 'quotations' && queryKey[queryKey.length - 1] === 'pdf';
+
+export function useUpdatePaymentAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: UpdateVariableGeneralDto }) => updateVariableGeneral(id, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: variableGeneralKeys.lists() });
+      queryClient.removeQueries({ predicate: isQuotationPdfQuery });
+    },
   });
 }
 

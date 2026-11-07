@@ -278,6 +278,7 @@ export interface QuotationExpense {
   spent_at: string;
   // Cuenta de la empresa desde la que se pagó (null = efectivo).
   payment_account_id: number | null;
+  operation_number: string | null;
   // Anulado: se muestra tachado y no suma en el total.
   is_deleted: boolean;
   // Compra de orden de compra a la que pertenece (null = gasto manual): esos
@@ -285,6 +286,11 @@ export interface QuotationExpense {
   purchase_id: number | null;
   // Quién puso la plata de esa compra (null = gasto manual).
   purchase_funding_source: FundingSource | null;
+  // Gasto manual: quién puso la plata y, si fue un trabajador, a quién se le
+  // debe y cómo va esa deuda.
+  funding_source: FundingSource;
+  paid_by_user_name: string | null;
+  debt_status: 'pending' | 'paid' | null;
   // Cuántas correcciones tiene (badge "Corregido (n)").
   corrections_count: number;
   created_at: string;
@@ -302,6 +308,11 @@ export interface QuotationExpenseDetail {
   spent_at: string;
   payment_account_id: number | null;
   payment_account_name: string | null;
+  operation_number: string | null;
+  funding_source: FundingSource;
+  paid_by_user_id: number | null;
+  paid_by_user_name: string | null;
+  debt_paid_amount: number | null;
   is_deleted: boolean;
   purchase_id: number | null;
   company_id: number;
@@ -316,7 +327,10 @@ export interface CorrectQuotationExpenseDto {
   description?: string;
   category?: string | null;
   spent_at?: string;
+  funding_source?: FundingSource;
+  paid_by_user_id?: number | null;
   payment_account_id?: number | null;
+  operation_number?: string | null;
   reason: string;
 }
 
@@ -369,7 +383,10 @@ export interface CreateQuotationExpenseDto {
   amount: number;
   category?: string | null;
   spent_at: string;
+  funding_source?: FundingSource;
+  paid_by_user_id?: number | null;
   payment_account_id?: number | null;
+  operation_number?: string | null;
 }
 
 export interface CreateQuotationItemDto {

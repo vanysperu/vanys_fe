@@ -10,6 +10,8 @@ export interface VariableGeneral {
   description: string | null;
   ref1: string | null;
   ref2: string | null;
+  // Solo cuentas de pago: false = cuenta interna, no sale en la cotización.
+  show_in_quotation: boolean;
   company_id: number | null;
   is_deleted: boolean;
 }
@@ -22,6 +24,7 @@ export interface CreateVariableGeneralDto {
   description?: string;
   ref1?: string;
   ref2?: string;
+  show_in_quotation?: boolean;
   // Solo lo respeta el backend cuando el caller es is_system; ver
   // grulla_be: createVariableGeneralController.
   company_id?: number;

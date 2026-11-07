@@ -53,6 +53,8 @@ export interface PurchaseOrderItemPurchase {
   spent_at: string;
   payment_account_id: number | null;
   payment_account_name: string | null;
+  // Solo con plata de la empresa: en una de un trabajador va en su reposición.
+  operation_number: string | null;
   // Deuda VIGENTE con el trabajador (null si no hay).
   debt_id: number | null;
   debt_amount: number | null;
@@ -86,6 +88,7 @@ export interface CorrectPurchaseDto {
   funding_source?: FundingSource;
   paid_by_user_id?: number | null;
   payment_account_id?: number | null;
+  operation_number?: string | null;
   spent_at?: string;
   // true = ya se confirmó subir la cantidad por encima de lo que falta.
   allow_exceed?: boolean;
@@ -141,6 +144,7 @@ export interface CreatePurchaseOrderItemPurchaseDto {
   // Cuenta de la empresa desde la que se pagó (null = efectivo). Solo con
   // funding_source="company": con plata del trabajador no sale de ninguna.
   payment_account_id?: number | null;
+  operation_number?: string | null;
   // true = la persona ya confirmó que quiere comprar por encima de lo pedido.
   allow_exceed?: boolean;
   // ¿La compra llevaba factura? (el archivo se sube aparte).

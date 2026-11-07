@@ -96,8 +96,12 @@ export const createQuotationExpenseSchema = z.object({
   amount: moneyAmountSchema(),
   category: z.string().max(50, 'Máximo 50 caracteres').optional(),
   spent_at: z.string({ error: 'La fecha es obligatoria' }).min(1, 'La fecha es obligatoria'),
+  // Plata de un trabajador: nace su deuda y no sale de Caja hasta reponerle.
+  funding_source: z.enum(['company', 'employee']),
+  paid_by_user_id: z.number().nullable().optional(),
   // Cuenta de la empresa desde la que se pagó (null = efectivo).
   payment_account_id: z.number().nullable().optional(),
+  operation_number: z.string().max(50, 'Máximo 50 caracteres').optional(),
 });
 
 export type CreateQuotationExpenseFormValues = z.infer<typeof createQuotationExpenseSchema>;

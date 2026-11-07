@@ -13,6 +13,7 @@ export const createPaymentAccountSchema = z.object({
   prefix_id: z.enum(['bank', 'yape', 'plin'], { error: 'Selecciona un tipo' }),
   name: z.string().min(1, 'El nombre es obligatorio').max(255, 'Máximo 255 caracteres'),
   ref1: z.string().min(1, 'El número de cuenta/teléfono es obligatorio').max(50, 'Máximo 50 caracteres'),
+  show_in_quotation: z.boolean(),
 });
 
 export type CreatePaymentAccountFormValues = z.infer<typeof createPaymentAccountSchema>;

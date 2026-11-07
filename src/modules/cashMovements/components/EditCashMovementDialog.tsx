@@ -32,6 +32,7 @@ import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { combineDisabled, disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/presentation/components/shared/ui/dialog';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Textarea } from '@/presentation/components/shared/ui/textarea';
@@ -48,7 +49,7 @@ const normalizeText = (value: string | null | undefined): string | null => {
 };
 
 // Campos que se comparan para saber qué cambió de verdad.
-const EDITABLE_FIELDS = ['amount', 'occurred_at', 'category', 'payment_account_id', 'description'] as const;
+const EDITABLE_FIELDS = ['amount', 'occurred_at', 'category', 'payment_account_id', 'operation_number', 'description'] as const;
 
 type EditableField = (typeof EDITABLE_FIELDS)[number];
 
@@ -79,6 +80,7 @@ export function EditCashMovementDialog({ movement, onClose }: EditCashMovementDi
     category: movement.category ?? '',
     occurred_at: movement.occurred_at,
     payment_account_id: movement.payment_account_id,
+    operation_number: normalizeText(movement.operation_number),
     description: normalizeText(movement.description),
   };
 
@@ -95,6 +97,7 @@ export function EditCashMovementDialog({ movement, onClose }: EditCashMovementDi
       category: original.category,
       occurred_at: original.occurred_at,
       payment_account_id: original.payment_account_id,
+      operation_number: original.operation_number ?? undefined,
       description: original.description ?? undefined,
       reason: '',
     },
@@ -131,6 +134,7 @@ export function EditCashMovementDialog({ movement, onClose }: EditCashMovementDi
     category: watched.category ?? '',
     occurred_at: watched.occurred_at ?? '',
     payment_account_id: watched.payment_account_id ?? null,
+    operation_number: normalizeText(watched.operation_number),
     description: normalizeText(watched.description),
   };
 
@@ -150,6 +154,7 @@ export function EditCashMovementDialog({ movement, onClose }: EditCashMovementDi
       category: values.category,
       occurred_at: values.occurred_at,
       payment_account_id: values.payment_account_id ?? null,
+      operation_number: normalizeText(values.operation_number),
       description: normalizeText(values.description),
     };
     const dto = (changedFields as EditableField[]).reduce<UpdateCashMovementDto>(
@@ -233,6 +238,8 @@ export function EditCashMovementDialog({ movement, onClose }: EditCashMovementDi
                 </p>
               )}
             </div>
+
+            <OperationNumberField id="cash-movement-edit-operation" error={errors.operation_number?.message} {...register('operation_number')} />
 
             <div className="space-y-2">
               <Label htmlFor="cash-movement-edit-description">Descripción</Label>

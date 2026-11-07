@@ -2,6 +2,7 @@ import { DndContext, DragOverlay, MouseSensor, TouchSensor, useDraggable, useDro
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
@@ -110,7 +111,11 @@ export function QuotationItemsKanban({ quotationId, items, companyId, canMoveSta
           />
         ))}
       </div>
-      <DragOverlay>{activeItem && <ItemCard item={activeItem} dragging />}</DragOverlay>
+      {/* En document.body: este tablero vive dentro de un diálogo centrado con
+          transform, y ahí el position: fixed del overlay se mide desde el diálogo
+          y no desde la pantalla. La tarjeta salía lejos del cursor y, como dnd-kit
+          detecta la columna con ese rectángulo, no se podía soltar en otra. */}
+      {createPortal(<DragOverlay>{activeItem && <ItemCard item={activeItem} dragging />}</DragOverlay>, document.body)}
     </DndContext>
   );
 }

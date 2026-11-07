@@ -34,6 +34,7 @@ export interface CashMovementListItem {
   amount: number;
   description: string | null;
   occurred_at: string;
+  operation_number: string | null;
   quotation_id: number | null;
   purchase_order_id: number | null;
   business_unit_id: number | null;
@@ -133,6 +134,7 @@ export interface CreateCashMovementDto {
   business_unit_id?: number;
   // Desde/hacia qué cuenta se movió el dinero (null = efectivo).
   payment_account_id?: number | null;
+  operation_number?: string | null;
 }
 
 // Corrección de un movimiento manual (PUT /cash-movement/update/:id). Campo
@@ -145,6 +147,7 @@ export interface UpdateCashMovementDto {
   // "YYYY-MM-DD"
   occurred_at?: string;
   payment_account_id?: number | null;
+  operation_number?: string | null;
   description?: string | null;
   quotation_id?: number | null;
   purchase_order_id?: number | null;

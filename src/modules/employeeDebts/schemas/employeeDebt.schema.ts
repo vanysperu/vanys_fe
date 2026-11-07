@@ -41,6 +41,7 @@ export const correctReimbursementSchema = z.object({
   amount: moneyAmountSchema(),
   paid_at: z.string({ error: 'Indica la fecha en que se le repuso' }).min(1, 'Indica la fecha en que se le repuso'),
   payment_account_id: z.number().nullable(),
+  operation_number: z.string().max(50, 'Máximo 50 caracteres'),
   reason: correctionReasonSchema,
 });
 

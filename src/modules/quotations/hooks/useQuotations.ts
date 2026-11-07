@@ -272,6 +272,7 @@ function invalidateAfterExpenseChange(queryClient: QueryClient, expenseId: numbe
   queryClient.invalidateQueries({ queryKey: cashMovementsKeys.all });
   queryClient.invalidateQueries({ queryKey: statisticsKeys.all });
   queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
+  queryClient.invalidateQueries({ queryKey: employeeDebtsKeys.all });
   queryClient.invalidateQueries({ queryKey: moneyCorrectionsKeys.history('quotation_expense', expenseId) });
 }
 
@@ -306,6 +307,8 @@ export function useCreateQuotationExpense(quotationId: number) {
     mutationFn: (dto: CreateQuotationExpenseDto) => createQuotationExpense(quotationId, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(quotationId) });
+      // Con plata de un trabajador nace su deuda.
+      queryClient.invalidateQueries({ queryKey: employeeDebtsKeys.all });
       invalidateCashViews(queryClient);
     },
   });

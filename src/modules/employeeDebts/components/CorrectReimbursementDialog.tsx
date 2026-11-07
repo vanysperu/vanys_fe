@@ -11,6 +11,7 @@ import {
   type CorrectReimbursementFormValues,
 } from '@/modules/employeeDebts/schemas/employeeDebt.schema';
 import type { CorrectReimbursementDto, EmployeeDebtPaymentRecord } from '@/modules/employeeDebts/types/employeeDebt.types';
+import { DEBT_ORIGIN_LABEL } from '@/modules/employeeDebts/types/employeeDebt.types';
 import { previewReallocation, type AllocationPreview } from '@/modules/employeeDebts/utils/reimbursementAllocation';
 import { CorrectionPreview } from '@/modules/moneyCorrections/components/CorrectionPreview';
 import { ClosedPeriodNotice } from '@/modules/cashClosings/components/ClosedPeriodNotice';
@@ -37,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/presentation/components/shared/ui/dialog';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { useAccess } from '@/presentation/hooks/shared/useAccess';
@@ -47,7 +49,12 @@ interface CorrectReimbursementDialogProps {
   onClose(): void;
 }
 
-const CORRECTABLE_FIELDS = ['amount', 'paid_at', 'payment_account_id'] as const;
+const CORRECTABLE_FIELDS = ['amount', 'paid_at', 'payment_account_id', 'operation_number'] as const;
+
+const normalizeText = (value: string | null | undefined): string | null => {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
+};
 
 
 // Corregir una reposición a un trabajador (monto, fecha y cuenta). Se abre
@@ -104,6 +111,7 @@ function ReimbursementCorrectionForm({ payment, onClose }: { payment: EmployeeDe
       amount: payment.amount,
       paid_at: payment.paid_at,
       payment_account_id: payment.payment_account_id,
+      operation_number: payment.operation_number ?? '',
       reason: '',
     },
   });
@@ -120,15 +128,21 @@ function ReimbursementCorrectionForm({ payment, onClose }: { payment: EmployeeDe
     !accounts.some((account) => account.id === payment.payment_account_id && !account.is_deleted);
 
   const watched = watch();
-  const toValues = (values: { amount: number; paid_at: string; payment_account_id: number | null }): MoneyCorrectionValues => ({
+  const toValues = (values: { amount: number; paid_at: string; payment_account_id: number | null; operation_number: string | null }): MoneyCorrectionValues => ({
     ...values,
     payment_account_name: accountName(values.payment_account_id),
   });
-  const before = toValues({ amount: payment.amount, paid_at: payment.paid_at, payment_account_id: payment.payment_account_id });
+  const before = toValues({
+    amount: payment.amount,
+    paid_at: payment.paid_at,
+    payment_account_id: payment.payment_account_id,
+    operation_number: normalizeText(payment.operation_number),
+  });
   const after = toValues({
     amount: Number(watched.amount),
     paid_at: watched.paid_at ?? '',
     payment_account_id: watched.payment_account_id ?? null,
+    operation_number: normalizeText(watched.operation_number),
   });
   const { previous, next, changedFields } = pickChangedValues(before, after, CORRECTABLE_FIELDS);
   const changes = buildCorrectionChanges(previous, next);
@@ -152,6 +166,7 @@ function ReimbursementCorrectionForm({ payment, onClose }: { payment: EmployeeDe
       amount: values.amount,
       paid_at: values.paid_at,
       payment_account_id: values.payment_account_id,
+      operation_number: normalizeText(values.operation_number),
     };
     const dto = changedFields.reduce<CorrectReimbursementDto>(
       (picked, field) => ({ ...picked, [field]: full[field as keyof typeof full] }),
@@ -201,6 +216,8 @@ function ReimbursementCorrectionForm({ payment, onClose }: { payment: EmployeeDe
             </p>
           )}
         </div>
+
+        <OperationNumberField id="correct-reimbursement-operation" error={errors.operation_number?.message} {...register('operation_number')} />
 
         <AllocationPreviewTable preview={preview} amountChanged={changedFields.includes('amount')} />
 
@@ -262,7 +279,7 @@ function AllocationPreviewTable({ preview, amountChanged }: { preview: Allocatio
             <span className="min-w-0 [overflow-wrap:anywhere]">
               {line.description}
               <span className="block text-[10px] text-muted-foreground">
-                {line.origin === 'manual' ? 'Deuda manual' : 'Compra de orden'} · {formatDate(line.incurred_at)} · deuda de{' '}
+                {DEBT_ORIGIN_LABEL[line.origin]} · {formatDate(line.incurred_at)} · deuda de{' '}
                 {formatMoney(line.debt_amount)}
               </span>
             </span>

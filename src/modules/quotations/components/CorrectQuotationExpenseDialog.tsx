@@ -13,6 +13,7 @@ import type { MoneyCorrectionValues } from '@/modules/moneyCorrections/types/mon
 import {
   buildCorrectionChanges,
   describeCorrectionChanges,
+  formatMoney,
   pickChangedValues,
 } from '@/modules/moneyCorrections/utils/correctionChanges';
 import { useCorrectQuotationExpense, useQuotationExpense } from '@/modules/quotations/hooks/useQuotations';
@@ -28,6 +29,10 @@ import { EmptyState } from '@/presentation/components/shared/EmptyState';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { combineDisabled, disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/presentation/components/shared/ui/dialog';
+import { ExpenseFundingFields } from '@/modules/quotations/components/ExpenseFundingFields';
+import { useExpenseWorkers } from '@/modules/quotations/hooks/useExpenseWorkers';
+import type { FundingSource } from '@/modules/purchaseOrders/types/purchaseOrder.types';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { useAccess } from '@/presentation/hooks/shared/useAccess';
@@ -39,13 +44,16 @@ interface CorrectQuotationExpenseDialogProps {
 }
 
 // Campos corregibles de un gasto manual, en el orden del historial.
-const EXPENSE_FIELDS = ['amount', 'spent_at', 'category', 'payment_account_id', 'description'] as const;
+const EXPENSE_FIELDS = ['amount', 'spent_at', 'category', 'funding_source', 'paid_by_user_id', 'payment_account_id', 'operation_number', 'description'] as const;
 
 type ExpenseFields = {
   amount: number;
   spent_at: string;
   category: string | null;
+  funding_source: FundingSource;
+  paid_by_user_id: number | null;
   payment_account_id: number | null;
+  operation_number: string | null;
   description: string;
 };
 
@@ -108,7 +116,10 @@ function ExpenseCorrectionForm({ expense, onClose }: { expense: QuotationExpense
     amount: Number(expense.amount),
     spent_at: expense.spent_at,
     category: normalizeText(expense.category),
+    funding_source: expense.funding_source,
+    paid_by_user_id: expense.paid_by_user_id,
     payment_account_id: expense.payment_account_id,
+    operation_number: normalizeText(expense.operation_number),
     description: expense.description.trim(),
   };
 
@@ -116,6 +127,7 @@ function ExpenseCorrectionForm({ expense, onClose }: { expense: QuotationExpense
     register,
     handleSubmit,
     setValue,
+    setError,
     watch,
     formState: { errors },
   } = useForm<CorrectQuotationExpenseFormValues>({
@@ -124,7 +136,10 @@ function ExpenseCorrectionForm({ expense, onClose }: { expense: QuotationExpense
       amount: original.amount,
       spent_at: original.spent_at,
       category: original.category ?? '',
+      funding_source: original.funding_source,
+      paid_by_user_id: original.paid_by_user_id,
       payment_account_id: original.payment_account_id,
+      operation_number: original.operation_number ?? '',
       description: original.description,
       reason: '',
     },
@@ -142,15 +157,34 @@ function ExpenseCorrectionForm({ expense, onClose }: { expense: QuotationExpense
     !accounts.some((account) => account.id === expense.payment_account_id && !account.is_deleted);
 
   const watched = watch();
+  const fundingSource = watched.funding_source;
+  const workers = useExpenseWorkers(expense.company_id, fundingSource === 'employee');
+  const workerName = (userId: number | null): string | null => {
+    if (userId === null) return null;
+    if (userId === expense.paid_by_user_id) return expense.paid_by_user_name;
+    const worker = workers.find((user) => user.id === userId);
+    return worker ? `${worker.name} ${worker.paternal_lastname}` : null;
+  };
+  // Ya se le repuso algo: quién pagó no se cambia sin anular antes esa reposición.
+  const reimbursed = Number(expense.debt_paid_amount ?? 0);
+  const lockedNote =
+    reimbursed > 0
+      ? `Ya se le repuso ${formatMoney(reimbursed)} a ${expense.paid_by_user_name ?? 'el trabajador'}: para cambiar quién lo pagó, anula primero esa reposición.`
+      : undefined;
   const current: ExpenseFields = {
     amount: Number(watched.amount),
     spent_at: watched.spent_at ?? '',
     category: normalizeText(watched.category),
-    payment_account_id: watched.payment_account_id ?? null,
+    funding_source: fundingSource,
+    // Con plata de un trabajador no hay cuenta ni operación; con la de la empresa, no hay trabajador.
+    paid_by_user_id: fundingSource === 'employee' ? (watched.paid_by_user_id ?? null) : null,
+    payment_account_id: fundingSource === 'company' ? (watched.payment_account_id ?? null) : null,
+    operation_number: fundingSource === 'company' ? normalizeText(watched.operation_number) : null,
     description: watched.description?.trim() ?? '',
   };
   const toValues = (values: ExpenseFields): MoneyCorrectionValues => ({
     ...values,
+    paid_by_user_name: workerName(values.paid_by_user_id),
     payment_account_name: accountName(values.payment_account_id),
   });
   const { previous, next, changedFields } = pickChangedValues(toValues(original), toValues(current), EXPENSE_FIELDS);
@@ -165,13 +199,11 @@ function ExpenseCorrectionForm({ expense, onClose }: { expense: QuotationExpense
 
   // Solo se envía lo que cambió (lo ausente se queda como está).
   const onSubmit = (values: CorrectQuotationExpenseFormValues) => {
-    const submitted: ExpenseFields = {
-      amount: values.amount,
-      spent_at: values.spent_at,
-      category: normalizeText(values.category),
-      payment_account_id: values.payment_account_id ?? null,
-      description: values.description.trim(),
-    };
+    if (values.funding_source === 'employee' && !values.paid_by_user_id) {
+      setError('paid_by_user_id', { message: 'Selecciona qué trabajador puso el dinero' });
+      return;
+    }
+    const submitted: ExpenseFields = { ...current, amount: values.amount, spent_at: values.spent_at, description: values.description.trim() };
     const dto = changedFields.reduce<CorrectQuotationExpenseDto>(
       (picked, field) => ({ ...picked, [field]: submitted[field as keyof ExpenseFields] }),
       { reason: values.reason },
@@ -217,21 +249,38 @@ function ExpenseCorrectionForm({ expense, onClose }: { expense: QuotationExpense
           {errors.category && <p className="text-sm text-destructive">{errors.category.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="expense-correct-account">¿De dónde salió el dinero?</Label>
-          <PaymentAccountSelect
-            id="expense-correct-account"
-            companyId={accountsCompanyId}
-            value={watched.payment_account_id}
-            onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
-          />
-          {currentAccountUnavailable && watched.payment_account_id === expense.payment_account_id && (
-            <p className="text-[11px] text-muted-foreground">
-              Cuenta actual: {expense.payment_account_name ?? `#${expense.payment_account_id}`} (ya no está disponible
-              para elegir; si no la cambias, se mantiene).
-            </p>
-          )}
-        </div>
+        <ExpenseFundingFields
+          idPrefix="expense-correct"
+          fundingSource={fundingSource}
+          paidByUserId={watched.paid_by_user_id}
+          workers={workers}
+          onFundingChange={(value) => setValue('funding_source', value, { shouldValidate: true })}
+          onWorkerChange={(value) => setValue('paid_by_user_id', value, { shouldValidate: true })}
+          workerError={errors.paid_by_user_id?.message}
+          lockedNote={lockedNote}
+        />
+
+        {fundingSource === 'company' && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="expense-correct-account">¿De dónde salió el dinero?</Label>
+              <PaymentAccountSelect
+                id="expense-correct-account"
+                companyId={accountsCompanyId}
+                value={watched.payment_account_id}
+                onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
+              />
+              {currentAccountUnavailable && watched.payment_account_id === expense.payment_account_id && (
+                <p className="text-[11px] text-muted-foreground">
+                  Cuenta actual: {expense.payment_account_name ?? `#${expense.payment_account_id}`} (ya no está disponible
+                  para elegir; si no la cambias, se mantiene).
+                </p>
+              )}
+            </div>
+
+            <OperationNumberField id="expense-correct-operation" error={errors.operation_number?.message} {...register('operation_number')} />
+          </>
+        )}
 
         {closedGuard.closedLabel && (
           <ClosedPeriodNotice periodLabel={closedGuard.closedLabel} today={closedGuard.status?.today} canAdjust={closedGuard.canAdjustClosed} />

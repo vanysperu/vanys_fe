@@ -41,6 +41,7 @@ import { Button } from '@/presentation/components/shared/ui/button';
 import { combineDisabled, disableFuture } from '@/presentation/components/shared/ui/calendar';
 import { Checkbox } from '@/presentation/components/shared/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/presentation/components/shared/ui/dialog';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
@@ -53,6 +54,7 @@ const correctPurchaseSchema = z.object({
   funding_source: z.enum(['company', 'employee'], { error: 'Selecciona con qué plata se pagó' }),
   paid_by_user_id: z.number().nullable(),
   payment_account_id: z.number().nullable(),
+  operation_number: z.string().max(50, 'Máximo 50 caracteres').nullable(),
   // Confirmación explícita de comprar por encima de lo pedido.
   allow_exceed: z.boolean(),
   reason: correctionReasonSchema,
@@ -65,7 +67,7 @@ interface CorrectPurchaseDialogProps {
 }
 
 // Campos corregibles de una compra, en el orden del historial.
-const PURCHASE_FIELDS = ['amount', 'quantity', 'spent_at', 'funding_source', 'paid_by_user_id', 'payment_account_id'] as const;
+const PURCHASE_FIELDS = ['amount', 'quantity', 'spent_at', 'funding_source', 'paid_by_user_id', 'payment_account_id', 'operation_number'] as const;
 
 type PurchaseFields = {
   amount: number;
@@ -74,6 +76,12 @@ type PurchaseFields = {
   funding_source: FundingSource;
   paid_by_user_id: number | null;
   payment_account_id: number | null;
+  operation_number: string | null;
+};
+
+const normalizeText = (value: string | null | undefined): string | null => {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
 };
 
 // Lo que cambia en la factura según lo respondido (vacío = no se toca).
@@ -146,6 +154,7 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
     funding_source: purchase.funding_source,
     paid_by_user_id: purchase.paid_by_user_id,
     payment_account_id: purchase.payment_account_id,
+    operation_number: normalizeText(purchase.operation_number),
   };
 
   const {
@@ -189,6 +198,8 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
     funding_source: fundingSource,
     paid_by_user_id: fundingSource === 'employee' ? (watched.paid_by_user_id ?? null) : null,
     payment_account_id: fundingSource === 'company' ? (watched.payment_account_id ?? null) : null,
+    // Con plata de un trabajador no aplica: su número va en la reposición.
+    operation_number: fundingSource === 'company' ? normalizeText(watched.operation_number) : null,
   };
   const remaining = Math.max(purchase.item_quantity - purchase.other_purchased_quantity, 0);
   const exceeds = current.quantity > remaining && current.quantity > original.quantity;
@@ -351,6 +362,9 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
               onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
             />
           </div>
+        )}
+        {fundingSource === 'company' && (
+          <OperationNumberField id="purchase-correct-operation" error={errors.operation_number?.message} {...register('operation_number')} />
         )}
 
         <InvoiceQuestion

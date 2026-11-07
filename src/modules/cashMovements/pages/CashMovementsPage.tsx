@@ -55,6 +55,7 @@ import { Pagination } from '@/presentation/components/shared/Pagination';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 import { Button } from '@/presentation/components/shared/ui/button';
 import {
   Dialog,
@@ -339,6 +340,7 @@ export function CashMovementsPage() {
                   canOpen={canViewHistory}
                   onOpen={() => setHistoryMovement(row)}
                 />
+                {row.operation_number && <span className="block text-[10px] text-muted-foreground">Op. {row.operation_number}</span>}
                 <span className="block text-[10px] text-muted-foreground">
                   {SOURCE_LABEL[row.source]}
                   {row.quotation_id && ` · COT-${String(row.quotation_id).padStart(4, '0')}`}
@@ -765,6 +767,8 @@ function CreateCashMovementDialog() {
               companyId={selectedCompanyId}
             />
           </div>
+
+          <OperationNumberField id="cash-movement-operation" error={errors.operation_number?.message} {...register('operation_number')} />
 
           <div className="space-y-2">
             <Label htmlFor="cash-movement-description">Descripción</Label>

@@ -34,6 +34,7 @@ export const createCashMovementSchema = z.object({
   business_unit_id: z.number().optional(),
   // null = efectivo (sin cuenta).
   payment_account_id: z.number().nullable().optional(),
+  operation_number: z.string().max(50, 'Máximo 50 caracteres').optional(),
 });
 
 export type CreateCashMovementFormValues = z.infer<typeof createCashMovementSchema>;
@@ -43,7 +44,7 @@ export type CreateCashMovementFormValues = z.infer<typeof createCashMovementSche
 // corrige: se anula y se registra el correcto. El motivo es obligatorio
 // (queda en el historial inmutable del movimiento).
 export const updateCashMovementSchema = createCashMovementSchema
-  .pick({ category: true, amount: true, description: true, occurred_at: true, payment_account_id: true })
+  .pick({ category: true, amount: true, description: true, occurred_at: true, payment_account_id: true, operation_number: true })
   .extend({
     reason: correctionReasonSchema,
   });

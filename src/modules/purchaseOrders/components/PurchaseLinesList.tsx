@@ -51,6 +51,7 @@ export function PurchaseLinesList({ purchases, productName }: PurchaseLinesListP
               <span className="text-sm font-semibold tabular-nums">{formatMoney(Number(purchase.amount))}</span>
               <span className="text-[11px] text-muted-foreground">
                 {formatDate(purchase.spent_at)} · {purchase.quantity} u.
+                {purchase.operation_number ? ` · Op. ${purchase.operation_number}` : ''}
               </span>
             </span>
             <FundingBadge purchase={purchase} />

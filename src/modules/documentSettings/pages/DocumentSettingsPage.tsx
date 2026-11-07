@@ -1,12 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Check, CreditCard, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Building2, Check, CreditCard, Eye, EyeOff, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { IMAGE_INPUT_ACCEPT, IMAGE_UPLOAD_HINT, validateImageFile } from '@/lib/imageUpload';
 import { buildAssetUrl } from '@/lib/utils';
-import { useMyDocumentSettings, useUpdateMyDocumentSettings, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
+import { useMyDocumentSettings, useUpdateMyDocumentSettings, useUpdatePaymentAccount, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
 import { PaymentAccountForm } from '@/modules/documentSettings/components/PaymentAccountForm';
 import { updateDocumentSettingsSchema, type UpdateDocumentSettingsFormValues } from '@/modules/documentSettings/schemas/documentSettings.schema';
 import { useDeleteVariableGeneral, useToggleVariableGeneralStatus, useVariableGenerals } from '@/modules/variableGeneral/hooks/useVariableGeneral';
@@ -209,6 +209,7 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
   const { data, isLoading } = useVariableGenerals({ category: PAYMENT_ACCOUNT_CATEGORY, ignorePagination: true, companyId });
   const { mutate: remove, isPending: isRemoving } = useDeleteVariableGeneral();
   const { mutate: toggleStatus, isPending: isToggling } = useToggleVariableGeneralStatus();
+  const { mutate: updateAccount, isPending: isUpdating } = useUpdatePaymentAccount();
   const canUpdate = usePermissionButton('variable_general.update.button');
 
   // Una cuenta con movimientos no se elimina (su historial en Caja pasaría a
@@ -224,6 +225,16 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
       onError: (error) => toast.error((error as ApiClientError).message),
     });
 
+  // Cuenta interna o externa: un clic, sin abrir el formulario.
+  const toggleInQuotation = (accountId: number, show: boolean) =>
+    updateAccount(
+      { id: accountId, dto: { show_in_quotation: show } },
+      {
+        onSuccess: () => toast.success(show ? 'La cuenta ahora sale en la cotización' : 'Cuenta interna: ya no sale en la cotización'),
+        onError: (error) => toast.error((error as ApiClientError).message),
+      },
+    );
+
   // Para el Super Administrador, solo las de la empresa elegida (nunca las
   // de otras empresas mezcladas).
   const accounts = (data?.data ?? []).filter((account) => companyId === undefined || account.company_id === companyId);
@@ -231,9 +242,12 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-1.5">
-        <CreditCard className="size-4 text-primary" />
-        <h2 className="text-sm font-semibold">Cuentas de pago (bancos, Yape, Plin)</h2>
+      <div className="mb-4 space-y-1">
+        <div className="flex items-center gap-1.5">
+          <CreditCard className="size-4 text-primary" />
+          <h2 className="text-sm font-semibold">Cuentas de pago (bancos, Yape, Plin)</h2>
+        </div>
+        <p className="text-xs text-muted-foreground">Con el ojo decides cuáles salen en la cotización. Las internas no salen, pero se siguen usando para registrar pagos y gastos.</p>
       </div>
 
       {isLoading ? (
@@ -254,6 +268,11 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
                     <p className="flex items-center gap-1.5 text-sm font-medium">
                       {account.name}
                       {account.is_deleted && <Badge variant="outline">Deshabilitada</Badge>}
+                      {!account.show_in_quotation && (
+                        <Badge variant="muted" title="No sale en la cotización">
+                          Interna
+                        </Badge>
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {TYPE_LABEL[account.prefix_id] ?? account.prefix_id} · {account.ref1}
@@ -261,6 +280,22 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {canUpdate && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      title={account.show_in_quotation ? 'Sale en la cotización: clic para ocultarla' : 'No sale en la cotización: clic para mostrarla'}
+                      aria-label={account.show_in_quotation ? 'Ocultar de la cotización' : 'Mostrar en la cotización'}
+                      aria-pressed={account.show_in_quotation}
+                      disabled={isUpdating}
+                      data-testid={`account-quotation-${account.id}`}
+                      onClick={() => toggleInQuotation(account.id, !account.show_in_quotation)}
+                    >
+                      {account.show_in_quotation ? <Eye className="size-4" /> : <EyeOff className="size-4 text-muted-foreground" />}
+                    </Button>
+                  )}
                   {canUpdate && (
                     <Button
                       type="button"

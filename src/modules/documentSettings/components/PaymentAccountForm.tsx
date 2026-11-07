@@ -7,11 +7,12 @@ import { toast } from 'sonner';
 import type { ApiClientError } from '@/config/api.types';
 import { IMAGE_INPUT_ACCEPT, IMAGE_UPLOAD_HINT, validateImageFile } from '@/lib/imageUpload';
 import { buildAssetUrl } from '@/lib/utils';
-import { useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
+import { useUpdatePaymentAccount, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
 import { createPaymentAccountSchema, type CreatePaymentAccountFormValues } from '@/modules/documentSettings/schemas/documentSettings.schema';
-import { useCreateVariableGeneral, useUpdateVariableGeneral } from '@/modules/variableGeneral/hooks/useVariableGeneral';
+import { useCreateVariableGeneral } from '@/modules/variableGeneral/hooks/useVariableGeneral';
 import type { VariableGeneral } from '@/modules/variableGeneral/types/variableGeneral.types';
 import { Button } from '@/presentation/components/shared/ui/button';
+import { Checkbox } from '@/presentation/components/shared/ui/checkbox';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
@@ -39,7 +40,7 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
   // Quitar el QR que ya tenía la cuenta (se aplica al guardar).
   const [removeQr, setRemoveQr] = useState(false);
   const { mutate: create, isPending: isCreating } = useCreateVariableGeneral();
-  const { mutate: update, isPending: isUpdating } = useUpdateVariableGeneral();
+  const { mutate: update, isPending: isUpdating } = useUpdatePaymentAccount();
   const { mutate: uploadAsset, isPending: isUploading } = useUploadCompanyAsset();
 
   const {
@@ -54,6 +55,7 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
       prefix_id: isAccountType(account?.prefix_id) ? account?.prefix_id : undefined,
       name: account?.name ?? '',
       ref1: account?.ref1 ?? '',
+      show_in_quotation: account?.show_in_quotation ?? true,
     },
   });
 
@@ -61,7 +63,7 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
   const qrPreview = removeQr ? null : (pendingQrPath ?? account?.ref2 ?? null);
 
   const onSubmit = (values: CreatePaymentAccountFormValues) => {
-    const fields = { prefix_id: values.prefix_id, name: values.name, ref1: values.ref1 };
+    const fields = { prefix_id: values.prefix_id, name: values.name, ref1: values.ref1, show_in_quotation: values.show_in_quotation };
     const callbacks = {
       onSuccess: () => {
         toast.success(account ? 'Cuenta actualizada' : 'Cuenta agregada');
@@ -149,6 +151,18 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
         {isUploading && <p className="text-[11px] text-muted-foreground">Subiendo…</p>}
         {pendingQrPath && !isUploading && <p className="text-[11px] text-muted-foreground">QR cargado — se guarda junto con la cuenta.</p>}
         {removeQr && <p className="text-[11px] text-muted-foreground">El QR se quita al guardar.</p>}
+      </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id={fieldId('show-in-quotation')}
+          className="mt-0.5"
+          checked={watch('show_in_quotation')}
+          onCheckedChange={(checked) => setValue('show_in_quotation', checked === true)}
+        />
+        <div>
+          <Label htmlFor={fieldId('show-in-quotation')}>Mostrar en la cotización</Label>
+          <p className="text-[11px] text-muted-foreground">Desmárcala si es una cuenta interna: no sale en el PDF, pero sigue disponible para registrar pagos y gastos.</p>
+        </div>
       </div>
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" size="sm" variant="ghost" onClick={onDone}>

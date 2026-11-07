@@ -40,6 +40,7 @@ export interface EmployeeDebtListParams {
 export interface PayEmployeeDebtDto {
   // Cuenta desde la que se le repone (null = efectivo).
   payment_account_id: number | null;
+  operation_number?: string | null;
   // Monto a abonar ahora (pagos parciales): puede ser menor al total
   // pendiente, nunca mayor (el backend lo revalida).
   amount: number;
@@ -49,7 +50,13 @@ export interface PayEmployeeDebtDto {
 
 // "purchase": nació de una compra de orden pagada con su plata. "manual": la
 // registró un administrador (ej. pagó la luz con su plata).
-export type EmployeeDebtOrigin = 'purchase' | 'manual';
+export type EmployeeDebtOrigin = 'purchase' | 'manual' | 'expense';
+
+export const DEBT_ORIGIN_LABEL: Record<EmployeeDebtOrigin, string> = {
+  purchase: 'Compra de orden',
+  manual: 'Deuda manual',
+  expense: 'Gasto de cotización',
+};
 
 // "cancelled": deuda manual anulada antes de reponerse.
 export type EmployeeDebtRowStatus = 'pending' | 'paid' | 'cancelled';
@@ -95,6 +102,7 @@ export interface EmployeeDebtPaymentItem {
   paid_at: string;
   payment_account_id: number | null;
   payment_account_name: string | null;
+  operation_number: string | null;
   is_deleted: boolean;
   registered_by_name: string | null;
   created_at: string;
@@ -168,6 +176,7 @@ export interface EmployeeDebtPaymentRecord {
   paid_at: string;
   payment_account_id: number | null;
   payment_account_name: string | null;
+  operation_number: string | null;
   is_deleted: boolean;
   corrections_count: number;
   // De la más antigua a la más nueva.
@@ -192,5 +201,6 @@ export interface CorrectReimbursementDto {
   paid_at?: string;
   // null = efectivo.
   payment_account_id?: number | null;
+  operation_number?: string | null;
   reason: string;
 }

@@ -33,6 +33,7 @@ import type { ApiClientError } from '@/config/api.types';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 import { moneyAmountSchema } from '@/lib/moneySchema';
 import { PaymentAccountSelect } from '@/modules/variableGeneral/components/PaymentAccountSelect';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 
 function money(n: number) {
   return 'S/ ' + Number(n).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -45,6 +46,7 @@ const registerPurchaseSchema = z.object({
   funding_source: z.enum(['company', 'employee'], { error: 'Selecciona con qué plata se pagó' }),
   // Cuenta de la empresa desde la que se pagó (null = efectivo).
   payment_account_id: z.number().nullable().optional(),
+  operation_number: z.string().max(50, 'Máximo 50 caracteres').optional(),
 });
 type RegisterPurchaseFormValues = z.infer<typeof registerPurchaseSchema>;
 
@@ -349,6 +351,8 @@ function RegisterPurchaseForm({
       {
         ...values,
         payment_account_id: values.funding_source === 'company' ? values.payment_account_id : null,
+        // Con plata del trabajador el número va en su reposición.
+        operation_number: values.funding_source === 'company' ? values.operation_number : undefined,
         has_invoice: invoice.hasInvoice,
         invoice_id: usesExisting ? (invoice.existingInvoiceId ?? undefined) : undefined,
       },
@@ -421,6 +425,9 @@ function RegisterPurchaseForm({
             onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
           />
         </div>
+      )}
+      {fundingSource === 'company' && (
+        <OperationNumberField id="purchase-operation" className="h-8" error={errors.operation_number?.message} {...register('operation_number')} />
       )}
       <InvoiceQuestion
         question="¿La compra tiene factura?"

@@ -27,6 +27,7 @@ import {
   type EmployeeDebtPaymentItem,
   type EmployeeDebtSummaryItem,
 } from '@/modules/employeeDebts/types/employeeDebt.types';
+import { DEBT_ORIGIN_LABEL } from '@/modules/employeeDebts/types/employeeDebt.types';
 import { ConfirmDialog } from '@/presentation/components/shared/ConfirmDialog';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { Pagination } from '@/presentation/components/shared/Pagination';
@@ -120,7 +121,7 @@ function DebtsTab({ userId }: { userId: number }) {
                 <span>{row.description}</span>
                 <CorrectedBadge count={row.corrections_count} canOpen={canSeeHistory} onOpen={() => setHistoryOf(row)} />
                 <span className="block text-[10px] text-muted-foreground">
-                  {row.origin === 'manual' ? 'Deuda manual' : 'Compra de orden'}
+                  {DEBT_ORIGIN_LABEL[row.origin]}
                   {row.purchase_order_id && ` · OC-${String(row.purchase_order_id).padStart(4, '0')}`}
                   {row.quotation_id && ` · COT-${String(row.quotation_id).padStart(4, '0')}`}
                   {row.registered_by_name && ` · registró ${row.registered_by_name}`}
@@ -259,6 +260,7 @@ function PaymentsTab({ userId }: { userId: number }) {
             ),
           },
           { header: 'Desde', cell: (row) => row.payment_account_name ?? 'Efectivo' },
+          { header: 'N.° de operación', cell: (row) => row.operation_number ?? '—' },
           { header: 'Registró', cell: (row) => row.registered_by_name ?? '—' },
           {
             header: 'Estado',

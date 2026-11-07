@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/presentation/components/shared/ui/dialog';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 import { Label } from '@/presentation/components/shared/ui/label';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import type { ApiClientError } from '@/config/api.types';
@@ -196,6 +197,7 @@ export function EmployeeDebtsPage() {
 // monto y desde esa cuenta (cada abono parcial es su propia salida).
 function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClose: () => void }) {
   const [accountId, setAccountId] = useState<number | null>(null);
+  const [operationNumber, setOperationNumber] = useState('');
   // Por defecto se ofrece saldar todo; el input queda editable para un
   // abono parcial (ej. S/50 de una deuda de S/200) — pedido de QA: antes
   // solo se podía cancelar el total.
@@ -213,7 +215,7 @@ function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClo
   const confirm = () => {
     if (!isAmountValid) return;
     payDebt(
-      { userId: debt.user_id, dto: { payment_account_id: accountId, amount } },
+      { userId: debt.user_id, dto: { payment_account_id: accountId, operation_number: operationNumber.trim() || null, amount } },
       {
         onSuccess: () => {
           toast.success(amount >= debt.pending_amount ? 'Deuda saldada correctamente' : 'Abono registrado correctamente');
@@ -258,6 +260,8 @@ function PayDebtDialog({ debt, onClose }: { debt: EmployeeDebtSummaryItem; onClo
           <Label htmlFor="debt-account">¿De dónde salió el dinero para reponerle?</Label>
           <PaymentAccountSelect id="debt-account" companyId={debt.company_id} value={accountId} onChange={setAccountId} />
         </div>
+
+        <OperationNumberField id="debt-operation" value={operationNumber} onChange={(event) => setOperationNumber(event.target.value)} />
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={isPending}>

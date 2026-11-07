@@ -22,7 +22,10 @@ import {
   type CreateQuotationExpenseFormValues,
 } from '@/modules/quotations/schemas/quotation.schema';
 import type { QuotationExpense } from '@/modules/quotations/types/quotation.types';
+import { ExpenseFundingFields } from '@/modules/quotations/components/ExpenseFundingFields';
+import { useExpenseWorkers } from '@/modules/quotations/hooks/useExpenseWorkers';
 import { CharCounter } from '@/presentation/components/shared/CharCounter';
+import { OperationNumberField } from '@/presentation/components/shared/OperationNumberField';
 import { useAdjustmentReason } from '@/modules/cashClosings/hooks/useAdjustmentReason';
 import { useClosedPeriodGuard } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
 import { closedPeriodLabelOf } from '@/modules/cashClosings/utils/period';
@@ -49,6 +52,13 @@ interface QuotationExpensesSectionProps {
   companyId?: number;
 }
 
+const newExpenseValues = () => ({
+  spent_at: todayLocalDateString(),
+  funding_source: 'company' as const,
+  paid_by_user_id: null,
+  payment_account_id: null,
+});
+
 export function QuotationExpensesSection({ quotationId, expenses, canRegister, companyId }: QuotationExpensesSectionProps) {
   const [formOpen, setFormOpen] = useState(false);
   // Un gasto no se puede fechar en un mes cerrado.
@@ -60,11 +70,14 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
     reset,
     watch,
     setValue,
+    setError,
     formState: { errors },
   } = useForm<CreateQuotationExpenseFormValues>({
     resolver: zodResolver(createQuotationExpenseSchema),
-    defaultValues: { spent_at: todayLocalDateString(), payment_account_id: null },
+    defaultValues: newExpenseValues(),
   });
+  const fundingSource = watch('funding_source');
+  const workers = useExpenseWorkers(companyId, fundingSource === 'employee');
 
   // Un gasto (o compra) anulado se ve tachado pero no suma.
   const total = expenses.filter((expense) => !expense.is_deleted).reduce((sum, expense) => sum + Number(expense.amount), 0);
@@ -112,10 +125,22 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
   };
 
   const onSubmit = (values: CreateQuotationExpenseFormValues) => {
-    createExpense(values, {
+    const paidByWorker = values.funding_source === 'employee';
+    if (paidByWorker && !values.paid_by_user_id && workers.length > 0) {
+      setError('paid_by_user_id', { message: 'Selecciona qué trabajador puso el dinero' });
+      return;
+    }
+    // Con plata de un trabajador no hay cuenta ni operación de la empresa.
+    const dto = {
+      ...values,
+      paid_by_user_id: paidByWorker ? values.paid_by_user_id : null,
+      payment_account_id: paidByWorker ? null : values.payment_account_id,
+      operation_number: paidByWorker ? null : values.operation_number,
+    };
+    createExpense(dto, {
       onSuccess: () => {
-        toast.success('Gasto registrado');
-        reset({ spent_at: todayLocalDateString(), payment_account_id: null });
+        toast.success(paidByWorker ? 'Gasto registrado: quedó la deuda con el trabajador' : 'Gasto registrado');
+        reset(newExpenseValues());
         setFormOpen(false);
       },
       onError: (error) => toast.error((error as ApiClientError).message),
@@ -205,6 +230,12 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
               <span>{formatDate(expense.spent_at)}</span>
               {expense.category && (
                 <span className="rounded-md bg-muted px-1.5 py-0.5 font-medium capitalize">{expense.category}</span>
+              )}
+              {expense.operation_number && <span>· Op. {expense.operation_number}</span>}
+              {expense.paid_by_user_name && (
+                <span className="text-warning">
+                  · Pagó {expense.paid_by_user_name} con su plata ({expense.debt_status === 'paid' ? 'ya repuesto' : 'falta reponerle'})
+                </span>
               )}
               {expense.actor && (
                 <span>
@@ -305,17 +336,31 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
                 <Input id="expense-category" placeholder="Insumos, envío…" maxLength={50} {...register('category')} />
                 {errors.category && <p className="text-xs text-destructive">{errors.category.message}</p>}
               </div>
+              <ExpenseFundingFields
+                idPrefix="expense"
+                fundingSource={fundingSource}
+                paidByUserId={watch('paid_by_user_id')}
+                workers={workers}
+                onFundingChange={(value) => setValue('funding_source', value, { shouldValidate: true })}
+                onWorkerChange={(value) => setValue('paid_by_user_id', value, { shouldValidate: true })}
+                workerError={errors.paid_by_user_id?.message}
+              />
               {/* De dónde salió el dinero: así Caja descuenta de la cuenta
                   correcta (antes todo gasto figuraba como efectivo). */}
-              <div className="space-y-1">
-                <Label htmlFor="expense-account">¿De dónde salió el dinero?</Label>
-                <PaymentAccountSelect
-                  id="expense-account"
-                  companyId={companyId}
-                  value={watch('payment_account_id')}
-                  onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
-                />
-              </div>
+              {fundingSource === 'company' && (
+                <>
+                  <div className="space-y-1">
+                    <Label htmlFor="expense-account">¿De dónde salió el dinero?</Label>
+                    <PaymentAccountSelect
+                      id="expense-account"
+                      companyId={companyId}
+                      value={watch('payment_account_id')}
+                      onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
+                    />
+                  </div>
+                  <OperationNumberField id="expense-operation" error={errors.operation_number?.message} {...register('operation_number')} />
+                </>
+              )}
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" size="sm" variant="ghost" onClick={() => setFormOpen(false)}>
                   <X className="size-4" />

@@ -83,11 +83,13 @@ export function CorrectManualDebtDialog({ debtId, onClose }: CorrectManualDebtDi
 }
 
 function ManualDebtCorrectionBody({ debt, onClose }: { debt: EmployeeDebtRecord; onClose(): void }) {
-  if (debt.origin === 'purchase') {
+  if (debt.origin !== 'manual') {
     return (
       <p className="flex gap-2 rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0" />
-        Esta deuda viene de una compra de orden: se corrige desde la compra (en su orden de compra o en Caja).
+        {debt.origin === 'expense'
+          ? 'Esta deuda viene de un gasto de cotización: se corrige desde el gasto (en la cotización o en Caja).'
+          : 'Esta deuda viene de una compra de orden: se corrige desde la compra (en su orden de compra o en Caja).'}
       </p>
     );
   }
