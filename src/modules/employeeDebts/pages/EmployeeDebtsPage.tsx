@@ -120,7 +120,7 @@ export function EmployeeDebtsPage() {
           ...(showPending
             ? [
                 {
-                  header: 'Compras pendientes',
+                  header: 'Deudas pendientes',
                   cell: (row: EmployeeDebtSummaryItem) => <Badge variant="secondary">{row.pending_count}</Badge>,
                 },
                 {

@@ -59,6 +59,11 @@ export interface PurchaseOrderItemPurchase {
   debt_paid_amount: number | null;
   debt_status: string | null;
   corrections_count: number;
+  // Factura de la compra (null = sin factura), si ya tiene archivo y cuántas
+  // compras vigentes cubre.
+  invoice_id: number | null;
+  invoice_has_file: boolean;
+  invoice_purchases_count: number;
   created_at: string;
 }
 
@@ -84,7 +89,18 @@ export interface CorrectPurchaseDto {
   spent_at?: string;
   // true = ya se confirmó subir la cantidad por encima de lo que falta.
   allow_exceed?: boolean;
+  // ¿Llevaba factura? Ausente = no se toca. invoice_id = pasarla a esa factura.
+  has_invoice?: boolean;
+  invoice_id?: number | null;
   reason: string;
+}
+
+export interface CorrectPurchaseResult {
+  id: number;
+  quotation_expense_id: number;
+  // Factura con la que quedó y si se acaba de crear (para subirle el archivo).
+  invoice_id: number | null;
+  invoice_created: boolean;
 }
 
 export interface PurchaseOrderItem {

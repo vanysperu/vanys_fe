@@ -11,6 +11,8 @@ interface PurchaseInvoicePickerProps {
   // misma empresa y tienda.
   itemId: number;
   value: number | null;
+  // La factura que ya tiene la compra: no tiene sentido elegirla.
+  excludeInvoiceId?: number;
   onChange: (invoiceId: number) => void;
 }
 
@@ -20,13 +22,14 @@ const candidateLabel = (candidate: PurchaseInvoiceCandidate) =>
 // Elegir una factura de compra ya registrada para sumarle esta compra (pedido
 // explícito del usuario: "en una factura pueden estar varios productos"). Lista
 // las más recientes; buscando, encuentra las anteriores por producto o cotización.
-export function PurchaseInvoicePicker({ itemId, value, onChange }: PurchaseInvoicePickerProps) {
+export function PurchaseInvoicePicker({ itemId, value, excludeInvoiceId, onChange }: PurchaseInvoicePickerProps) {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
   const { data: candidates, isFetching } = usePurchaseInvoiceCandidates(itemId, debouncedSearch);
   // La elegida puede no estar entre los resultados de una búsqueda posterior.
   const [selectedLabel, setSelectedLabel] = useState<string | undefined>(undefined);
-  const options = (candidates ?? []).map((candidate) => ({
+  const selectable = (candidates ?? []).filter((candidate) => candidate.id !== excludeInvoiceId);
+  const options = selectable.map((candidate) => ({
     value: String(candidate.id),
     label: candidateLabel(candidate),
     hint: candidate.has_file ? 'Con archivo' : 'Falta archivo',

@@ -11,9 +11,10 @@ import { QuotationItemVariant } from '@/modules/quotations/components/QuotationI
 import { QuotationPaymentsSection } from '@/modules/quotations/components/QuotationPaymentsSection';
 import { QuotationTimeline } from '@/modules/quotations/components/QuotationTimeline';
 import { QuotationProfitSection } from '@/modules/quotations/components/QuotationProfitSection';
+import { ResetQuotationDialog } from '@/modules/quotations/components/ResetQuotationDialog';
 import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/QuotationPdfPreviewDialog';
 import { useChangeQuotationStatus, useDownloadQuotationPdf, useQuotation } from '@/modules/quotations/hooks/useQuotations';
-import { ArrowRight, Download, Eye, PencilLine } from 'lucide-react';
+import { ArrowRight, Download, Eye, PencilLine, RotateCcw } from 'lucide-react';
 import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
 import {
   QUOTATION_ACTIVE_STATUSES,
@@ -122,6 +123,9 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const canComplete = usePermissionButton('cotizacion.complete.button');
   // Ganancia: información de gestión, solo para los roles con el permiso.
   const canViewProfit = usePermissionButton('cotizacion.profit.view.button');
+  // Recurso exclusivo de plataforma: solo le llega al Super Administrador.
+  const canReset = usePermissionButton('cotizacion.reset.button');
+  const [resettingId, setResettingId] = useState<number | null>(null);
   const { mutate: downloadPdf } = useDownloadQuotationPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
   // Cotización que se está aceptando: abre el modal "¿pagó adelanto?".
@@ -235,6 +239,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
         <QuotationPdfPreviewDialog quotationId={previewOpen ? quotationId : null} onClose={() => setPreviewOpen(false)} />
         <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
         <FinishQuotationDialog quotation={finishing} onClose={() => setFinishing(null)} />
+        <ResetQuotationDialog quotationId={resettingId} onClose={() => setResettingId(null)} />
 
         {isLoading && (
           <div className="space-y-3">
@@ -355,6 +360,16 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                     </Button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {canReset && quotation.status !== 'quote_requested' && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-destructive/40 px-3 py-2">
+                <p className="text-xs text-muted-foreground">Volver a Pendiente y borrar todos sus pagos, gastos y compras.</p>
+                <Button size="sm" variant="outline" onClick={() => setResettingId(quotation.id)}>
+                  <RotateCcw className="size-4" />
+                  Resetear
+                </Button>
               </div>
             )}
 

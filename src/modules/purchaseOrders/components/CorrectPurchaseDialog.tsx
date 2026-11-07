@@ -1,11 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Info } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import type { ApiClientError } from '@/config/api.types';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 import { moneyAmountSchema } from '@/lib/moneySchema';
+import { EMPTY_INVOICE_ANSWER, InvoiceQuestion, type InvoiceAnswer } from '@/modules/invoices/components/InvoiceQuestion';
+import { useUploadInvoiceFile } from '@/modules/invoices/hooks/useInvoices';
 import { CorrectionPreview } from '@/modules/moneyCorrections/components/CorrectionPreview';
 import { ClosedPeriodNotice } from '@/modules/cashClosings/components/ClosedPeriodNotice';
 import { useClosedPeriodGuard } from '@/modules/cashClosings/hooks/useClosedPeriodGuard';
@@ -72,6 +76,19 @@ type PurchaseFields = {
   payment_account_id: number | null;
 };
 
+// Lo que cambia en la factura según lo respondido (vacío = no se toca).
+const invoiceChangeOf = (hadInvoice: boolean, answer: InvoiceAnswer): Pick<CorrectPurchaseDto, 'has_invoice' | 'invoice_id'> => {
+  if (!answer.hasInvoice) return hadInvoice ? { has_invoice: false } : {};
+  if (answer.usesExisting) return answer.existingInvoiceId ? { has_invoice: true, invoice_id: answer.existingInvoiceId } : {};
+  return hadInvoice ? {} : { has_invoice: true };
+};
+
+// Texto del "Antes → Después" para la factura.
+const invoiceAfterText = (hadInvoice: boolean, answer: InvoiceAnswer): string => {
+  if (!answer.hasInvoice) return 'Sin factura';
+  return hadInvoice && answer.usesExisting ? 'En otra factura' : 'Con factura';
+};
+
 // Corregir una compra de orden de compra (desde el checklist de la orden, la
 // pestaña Gastos de la cotización o Caja). Carga la compra vigente por id: el
 // backend corrige compra + gasto + deuda con el trabajador juntos y deja el
@@ -116,6 +133,11 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
   const { data: usersResult } = useUsers({ limit: 100, isActive: true });
   const lookups = useCorrectionLookups();
   const { mutateAsync: savePurchase, isPending } = useCorrectPurchase();
+  const { mutateAsync: uploadInvoice } = useUploadInvoiceFile();
+  // ¿Llevaba factura? También se corrige acá (pedido explícito del usuario).
+  const hadInvoice = purchase.invoice_id !== null;
+  const [invoice, setInvoice] = useState<InvoiceAnswer>({ ...EMPTY_INVOICE_ANSWER, hasInvoice: hadInvoice });
+  const [invoiceError, setInvoiceError] = useState<string | undefined>(undefined);
 
   const original: PurchaseFields = {
     amount: Number(purchase.amount),
@@ -177,10 +199,29 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
     payment_account_name: accountName(values.payment_account_id),
   });
   const { previous, next, changedFields } = pickChangedValues(toValues(original), toValues(current), PURCHASE_FIELDS);
-  const changes = buildCorrectionChanges(previous, next, lookups);
+  const invoiceChange = invoiceChangeOf(hadInvoice, invoice);
+  const invoiceChanged = invoiceChange.has_invoice !== undefined;
+  // La factura va en el mismo "Antes → Después", aunque no sea dinero.
+  const changes = buildCorrectionChanges(
+    invoiceChanged ? { ...previous, invoice_status: hadInvoice ? 'Con factura' : 'Sin factura' } : previous,
+    invoiceChanged ? { ...next, invoice_status: invoiceAfterText(hadInvoice, invoice) } : next,
+    lookups,
+  );
+  // Sacarla de una factura que solo cubre esta compra borra esa factura.
+  const leavesInvoice = hadInvoice && invoiceChanged && purchase.invoice_purchases_count <= 1;
 
   const { request, confirmProps } = useCorrectionConfirm<CorrectPurchaseDto>({
-    submit: (dto) => savePurchase({ id: purchase.id, dto }),
+    submit: async (dto) => {
+      const result = await savePurchase({ id: purchase.id, dto });
+      if (!result.invoice_created || result.invoice_id === null || !invoice.file) return result;
+      // La corrección ya quedó: si el archivo falla, la factura queda en "Faltan subir".
+      try {
+        await uploadInvoice({ invoiceId: result.invoice_id, file: invoice.file });
+      } catch (error) {
+        toast.error(`La factura no se subió: ${(error as ApiClientError).message}. Quedó en "Faltan subir".`);
+      }
+      return result;
+    },
     successMessage: 'Compra corregida correctamente',
     fallbackErrorMessage: 'No se pudo corregir la compra',
     onSuccess: onClose,
@@ -195,10 +236,14 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
       setError('allow_exceed', { message: 'Confirma que se compró más de lo pedido' });
       return;
     }
+    if (invoice.hasInvoice && invoice.usesExisting && !invoice.existingInvoiceId) {
+      setInvoiceError('Elige la factura en la que va esta compra');
+      return;
+    }
     // Solo lo que cambió (lo ausente se queda como está).
     const dto = changedFields.reduce<CorrectPurchaseDto>(
       (picked, field) => ({ ...picked, [field]: current[field as keyof PurchaseFields] }),
-      { reason: values.reason, ...(exceeds ? { allow_exceed: true } : {}) },
+      { reason: values.reason, ...(exceeds ? { allow_exceed: true } : {}), ...invoiceChange },
     );
     request(dto);
   };
@@ -306,6 +351,24 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
               onChange={(value) => setValue('payment_account_id', value, { shouldValidate: true })}
             />
           </div>
+        )}
+
+        <InvoiceQuestion
+          question="¿La compra tiene factura?"
+          value={invoice}
+          onChange={(nextInvoice) => {
+            setInvoice(nextInvoice);
+            setInvoiceError(undefined);
+          }}
+          error={invoiceError}
+          purchaseItemId={purchase.purchase_order_item_id}
+          currentInvoice={purchase.invoice_id === null ? undefined : { id: purchase.invoice_id, hasFile: purchase.invoice_has_file }}
+        />
+        {leavesInvoice && (
+          <p className="text-xs text-destructive" data-testid="invoice-will-be-deleted">
+            Esa factura solo cubre esta compra: se elimina del sistema
+            {purchase.invoice_has_file ? ' junto con su archivo (lo copiado a Google Drive se conserva)' : ''}.
+          </p>
         )}
 
         {closedGuard.closedLabel && (

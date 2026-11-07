@@ -61,6 +61,8 @@ function invalidateAfterPurchaseChange(queryClient: QueryClient, quotationExpens
   queryClient.invalidateQueries({ queryKey: statisticsKeys.all });
   queryClient.invalidateQueries({ queryKey: employeeDebtsKeys.all });
   queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
+  // Corregir o anular puede cambiar la factura de la compra.
+  queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
   if (quotationExpenseId !== undefined) {
     queryClient.invalidateQueries({ queryKey: moneyCorrectionsKeys.history('quotation_expense', quotationExpenseId) });
   }

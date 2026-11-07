@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Check, Lock, Pencil, Plus, Scale, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Ban, Check, Lock, Pencil, Plus, Scale, Wallet, type LucideIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -21,7 +21,9 @@ import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorr
 import { CorrectPaymentDialog } from '@/modules/payments/components/CorrectPaymentDialog';
 import { CorrectManualDebtDialog } from '@/modules/employeeDebts/components/CorrectManualDebtDialog';
 import { CorrectReimbursementDialog } from '@/modules/employeeDebts/components/CorrectReimbursementDialog';
+import { CreateManualDebtDialog } from '@/modules/employeeDebts/components/CreateManualDebtDialog';
 import { CorrectPurchaseDialog } from '@/modules/purchaseOrders/components/CorrectPurchaseDialog';
+import { usePurchaseAnnulment } from '@/modules/purchaseOrders/hooks/usePurchaseAnnulment';
 import { CorrectQuotationExpenseDialog } from '@/modules/quotations/components/CorrectQuotationExpenseDialog';
 import { usePurchaseOrders } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
 import { useQuotations } from '@/modules/quotations/hooks/useQuotations';
@@ -140,6 +142,9 @@ export function CashMovementsPage() {
   const canCreate = usePermissionButton('cash_movement.create.button');
   const canDisable = usePermissionButton('cash_movement.disable.button');
   const canViewHistory = usePermissionButton('cash_movement.corrections.button');
+  const canAnnulPurchase = usePermissionButton('purchase_order.purchase.disable.button');
+  const canCreateDebt = usePermissionButton('employee_debt.create.button');
+  const { requestAnnul, dialog: annulDialog } = usePurchaseAnnulment();
   const canSeeBalances = usePermissionButton('cash_closing.balances.button');
   // Filas de un mes cerrado: solo quien puede ajustar meses cerrados ve sus
   // acciones (el backend respondería 403 CASH_PERIOD_ADJUST_FORBIDDEN).
@@ -230,6 +235,9 @@ export function CashMovementsPage() {
                 </Link>
               </Button>
             )}
+            {/* Lo que un trabajador pagó con su plata (un servicio, un almuerzo):
+                no sale de Caja hasta que se le repone. */}
+            {canCreateDebt && <CreateManualDebtDialog triggerLabel="Deuda a personal" triggerVariant="outline" />}
             {canCreate && <CreateCashMovementDialog />}
           </div>
         }
@@ -393,6 +401,25 @@ export function CashMovementsPage() {
                     <Pencil className="size-3.5" />
                   </button>
                 )}
+                {row.entry_kind === 'movement' && row.source === 'quotation_expense' && row.purchase_id !== null && canAnnulPurchase && !rowActionsLocked(row) && (
+                  <button
+                    type="button"
+                    title="Anular compra"
+                    aria-label="Anular compra"
+                    onClick={() =>
+                      requestAnnul({
+                        id: row.purchase_id as number,
+                        amount: Math.abs(row.amount),
+                        spent_at: row.occurred_at,
+                        funding_source: row.moves_cash ? 'company' : 'employee',
+                        label: row.description ?? undefined,
+                      })
+                    }
+                    className="rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+                  >
+                    <Ban className="size-3.5" />
+                  </button>
+                )}
                 {row.entry_kind === 'movement' && row.source === 'manual' && canDisable && !rowActionsLocked(row) && (
                   <ToggleStatusButton
                     active
@@ -424,6 +451,7 @@ export function CashMovementsPage() {
       )}
 
       {adjustmentReason.dialog}
+      {annulDialog}
       {correctingMovement && <CorrectRowDialog row={correctingMovement} onClose={() => setCorrectingMovement(null)} />}
       {historyMovement && (
         <CorrectionHistoryDialog

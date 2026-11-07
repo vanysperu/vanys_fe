@@ -12,6 +12,7 @@ import type {
   Quotation,
   QuotationDetail,
   QuotationProfit,
+  QuotationResetPreview,
   QuotationExpense,
   QuotationBoard,
   QuotationBoardParams,
@@ -42,6 +43,19 @@ export async function getQuotationProfit(id: number): Promise<QuotationProfit> {
   const response = await apiClient.get<ApiResponse<QuotationProfit>>(`/quotation/${id}/profit`);
   if (!response.data.success) throw response.data;
   return response.data.data;
+}
+
+// Qué se borraría al resetear la cotización (solo Super Administrador).
+export async function getQuotationResetPreview(id: number): Promise<QuotationResetPreview> {
+  const response = await apiClient.get<ApiResponse<QuotationResetPreview>>(`/quotation/${id}/reset-preview`);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Vuelve a Pendiente y borra físicamente lo que generó. No se puede deshacer.
+export async function resetQuotation({ id, reason }: { id: number; reason: string }): Promise<void> {
+  const response = await apiClient.put<ApiResponse<unknown>>(`/quotation/${id}/reset`, { reason });
+  if (!response.data.success) throw response.data;
 }
 
 export async function getQuotation(id: number): Promise<QuotationDetail> {

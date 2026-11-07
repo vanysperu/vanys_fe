@@ -1,4 +1,5 @@
 import type { ProductCode, ProductColor } from '@/modules/products/types/product.types';
+import type { FundingSource } from '@/modules/purchaseOrders/types/purchaseOrder.types';
 
 // Espejo de QUOTATION_STATUSES (grulla_be: quotation.model.ts).
 export type QuotationStatus =
@@ -282,6 +283,8 @@ export interface QuotationExpense {
   // Compra de orden de compra a la que pertenece (null = gasto manual): esos
   // se corrigen/anulan como compra.
   purchase_id: number | null;
+  // Quién puso la plata de esa compra (null = gasto manual).
+  purchase_funding_source: FundingSource | null;
   // Cuántas correcciones tiene (badge "Corregido (n)").
   corrections_count: number;
   created_at: string;
@@ -333,6 +336,7 @@ export type QuotationEventAction =
   | 'expense_restored'
   | 'purchase_updated'
   | 'purchase_disabled'
+  | 'quotation_reset'
   | 'updated';
 
 export interface QuotationEvent {
@@ -499,4 +503,32 @@ export interface QuotationProfit {
   net_margin_rate: number | null;
   projected_profit: number;
   projected_margin_rate: number | null;
+}
+
+// GET /quotation/:id/reset-preview (espejo de grulla_be quotation/types/reset.types.ts).
+export interface ResetMoneyLine {
+  count: number;
+  total: number;
+}
+
+export interface QuotationResetSummary {
+  payments: ResetMoneyLine;
+  expenses: ResetMoneyLine;
+  purchases: ResetMoneyLine;
+  purchase_orders: number;
+  debts: ResetMoneyLine;
+  reimbursements: ResetMoneyLine;
+  cash_movements: ResetMoneyLine;
+  invoices_deleted: number;
+  invoices_kept: number;
+}
+
+export interface QuotationResetPreview {
+  quotation_id: number;
+  quotation_code: string;
+  status: string;
+  summary: QuotationResetSummary;
+  can_reset: boolean;
+  blocked_reason: string | null;
+  blocked_periods: string[];
 }

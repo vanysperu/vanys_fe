@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { Check, Pencil, Plus, X } from 'lucide-react';
+import { Ban, Check, Pencil, Plus, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -9,6 +9,7 @@ import { CorrectedBadge } from '@/modules/moneyCorrections/components/CorrectedB
 import { CorrectionHistoryDialog } from '@/modules/moneyCorrections/components/CorrectionHistoryDialog';
 import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
 import { CorrectPurchaseDialog } from '@/modules/purchaseOrders/components/CorrectPurchaseDialog';
+import { usePurchaseAnnulment } from '@/modules/purchaseOrders/hooks/usePurchaseAnnulment';
 import { quotationExpenseCorrectionsUrl } from '@/modules/quotations/api/quotations.api';
 import { CorrectQuotationExpenseDialog } from '@/modules/quotations/components/CorrectQuotationExpenseDialog';
 import { useCreateQuotationExpense, useToggleQuotationExpenseStatus } from '@/modules/quotations/hooks/useQuotations';
@@ -73,6 +74,8 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
   const canToggleExpense = usePermissionButton('cotizacion.expense.disable.button');
   const canOpenHistory = usePermissionButton('cotizacion.expense.corrections.button');
   const canCorrectPurchase = usePermissionButton('purchase_order.purchase.update.button');
+  const canAnnulPurchase = usePermissionButton('purchase_order.purchase.disable.button');
+  const { requestAnnul, dialog: annulDialog } = usePurchaseAnnulment(companyId);
   const [correctingExpenseId, setCorrectingExpenseId] = useState<number | null>(null);
   const [correctingPurchaseId, setCorrectingPurchaseId] = useState<number | null>(null);
   const [historyExpense, setHistoryExpense] = useState<QuotationExpense | null>(null);
@@ -136,6 +139,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
           const locked = closedGuard.actionsLocked(expense.spent_at);
           const canCorrect = !expense.is_deleted && !locked && (isPurchase ? canCorrectPurchase : canCorrectExpense);
           const canToggle = !isPurchase && canToggleExpense && !locked;
+          const canAnnul = isPurchase && !expense.is_deleted && !locked && canAnnulPurchase;
           return (
           <div key={expense.id} className={cn('space-y-1 rounded-lg border p-3', expense.is_deleted && 'opacity-60')}>
             <div className="flex items-start justify-between gap-3">
@@ -146,7 +150,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
               <span className={cn('font-mono-nums shrink-0 font-semibold text-destructive', expense.is_deleted && 'line-through')}>
                 {money(expense.amount)}
               </span>
-              {(canCorrect || canToggle) && (
+              {(canCorrect || canToggle || canAnnul) && (
                 <div className="flex shrink-0 items-center">
                   {canCorrect && (
                     <Button
@@ -163,7 +167,28 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
                       <Pencil className="size-4" />
                     </Button>
                   )}
-                  {/* El gasto de una compra se anula desde la orden de compra. */}
+                  {/* Una compra se anula como compra: arrastra su gasto, su deuda y su factura. */}
+                  {canAnnul && expense.purchase_id !== null && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      title="Anular compra"
+                      aria-label="Anular compra"
+                      onClick={() =>
+                        requestAnnul({
+                          id: expense.purchase_id as number,
+                          amount: Number(expense.amount),
+                          spent_at: expense.spent_at,
+                          funding_source: expense.purchase_funding_source ?? 'company',
+                          label: expense.description,
+                        })
+                      }
+                    >
+                      <Ban className="size-4 text-destructive" />
+                    </Button>
+                  )}
                   {canToggle && (
                     <ToggleStatusButton
                       active={!expense.is_deleted}
@@ -212,6 +237,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
         />
       )}
       {adjustmentReason.dialog}
+      {annulDialog}
       <ConfirmDialog
         open={togglingExpense !== null}
         onOpenChange={(open) => !open && setTogglingExpense(null)}

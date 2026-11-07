@@ -1,4 +1,4 @@
-import { ArrowRightLeft, CircleDollarSign, FilePlus, Pencil, Receipt, ShoppingCart, Workflow } from 'lucide-react';
+import { ArrowRightLeft, CircleDollarSign, FilePlus, Pencil, Receipt, RotateCcw, ShoppingCart, Workflow } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import type { QuotationEvent, QuotationEventAction } from '@/modules/quotations/types/quotation.types';
@@ -21,6 +21,7 @@ const EVENT_STYLE: Record<QuotationEventAction, { icon: LucideIcon; tag: string;
   expense_restored: { icon: Receipt, fg: '#B4231F', bg: '#FBE9E8', tag: 'Gasto restaurado' },
   purchase_updated: { icon: ShoppingCart, fg: '#B4231F', bg: '#FBE9E8', tag: 'Compra corregida' },
   purchase_disabled: { icon: ShoppingCart, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Compra anulada' },
+  quotation_reset: { icon: RotateCcw, fg: '#B4231F', bg: '#FBE9E8', tag: 'Reseteada' },
   updated: { icon: Pencil, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Edición' },
 };
 

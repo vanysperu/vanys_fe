@@ -10,6 +10,8 @@ import {
 } from '@tanstack/react-query';
 
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
+import { employeeDebtsKeys } from '@/modules/employeeDebts/hooks/employeeDebts.keys';
+import { purchaseOrderKeys } from '@/modules/purchaseOrders/hooks/purchaseOrder.keys';
 import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
 import { statisticsKeys } from '@/modules/statistics/hooks/statistics.keys';
 import {
@@ -26,6 +28,8 @@ import {
   getQuotation,
   getQuotationBoard,
   getQuotationProfit,
+  getQuotationResetPreview,
+  resetQuotation,
   getQuotations,
   updateQuotation,
 } from '@/modules/quotations/api/quotations.api';
@@ -105,6 +109,33 @@ export function useQuotationProfit(id: number, enabled: boolean) {
     queryKey: quotationsKeys.profit(id),
     queryFn: () => getQuotationProfit(id),
     enabled,
+  });
+}
+
+// Siempre lo vigente: es lo que se va a borrar.
+export function useQuotationResetPreview(id: number | null, enabled: boolean) {
+  return useQuery({
+    queryKey: quotationsKeys.resetPreview(id ?? 0),
+    queryFn: () => getQuotationResetPreview(id as number),
+    enabled: enabled && id !== null,
+    staleTime: 0,
+  });
+}
+
+// El reset toca casi todo lo que tiene dinero: se refresca todo eso.
+export function useResetQuotation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: resetQuotation,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationsKeys.all });
+      queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all });
+      queryClient.invalidateQueries({ queryKey: employeeDebtsKeys.all });
+      queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
+      invalidateCashViews(queryClient);
+    },
   });
 }
 

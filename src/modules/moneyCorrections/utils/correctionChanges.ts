@@ -128,6 +128,7 @@ const formatAllocationsField: CorrectionFieldDefinition['format'] = (values, fie
 const CORRECTION_FIELDS: readonly (readonly [string, CorrectionFieldDefinition])[] = [
   ['amount', { label: 'Monto', format: formatMoneyField }],
   ['quantity', { label: 'Cantidad', format: formatQuantityField }],
+  ['invoice_status', { label: 'Factura', format: formatTextField(EMPTY) }],
   ['occurred_at', { label: 'Fecha', format: formatDateField }],
   ['paid_at', { label: 'Fecha de pago', format: formatDateField }],
   ['spent_at', { label: 'Fecha del gasto', format: formatDateField }],

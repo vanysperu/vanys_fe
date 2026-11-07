@@ -16,6 +16,8 @@ export const quotationsKeys = {
   // También cuelga del detalle: un pago o gasto nuevo invalida el detalle y,
   // con él, la ganancia.
   profit: (id: number) => [...quotationsKeys.detail(id), 'profit'] as const,
+  // Qué borraría resetearla: cuelga del detalle, un pago nuevo la refresca.
+  resetPreview: (id: number) => [...quotationsKeys.detail(id), 'reset-preview'] as const,
   // Un gasto suelto (diálogo de corrección).
   expense: (id: number) => [...quotationsKeys.all, 'expense', id] as const,
 };

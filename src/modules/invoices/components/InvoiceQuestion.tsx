@@ -30,6 +30,9 @@ interface InvoiceQuestionProps {
   // Solo en compras: el item que se está comprando. Con esto se puede elegir
   // una factura ya registrada en vez de una nueva.
   purchaseItemId?: number;
+  // Al corregir una compra que ya tiene factura: se puede dejar esa o pasarla
+  // a otra. Sin esto, se ofrece crear una nueva.
+  currentInvoice?: { id: number; hasFile: boolean };
 }
 
 interface ChoiceProps {
@@ -58,8 +61,9 @@ function Choice({ active, onClick, children }: ChoiceProps) {
 // Con "Sí" se puede adjuntar la foto o el archivo en el momento; si no se
 // adjunta, la factura queda en "Faltan subir". En una compra, además, la
 // factura puede ser una ya registrada: varios productos, una sola factura.
-export function InvoiceQuestion({ question, value, onChange, error, purchaseItemId }: InvoiceQuestionProps) {
+export function InvoiceQuestion({ question, value, onChange, error, purchaseItemId, currentInvoice }: InvoiceQuestionProps) {
   const canUseExisting = purchaseItemId !== undefined;
+  const hasCurrent = currentInvoice !== undefined;
   const usesExisting = canUseExisting && value.usesExisting;
 
   return (
@@ -76,10 +80,10 @@ export function InvoiceQuestion({ question, value, onChange, error, purchaseItem
       {value.hasInvoice && canUseExisting && (
         <div className="flex flex-wrap gap-2" data-testid="invoice-source">
           <Choice active={!usesExisting} onClick={() => onChange({ ...value, usesExisting: false, existingInvoiceId: null })}>
-            Factura nueva
+            {hasCurrent ? 'Dejar la factura actual' : 'Factura nueva'}
           </Choice>
           <Choice active={usesExisting} onClick={() => onChange({ ...value, usesExisting: true, file: null })}>
-            Va en una factura ya registrada
+            {hasCurrent ? 'Pasarla a otra factura' : 'Va en una factura ya registrada'}
           </Choice>
         </div>
       )}
@@ -89,12 +93,18 @@ export function InvoiceQuestion({ question, value, onChange, error, purchaseItem
           <PurchaseInvoicePicker
             itemId={purchaseItemId}
             value={value.existingInvoiceId}
+            excludeInvoiceId={currentInvoice?.id}
             onChange={(invoiceId) => onChange({ ...value, existingInvoiceId: invoiceId })}
           />
           <p className="text-xs text-muted-foreground">Esta compra se suma a esa factura: no hace falta volver a subir el archivo.</p>
         </div>
       )}
-      {value.hasInvoice && !usesExisting && (
+      {value.hasInvoice && !usesExisting && hasCurrent && (
+        <p className="text-xs text-muted-foreground">
+          {currentInvoice.hasFile ? 'La factura ya tiene su archivo.' : 'Falta subir su archivo: hazlo en Facturas → "Faltan subir".'}
+        </p>
+      )}
+      {value.hasInvoice && !usesExisting && !hasCurrent && (
         <div className="space-y-1">
           <InvoiceFileField value={value.file} onChange={(file) => onChange({ ...value, file })} />
           {!value.file && <p className="text-xs text-muted-foreground">Si no la adjuntas ahora, quedará en Facturas → "Faltan subir".</p>}

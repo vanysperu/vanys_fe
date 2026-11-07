@@ -3,6 +3,7 @@ import type { ReasonedToggleInput } from '@/modules/cashClosings/types/cashClosi
 import type { ApiResponse, PagedListResult } from '@/config/api.types';
 import type {
   CorrectPurchaseDto,
+  CorrectPurchaseResult,
   PurchaseDetail,
   CreatePurchaseOrderDto,
   CreatePurchaseOrderItemPurchaseDto,
@@ -38,8 +39,8 @@ export async function getPurchase(id: number): Promise<PurchaseDetail> {
   return response.data.data;
 }
 
-export async function correctPurchase(id: number, dto: CorrectPurchaseDto): Promise<{ id: number; quotation_expense_id: number }> {
-  const response = await apiClient.put<ApiResponse<{ id: number; quotation_expense_id: number }>>(
+export async function correctPurchase(id: number, dto: CorrectPurchaseDto): Promise<CorrectPurchaseResult> {
+  const response = await apiClient.put<ApiResponse<CorrectPurchaseResult>>(
     `/purchase-order/purchase/update/${id}`,
     dto,
   );

@@ -39,7 +39,13 @@ const DESCRIPTION_MAX = 300;
 // Deuda manual (pedido explícito del usuario: "si un empleado fue a pagar los
 // servicios y los pagó de su plata"). No mueve Caja al registrarse: la
 // empresa queda debiéndole al trabajador, y el egreso será la reposición.
-export function CreateManualDebtDialog() {
+export function CreateManualDebtDialog({
+  triggerLabel = 'Registrar deuda',
+  triggerVariant = 'default',
+}: {
+  triggerLabel?: string;
+  triggerVariant?: 'default' | 'outline';
+}) {
   const [open, setOpen] = useState(false);
   const { data: access } = useAccess();
   const isSystem = access?.isSystem ?? false;
@@ -97,9 +103,9 @@ export function CreateManualDebtDialog() {
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
       <DialogTrigger asChild>
-        <Button>
+        <Button variant={triggerVariant}>
           <Plus className="size-4" />
-          Registrar deuda
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
