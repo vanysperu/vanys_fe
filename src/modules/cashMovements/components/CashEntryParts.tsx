@@ -1,16 +1,18 @@
 import { Lock, Scale } from 'lucide-react';
 
 import { formatDateEs, formatPeriodEs } from '@/modules/cashClosings/utils/period';
-import type { CashMovementListItem, CashMovementSource } from '@/modules/cashMovements/types/cashMovement.types';
+import type { CashFlowSource, CashMovementListItem } from '@/modules/cashMovements/types/cashMovement.types';
 import { formatMoney } from '@/modules/moneyCorrections/utils/correctionChanges';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 
-const SOURCE_NOUN: Record<CashMovementSource, string> = {
+const SOURCE_NOUN: Record<CashFlowSource, string> = {
   manual: 'El movimiento',
   quotation_payment: 'El pago',
   quotation_expense: 'El gasto',
   employee_debt: 'La deuda',
   employee_debt_payment: 'La reposición',
+  // Las transferencias nunca generan patas de ajuste; completa el Record.
+  transfer: 'La transferencia',
 };
 
 const ACTION_TEXT = { correction: 'corregido', annul: 'anulado', restore: 'restaurado' } as const;
@@ -21,10 +23,15 @@ const code = (prefix: string, id: number | null) => (id ? ` · ${prefix}-${Strin
 export function PeriodLockIcon({ row }: { row: CashMovementListItem }) {
   if (row.entry_kind !== 'movement' || row.period_status !== 'closed') return null;
   const month = formatPeriodEs(row.occurred_at.slice(0, 7));
+  // Una transferencia de un mes cerrado no se corrige con un ajuste: se reabre el mes.
+  const hint =
+    row.source === 'transfer'
+      ? `Mes cerrado (${month}). Para corregir o anular esta transferencia hay que reabrir el mes.`
+      : `Mes cerrado (${month}). Si lo corriges, el cierre no cambia: la diferencia se registrará como ajuste hoy.`;
   return (
     <span
       className="ml-1.5 inline-flex align-middle text-muted-foreground"
-      title={`Mes cerrado (${month}). Si lo corriges, el cierre no cambia: la diferencia se registrará como ajuste hoy.`}
+      title={hint}
       data-testid="period-lock-icon"
     >
       <Lock className="size-3.5" aria-label={`Mes cerrado (${month})`} />

@@ -3,15 +3,23 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import {
   getMonthSummary,
   createCashMovement,
+  createCashTransfer,
   getCashMovements,
   toggleCashMovementStatus,
+  toggleCashTransferStatus,
   updateCashMovement,
+  updateCashTransfer,
 } from '@/modules/cashMovements/api/cashMovements.api';
 import { cashClosingsKeys } from '@/modules/cashClosings/hooks/cashClosings.keys';
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
 import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
 import { statisticsKeys } from '@/modules/statistics/hooks/statistics.keys';
-import type { CashMovementListParams, MonthSummaryParams, UpdateCashMovementDto } from '@/modules/cashMovements/types/cashMovement.types';
+import type {
+  CashMovementListParams,
+  MonthSummaryParams,
+  UpdateCashMovementDto,
+  UpdateCashTransferDto,
+} from '@/modules/cashMovements/types/cashMovement.types';
 
 export function useCashMovements(params: CashMovementListParams) {
   return useQuery({
@@ -60,6 +68,35 @@ export function useUpdateCashMovement() {
       queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
     },
   });
+}
+
+// Transferencias entre cuentas: cambian el saldo de cada cuenta en Caja y en
+// los cierres. Estadísticas no las cuenta (no son ingreso ni egreso), así que
+// no se invalida.
+function useInvalidateTransferViews() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: cashMovementsKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
+  };
+}
+
+export function useCreateCashTransfer() {
+  const invalidate = useInvalidateTransferViews();
+  return useMutation({ mutationFn: createCashTransfer, onSuccess: invalidate });
+}
+
+export function useUpdateCashTransfer() {
+  const invalidate = useInvalidateTransferViews();
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: number; dto: UpdateCashTransferDto }) => updateCashTransfer(id, dto),
+    onSuccess: invalidate,
+  });
+}
+
+export function useToggleCashTransferStatus() {
+  const invalidate = useInvalidateTransferViews();
+  return useMutation({ mutationFn: toggleCashTransferStatus, onSuccess: invalidate });
 }
 
 // Resumen del mes de Caja (resultado, IGV y neto).

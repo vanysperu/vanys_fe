@@ -1,5 +1,24 @@
 import { formatPeriodEs } from '@/modules/cashClosings/utils/period';
-import type { CashMovementListItem } from '@/modules/cashMovements/types/cashMovement.types';
+import type {
+  CashMovementListItem,
+  CashMovementSource,
+  CashTransferLegInfo,
+} from '@/modules/cashMovements/types/cashMovement.types';
+
+// Fila de una transferencia entre cuentas (trae sus dos puntas).
+export type CashTransferRow = CashMovementListItem & { source: 'transfer'; transfer: CashTransferLegInfo };
+
+export function isTransferRow(row: CashMovementListItem): row is CashTransferRow {
+  return row.source === 'transfer' && row.transfer !== null;
+}
+
+// Fila de una de las fuentes con historial de correcciones (todas menos las
+// transferencias, que dejan su rastro en el registro de auditoría).
+export type CashMovementSourceRow = CashMovementListItem & { source: CashMovementSource };
+
+export function isMovementSourceRow(row: CashMovementListItem): row is CashMovementSourceRow {
+  return row.source !== 'transfer';
+}
 
 // Efecto de la fila en el saldo: ingreso suma, egreso resta. Las patas de un
 // ajuste vienen con monto con signo, por eso se usa este valor y no el monto.

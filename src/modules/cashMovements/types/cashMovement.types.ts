@@ -25,9 +25,25 @@ export type CashMovementSource =
   | 'employee_debt'
   | 'employee_debt_payment';
 
+// Fuentes de las filas de Caja: las de arriba + las transferencias entre
+// cuentas. Una transferencia llega como DOS filas (sale de una cuenta / entra
+// a otra): mueven el saldo de cada cuenta pero no son ingreso ni egreso de la
+// empresa (van a `transfers` en el resumen). No tienen historial de
+// correcciones ni patas de ajuste.
+export type CashFlowSource = CashMovementSource | 'transfer';
+
+// Solo en filas de transferencia: las dos puntas (null = Efectivo).
+export interface CashTransferLegInfo {
+  transfer_id: number;
+  from_payment_account_id: number | null;
+  from_account_name: string;
+  to_payment_account_id: number | null;
+  to_account_name: string;
+}
+
 export interface CashMovementListItem {
   id: string;
-  source: CashMovementSource;
+  source: CashFlowSource;
   source_id: number;
   direction: CashMovementDirection;
   category: string | null;
@@ -75,6 +91,8 @@ export interface CashMovementListItem {
   period_status: CashRowPeriodStatus;
   // Solo en filas entry_kind = 'adjustment' / 'closing_hold'.
   adjustment: CashRowAdjustmentInfo | null;
+  // Solo en filas source = 'transfer'.
+  transfer: CashTransferLegInfo | null;
 }
 
 export interface CashAccountSummary {
@@ -83,15 +101,21 @@ export interface CashAccountSummary {
   payment_account_name: string;
   income: number;
   expense: number;
+  // Transferencias entre cuentas: lo que entró menos lo que salió por
+  // transferencia (con signo). No es ingreso ni egreso.
+  transfers: number;
   // Ajustes de meses cerrados registrados en el rango (puede ser negativo).
   adjustments: number;
   net: number;
 }
 
 // Totales de TODO lo filtrado (no de la página), solo lo que mueve caja.
+// net = income − expense + transfers + adjustments. `transfers` de la empresa
+// es 0 salvo con filtro de cuenta (se ve solo una punta).
 export interface CashMovementSummary {
   income: number;
   expense: number;
+  transfers: number;
   adjustments: number;
   net: number;
   by_account: CashAccountSummary[];
@@ -111,7 +135,7 @@ export interface CashMovementListParams {
   limit?: number;
   direction?: CashMovementDirection;
   category?: string;
-  source?: CashMovementSource;
+  source?: CashFlowSource;
   // Id de la cuenta, o "cash" para los movimientos en efectivo.
   paymentAccountId?: number | 'cash';
   quotationId?: number;
@@ -151,6 +175,49 @@ export interface UpdateCashMovementDto {
   description?: string | null;
   quotation_id?: number | null;
   purchase_order_id?: number | null;
+  reason: string;
+}
+
+// Transferencia entre cuentas de la empresa (espejo de grulla_be
+// cash_transfer/types). null en una cuenta = Efectivo.
+export interface CashTransferItem {
+  id: number;
+  company_id: number;
+  business_unit_id: number | null;
+  from_payment_account_id: number | null;
+  from_account_name: string;
+  to_payment_account_id: number | null;
+  to_account_name: string;
+  amount: number;
+  occurred_at: string;
+  description: string | null;
+  operation_number: string | null;
+  is_deleted: boolean;
+}
+
+// POST /cash-movement/transfer/create
+export interface CreateCashTransferDto {
+  from_payment_account_id: number | null;
+  to_payment_account_id: number | null;
+  amount: number;
+  // "YYYY-MM-DD"
+  occurred_at: string;
+  description?: string | null;
+  operation_number?: string | null;
+  // Solo el Super Administrador elige la empresa; la tienda, quien no tiene
+  // una propia (el backend fuerza el resto).
+  company_id?: number;
+  business_unit_id?: number;
+}
+
+// PUT /cash-movement/transfer/update/:id — campo ausente = no cambia.
+export interface UpdateCashTransferDto {
+  amount?: number;
+  occurred_at?: string;
+  from_payment_account_id?: number | null;
+  to_payment_account_id?: number | null;
+  description?: string | null;
+  operation_number?: string | null;
   reason: string;
 }
 

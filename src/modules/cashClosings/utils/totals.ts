@@ -9,9 +9,10 @@ export function totalsOfDetail(detail: CashPeriodDetail): CashPeriodTotals {
       opening: sum.opening + balance.opening,
       income: sum.income + balance.income,
       expense: sum.expense + balance.expense,
+      transfers: (sum.transfers ?? 0) + (balance.transfers ?? 0),
       adjustments: sum.adjustments + balance.adjustments,
       closing: sum.closing + balance.closing,
     }),
-    { opening: 0, income: 0, expense: 0, adjustments: 0, closing: 0 },
+    { opening: 0, income: 0, expense: 0, transfers: 0, adjustments: 0, closing: 0 },
   );
 }

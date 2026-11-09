@@ -123,7 +123,9 @@ export function CashBalancesPanel({ companyId, enabled, canOpenClosings }: CashB
           <div className="scrollbar-thin -mr-1 max-h-72 overflow-y-auto pr-1" data-testid="cash-balances-scroll">
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {data.accounts.map((account) => {
-                const since = account.income - account.expense + account.adjustments;
+                // Incluye las transferencias entre cuentas (lo que entró/salió de
+                // esta cuenta hacia otra propia).
+                const since = account.income - account.expense + account.transfers + account.adjustments;
                 const AccountIcon = account.account_key === 0 ? Wallet : Landmark;
                 return (
                   <div

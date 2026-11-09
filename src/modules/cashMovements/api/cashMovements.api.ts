@@ -5,8 +5,11 @@ import type {
   MonthSummaryParams,
   CashMovementListParams,
   CashMovementListResult,
+  CashTransferItem,
   CreateCashMovementDto,
+  CreateCashTransferDto,
   UpdateCashMovementDto,
+  UpdateCashTransferDto,
 } from '@/modules/cashMovements/types/cashMovement.types';
 
 // Resultado del mes, IGV estimado y neto después del IGV.
@@ -37,6 +40,26 @@ export async function toggleCashMovementStatus({ id, reason }: { id: number; rea
 
 export async function updateCashMovement(id: number, dto: UpdateCashMovementDto): Promise<unknown> {
   const response = await apiClient.put<ApiResponse<unknown>>(`/cash-movement/update/${id}`, dto);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Transferencias entre cuentas (se listan dentro de Caja, en getCashMovements).
+export async function createCashTransfer(dto: CreateCashTransferDto): Promise<CashTransferItem> {
+  const response = await apiClient.post<ApiResponse<CashTransferItem>>('/cash-movement/transfer/create', dto);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+export async function updateCashTransfer(id: number, dto: UpdateCashTransferDto): Promise<CashTransferItem> {
+  const response = await apiClient.put<ApiResponse<CashTransferItem>>(`/cash-movement/transfer/update/${id}`, dto);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Anula (o reactiva, si ya estaba anulada).
+export async function toggleCashTransferStatus(id: number): Promise<CashTransferItem> {
+  const response = await apiClient.put<ApiResponse<CashTransferItem>>(`/cash-movement/transfer/disable/${id}`);
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

@@ -50,3 +50,41 @@ export const updateCashMovementSchema = createCashMovementSchema
   });
 
 export type UpdateCashMovementFormValues = z.infer<typeof updateCashMovementSchema>;
+
+// Transferencia entre cuentas: de una cuenta a otra (null = Efectivo), mismo
+// monto y misma fecha en las dos puntas. Las cuentas tienen que ser distintas
+// (el backend lo vuelve a validar).
+const transferFieldsSchema = z.object({
+  from_payment_account_id: z.number().nullable(),
+  to_payment_account_id: z.number().nullable(),
+  amount: moneyAmountSchema(),
+  occurred_at: createCashMovementSchema.shape.occurred_at,
+  description: z.string().max(500, 'Máximo 500 caracteres').optional(),
+  operation_number: z.string().max(50, 'Máximo 50 caracteres').optional(),
+});
+
+const distinctAccounts = (values: { from_payment_account_id: number | null; to_payment_account_id: number | null }) =>
+  values.from_payment_account_id !== values.to_payment_account_id;
+
+const DISTINCT_ACCOUNTS_ISSUE = {
+  message: 'La cuenta de destino tiene que ser distinta a la de origen',
+  path: ['to_payment_account_id'],
+};
+
+export const createCashTransferSchema = transferFieldsSchema
+  .extend({
+    // Solo la elige el Super Administrador (ver CompanyStoreFields).
+    company_id: z.number().optional(),
+    business_unit_id: z.number().optional(),
+  })
+  .refine(distinctAccounts, DISTINCT_ACCOUNTS_ISSUE);
+
+export type CreateCashTransferFormValues = z.infer<typeof createCashTransferSchema>;
+
+// Corregir una transferencia: los mismos campos + motivo obligatorio (queda en
+// el registro de auditoría).
+export const updateCashTransferSchema = transferFieldsSchema
+  .extend({ reason: correctionReasonSchema })
+  .refine(distinctAccounts, DISTINCT_ACCOUNTS_ISSUE);
+
+export type UpdateCashTransferFormValues = z.infer<typeof updateCashTransferSchema>;
