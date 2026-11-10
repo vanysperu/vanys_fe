@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#001d52" />
+    <title>Vanys — Sin conexión</title>
+    <!-- Página que muestra public/sw.js cuando la app instalada se abre sin
+         internet. Es estática y autocontenida a propósito (estilos y el ícono
+         en línea): sin red no se puede cargar el CSS ni las imágenes del
+         build. Colores de marca: azul marino #001d52 y naranja #f96f00. -->
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #001d52;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+      }
+      main { max-width: 320px; }
+      svg { width: 56px; height: 56px; color: #f96f00; }
+      h1 { margin: 20px 0 8px; font-size: 22px; }
+      p { margin: 0 0 28px; color: rgba(255, 255, 255, 0.78); font-size: 15px; line-height: 1.5; }
+      button {
+        width: 100%;
+        min-height: 48px;
+        border: 0;
+        border-radius: 10px;
+        background: #f45a00;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      button:active { background: #f96f00; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <!-- Ícono "wifi-off" (lucide), el mismo set de íconos de la app. -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20h.01" />
+        <path d="M8.5 16.429a5 5 0 0 1 7 0" />
+        <path d="M5 12.859a10 10 0 0 1 5.17-2.69" />
+        <path d="M19 12.859a10 10 0 0 0-2.007-1.523" />
+        <path d="M2 8.82a15 15 0 0 1 4.177-2.643" />
+        <path d="M22 8.82a15 15 0 0 0-11.288-3.764" />
+        <path d="m2 2 20 20" />
+      </svg>
+      <h1>Sin conexión</h1>
+      <p>Vanys necesita internet para mostrar tus datos. Revisa tu conexión y vuelve a intentarlo.</p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+    </main>
+  </body>
+</html>

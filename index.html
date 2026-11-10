@@ -8,6 +8,16 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
     <!-- Color de la barra del navegador en el celular: azul marino Vanys. -->
     <meta name="theme-color" content="#001d52" />
+    <!-- App instalable (iPhone: Safari → Compartir → "Agregar a pantalla de
+         inicio"). El manifest da nombre, ícono y modo pantalla completa; las
+         etiquetas apple-* son las que lee iOS. Con status-bar "default" el
+         contenido nunca queda debajo del reloj/notch (sin viewport-fit=cover
+         no hace falta compensar safe areas). Ver public/sw.js. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Vanys" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
