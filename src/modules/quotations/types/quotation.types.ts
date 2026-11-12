@@ -138,6 +138,9 @@ export interface QuotationClient {
   id: number;
   name: string;
   document_number?: string | null;
+  // Para precargar el envío por correo y por WhatsApp (Compartir).
+  email?: string | null;
+  phone?: string | null;
 }
 
 export interface Quotation {
@@ -353,7 +356,12 @@ export type QuotationEventAction =
   | 'purchase_updated'
   | 'purchase_disabled'
   | 'quotation_reset'
-  | 'updated';
+  | 'updated'
+  // Compartir con el cliente (Sprint 2, ítem 7).
+  | 'shared_whatsapp'
+  | 'shared_email'
+  | 'public_link_changed'
+  | 'viewed_by_client';
 
 export interface QuotationEvent {
   id: number;

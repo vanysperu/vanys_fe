@@ -14,8 +14,9 @@ import { QuotationTimeline } from '@/modules/quotations/components/QuotationTime
 import { QuotationProfitSection } from '@/modules/quotations/components/QuotationProfitSection';
 import { ResetQuotationDialog } from '@/modules/quotations/components/ResetQuotationDialog';
 import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/QuotationPdfPreviewDialog';
+import { QuotationShareDialog } from '@/modules/quotations/components/share/QuotationShareDialog';
 import { useChangeQuotationStatus, useDownloadQuotationPdf, useQuotation } from '@/modules/quotations/hooks/useQuotations';
-import { ArrowRight, Download, Eye, PencilLine, RotateCcw } from 'lucide-react';
+import { ArrowRight, Download, Eye, PencilLine, RotateCcw, Share2 } from 'lucide-react';
 import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
 import {
   QUOTATION_ACTIVE_STATUSES,
@@ -127,6 +128,14 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const canViewProfit = usePermissionButton('cotizacion.profit.view.button');
   // Recurso exclusivo de plataforma: solo le llega al Super Administrador.
   const canReset = usePermissionButton('cotizacion.reset.button');
+  // Compartir con el cliente (Sprint 2, ítem 7): enlace público, WhatsApp y correo.
+  // Los tres hooks se llaman siempre (nunca dentro de un ||: rompería el
+  // orden de los hooks de React).
+  const canShareWhatsapp = usePermissionButton('cotizacion.share.whatsapp.button');
+  const canShareEmail = usePermissionButton('cotizacion.share.email.button');
+  const canToggleLink = usePermissionButton('cotizacion.publicLink.toggle.button');
+  const canShare = canShareWhatsapp || canShareEmail || canToggleLink;
+  const [shareOpen, setShareOpen] = useState(false);
   const [resettingId, setResettingId] = useState<number | null>(null);
   const { mutate: downloadPdf } = useDownloadQuotationPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -233,12 +242,27 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                 >
                   <Download className="size-4" />
                 </button>
+                {/* Una "Pendiente de cotizar" (pedido de la web) todavía no se comparte. */}
+                {canShare && quotation.status !== 'quote_requested' && (
+                  <button
+                    type="button"
+                    title="Compartir con el cliente"
+                    aria-label="Compartir con el cliente"
+                    onClick={() => setShareOpen(true)}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Share2 className="size-4" />
+                  </button>
+                )}
               </div>
             )}
           </div>
         </DialogHeader>
 
         <QuotationPdfPreviewDialog quotationId={previewOpen ? quotationId : null} onClose={() => setPreviewOpen(false)} />
+        {quotation && shareOpen && (
+          <QuotationShareDialog quotation={quotation} open={shareOpen} onClose={() => setShareOpen(false)} />
+        )}
         <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
         <FinishQuotationDialog quotation={finishing} onClose={() => setFinishing(null)} />
         <ResetQuotationDialog quotationId={resettingId} onClose={() => setResettingId(null)} />

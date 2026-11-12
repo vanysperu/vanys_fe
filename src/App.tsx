@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 
 import { InstallAppPrompt } from '@/app/layout/InstallAppPrompt';
@@ -18,6 +18,20 @@ const ForgotPasswordPage = lazy(() =>
 const PasswordLinkPage = lazy(() =>
   import('@/modules/auth/pages/PasswordLinkPage').then((m) => ({ default: m.PasswordLinkPage })),
 );
+// Cotización compartida con el cliente (Sprint 2, ítem 7): pública, sin sesión.
+const QuotationPublicPage = lazy(() =>
+  import('@/modules/quotations/pages/QuotationPublicPage').then((m) => ({ default: m.QuotationPublicPage })),
+);
+
+const PUBLIC_QUOTATION_PREFIX = '/c/';
+
+// El aviso "Instala Vanys" es para el equipo, nunca para un cliente que abre
+// una cotización compartida.
+function StaffInstallPrompt() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith(PUBLIC_QUOTATION_PREFIX)) return null;
+  return <InstallAppPrompt />;
+}
 
 export function App() {
   const token = useAuthStore((state) => state.token);
@@ -31,12 +45,13 @@ export function App() {
               <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
               <Route path="/restablecer-contrasena" element={<PasswordLinkPage purpose="reset" />} />
               <Route path="/activar-cuenta" element={<PasswordLinkPage purpose="invite" />} />
+              <Route path={`${PUBLIC_QUOTATION_PREFIX}:code`} element={<QuotationPublicPage />} />
               <Route path="*" element={token ? <PrivateRoutes /> : <PublicRoutes />} />
             </Routes>
           </Suspense>
+          <StaffInstallPrompt />
         </BrowserRouter>
         <Toaster position="top-right" richColors closeButton />
-        <InstallAppPrompt />
       </QueryProvider>
     </ThemeProvider>
   );

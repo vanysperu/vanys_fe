@@ -20,4 +20,12 @@ export const quotationsKeys = {
   resetPreview: (id: number) => [...quotationsKeys.detail(id), 'reset-preview'] as const,
   // Un gasto suelto (diálogo de corrección).
   expense: (id: number) => [...quotationsKeys.all, 'expense', id] as const,
+  // Enlace para compartir con el cliente: cuelga del detalle (compartir deja
+  // un evento en el historial, que se refresca con el detalle).
+  publicLink: (id: number) => [...quotationsKeys.detail(id), 'public-link'] as const,
+};
+
+// Vista pública (/c/<código>): no es de la sesión, va aparte.
+export const publicQuotationKeys = {
+  view: (code: string) => ['public-quotation', code] as const,
 };

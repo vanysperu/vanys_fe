@@ -1,4 +1,4 @@
-import { ArrowRightLeft, CircleDollarSign, FilePlus, Pencil, Receipt, RotateCcw, ShoppingCart, Workflow } from 'lucide-react';
+import { ArrowRightLeft, CircleDollarSign, Eye, FilePlus, Link2, Mail, MessageCircle, Pencil, Receipt, RotateCcw, ShoppingCart, Workflow } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import type { QuotationEvent, QuotationEventAction } from '@/modules/quotations/types/quotation.types';
@@ -23,6 +23,10 @@ const EVENT_STYLE: Record<QuotationEventAction, { icon: LucideIcon; tag: string;
   purchase_disabled: { icon: ShoppingCart, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Compra anulada' },
   quotation_reset: { icon: RotateCcw, fg: '#B4231F', bg: '#FBE9E8', tag: 'Reseteada' },
   updated: { icon: Pencil, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Edición' },
+  shared_whatsapp: { icon: MessageCircle, fg: '#1F8A5F', bg: '#E6F5EE', tag: 'WhatsApp' },
+  shared_email: { icon: Mail, fg: '#1F5FC0', bg: '#E6EEFB', tag: 'Correo' },
+  public_link_changed: { icon: Link2, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Enlace' },
+  viewed_by_client: { icon: Eye, fg: '#5B3FD6', bg: '#EFEBFF', tag: 'Vista del cliente' },
 };
 
 // "expense_added" generado por una compra usa el mismo tag "Gasto" — si en
