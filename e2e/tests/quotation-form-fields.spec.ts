@@ -62,4 +62,15 @@ test('nueva cotización: tienda fija, modo de precio y precios de "Personalizado
     dialog.locator('div.space-y-1', { hasText: label }).locator('input');
   await expect(priceInput('Precio producto (S/)')).toHaveValue('20');
   await expect(priceInput('Precio técnica (S/)')).toHaveValue('5');
+
+  // Ítem 8 del Sprint 2 (reporte del usuario con captura): un mensaje debajo
+  // de un campo (acá el error de cantidad; igual con "Mínimo: 25") no
+  // desacomoda la fila: las etiquetas siguen a la misma altura.
+  await priceInput('Cantidad').fill('0');
+  await dialog.getByRole('button', { name: 'Crear cotización' }).click();
+  await expect(dialog.locator('div.space-y-1', { hasText: 'Cantidad' }).getByText('Mínimo 1')).toBeVisible();
+  const topOf = async (pattern: RegExp) => (await dialog.locator('label', { hasText: pattern }).first().boundingBox())?.y ?? -1;
+  const modeTop = await topOf(/^Modo de precio$/);
+  expect(Math.abs((await topOf(/^Cantidad$/)) - modeTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs((await topOf(/^Precio producto \(S\/\)$/)) - modeTop)).toBeLessThanOrEqual(1);
 });

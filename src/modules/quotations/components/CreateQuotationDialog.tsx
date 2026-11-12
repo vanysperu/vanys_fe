@@ -739,7 +739,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-12 items-end gap-2">
+                  <div className="grid grid-cols-12 items-start gap-2">
                     <div className="col-span-12 min-w-0 space-y-1 sm:col-span-6">
                       <Label className="text-xs">Producto</Label>
                       <div className="flex items-center gap-1">
@@ -850,7 +850,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
 
                   </div>
 
-                  <div className="flex flex-wrap items-end gap-2">
+                  <div className="flex flex-wrap items-start gap-2">
                     {colorOptions.length > 0 && (
                       <div className="w-full space-y-1 sm:w-48">
                         <Label className="text-xs">Color</Label>
