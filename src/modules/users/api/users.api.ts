@@ -4,6 +4,8 @@ import type {
   CatalogOption,
   CreateUserDto,
   CreateUserResult,
+  PasswordLinkPurpose,
+  PasswordLinkResult,
   UpdateUserDto,
 } from '@/modules/users/types/createUser.types';
 import type { User, UsersListParams } from '@/modules/users/types/user.types';
@@ -32,6 +34,14 @@ export async function getCatalog(category: 'document_type' | 'gender'): Promise<
   const response = await apiClient.get<ApiResponse<CatalogOption[]>>('/variable_general/list', {
     params: { category, ignorePagination: true },
   });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// "Reenviar invitación" (invite, 72 h) o "Enviar enlace para restablecer"
+// (reset, 30 min). Cada enlace nuevo anula los anteriores.
+export async function sendPasswordLink(id: number, purpose: PasswordLinkPurpose): Promise<PasswordLinkResult> {
+  const response = await apiClient.post<ApiResponse<PasswordLinkResult>>(`/user/${id}/password-link`, { purpose });
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

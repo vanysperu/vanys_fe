@@ -152,7 +152,6 @@ export async function waitForToastsToClear(page: Page) {
 // ---------------------------------------------------------------------------
 
 const E2E_API_URL = process.env.E2E_API_URL ?? 'http://localhost:4750/api';
-const TEMPORARY_PASSWORD = '123456';
 const READY_PASSWORD = 'Test1234';
 const ADMIN_ROLE_ID = 2;
 const GESTOR_ROLE_ID = 6;
@@ -229,7 +228,7 @@ export async function createDisposableCashCompany(
 
   const createUser = async (label: string, roleId: number, withStore: boolean): Promise<string> => {
     const email = `cierre.${label}.${wordStamp()}@acme.test`;
-    const created = await apiJson<ApiEnvelope<unknown>>(request, 'post', '/user/create', superToken, {
+    const created = await apiJson<ApiEnvelope<{ invitation: { url: string } }>>(request, 'post', '/user/create', superToken, {
       name: 'Cierre',
       paternal_lastname: label,
       document_type: 1,
@@ -243,17 +242,14 @@ export async function createDisposableCashCompany(
       roleIds: roleId,
     });
     expect(created.status, JSON.stringify(created.body)).toBe(200);
-    // Primer login con la contraseña temporal + cambio obligatorio.
-    const first = await apiJson<ApiEnvelope<{ Jwt: string }>>(request, 'post', '/signin', null, {
-      email,
-      password: TEMPORARY_PASSWORD,
+    // Sin contraseña temporal (Sprint 2): se activa con el enlace de
+    // invitación que trae la respuesta (el token va después de "#token=").
+    const token = decodeURIComponent(created.body.data.invitation.url.split('#token=')[1] ?? '');
+    const activated = await apiJson<ApiEnvelope<unknown>>(request, 'post', '/password/link/complete', null, {
+      token,
+      password: READY_PASSWORD,
     });
-    expect(first.status).toBe(200);
-    const changed = await apiJson<ApiEnvelope<unknown>>(request, 'patch', '/user/change/password', first.body.data.Jwt, {
-      oldPassword: TEMPORARY_PASSWORD,
-      newPassword: READY_PASSWORD,
-    });
-    expect(changed.status, JSON.stringify(changed.body)).toBe(200);
+    expect(activated.status, JSON.stringify(activated.body)).toBe(200);
     return email;
   };
 

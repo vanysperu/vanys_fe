@@ -46,6 +46,15 @@ test.describe('Usuarios', () => {
     await page.click('div[role="dialog"] button:has-text("Crear usuario")');
     await expect(page.locator('text=Usuario creado')).toBeVisible({ timeout: 10_000 });
 
+    // Sin contraseña temporal (Sprint 2): aparece el diálogo con el enlace de
+    // invitación, para copiarlo o mandarlo por WhatsApp si el correo no llega.
+    const invitation = page.getByRole('dialog', { name: 'Invitación lista' });
+    await expect(invitation).toBeVisible();
+    await expect(invitation.getByRole('textbox', { name: 'Enlace de contraseña' })).toHaveValue(/\/activar-cuenta#token=/);
+    await expect(invitation.getByRole('link', { name: 'Enviar por WhatsApp' })).toHaveAttribute('href', /wa\.me\/51987654321\?text=/);
+    await invitation.getByRole('button', { name: 'Listo' }).click();
+    await expect(invitation).toBeHidden();
+
     // Editar: cambia el rol de Especialista a Gestor — valida el fix de
     // "roleIds" (antes el backend ignoraba este cambio por completo).
     const row = page.locator('tr', { hasText: fullName });

@@ -10,9 +10,8 @@ const SUPERADMIN_EMAIL = process.env.PROD_ADMIN_EMAIL ?? '';
 const SUPERADMIN_TEMP_PASSWORD = process.env.PROD_ADMIN_PASSWORD ?? '';
 const SUPERADMIN_NEW_PASSWORD = 'Grulla-Prod-2026!';
 
-// Contraseña temporal fija con la que nace todo usuario creado desde el
-// panel (DEFAULT_TEMPORARY_PASSWORD del backend).
-const NEW_USER_TEMP_PASSWORD = '123456';
+// Un usuario creado desde el panel nace sin contraseña: la crea con su enlace
+// de invitación (Sprint 2), que el diálogo muestra después de crearlo.
 const COMPANY_ADMIN_NEW_PASSWORD = 'Admin-Empresa-2026!';
 
 // PNG real de 1x1 — pasa la validación de firma del backend.
@@ -47,6 +46,8 @@ test('primer día en producción: plataforma, empresa, logo, cotización con PDF
   const storeCode = `TIENDA-${suffix}`;
   const adminFirstName = `Admin${wordStamp()}`;
   const adminEmail = `admin.${suffix}@empresa-prod.test`;
+  // Enlace de invitación del Administrador (lo muestra el diálogo al crearlo).
+  let invitationUrl = '';
 
   await test.step('el Super Administrador entra con su contraseña temporal y está obligado a cambiarla', async () => {
     await login(page, SUPERADMIN_EMAIL, SUPERADMIN_TEMP_PASSWORD);
@@ -94,13 +95,25 @@ test('primer día en producción: plataforma, empresa, logo, cotización con PDF
     await chooseSelectExact(page, 'Rol', 'Administrador');
     await page.click('div[role="dialog"] button:has-text("Crear usuario")');
     await expect(page.locator('text=Usuario creado')).toBeVisible();
+    // Sin contraseña temporal (Sprint 2): el diálogo de invitación muestra el
+    // enlace para que el Administrador cree la suya.
+    const linkField = page.getByRole('textbox', { name: 'Enlace de contraseña' });
+    await expect(linkField).toBeVisible();
+    invitationUrl = await linkField.inputValue();
+    await page.click('div[role="dialog"] button:has-text("Listo")');
   });
 
-  await test.step('el Administrador entra y cambia su contraseña temporal', async () => {
+  await test.step('el Administrador crea su contraseña con el enlace de invitación y entra', async () => {
     await page.getByRole('button', { name: 'Cerrar sesión' }).first().click();
     await expect(page).toHaveURL(/\/login$/);
-    await login(page, adminEmail, NEW_USER_TEMP_PASSWORD);
-    await changeTemporaryPassword(page, NEW_USER_TEMP_PASSWORD, COMPANY_ADMIN_NEW_PASSWORD);
+    const invitation = new URL(invitationUrl);
+    await page.goto(invitation.pathname + invitation.hash);
+    await page.fill('#password', COMPANY_ADMIN_NEW_PASSWORD);
+    await page.fill('#confirmation', COMPANY_ADMIN_NEW_PASSWORD);
+    await page.click('button:has-text("Crear mi contraseña")');
+    await expect(page.locator('text=¡Listo!')).toBeVisible({ timeout: 15_000 });
+    await login(page, adminEmail, COMPANY_ADMIN_NEW_PASSWORD);
+    await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
   });
 
   await test.step('sube el logo de la empresa y se ve (guardado en la base, no en disco)', async () => {

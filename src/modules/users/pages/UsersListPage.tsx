@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
-import { Check, Pencil, Plus, Search, Users } from 'lucide-react';
+import { Check, KeyRound, Pencil, Plus, Search, Users } from 'lucide-react';
 import { useForm, type DefaultValues } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -10,6 +10,8 @@ import { useRoles } from '@/modules/roles/hooks/useRoles';
 import { useCatalog, useCreateUser, useUpdateUser } from '@/modules/users/hooks/useCreateUser';
 import { useToggleUserStatus } from '@/modules/users/hooks/useToggleUserStatus';
 import { useUsers } from '@/modules/users/hooks/useUsers';
+import { PasswordLinkDialog, type PasswordLinkTarget } from '@/modules/users/components/PasswordLinkDialog';
+import type { CreateUserResult } from '@/modules/users/types/createUser.types';
 import { createUserSchema, latestAdultBirthDate, type CreateUserFormValues } from '@/modules/users/schemas/createUser.schema';
 import { updateUserSchema, type UpdateUserFormValues } from '@/modules/users/schemas/updateUser.schema';
 import type { User } from '@/modules/users/types/user.types';
@@ -45,6 +47,8 @@ export function UsersListPage() {
   const [pageSize, setPageSize] = useState(20);
   const [searchTerm, setSearchTerm] = useState('');
   const [editUser, setEditUser] = useState<User | null>(null);
+  // Enlace de contraseña (invitación o restablecer) de un usuario.
+  const [linkUser, setLinkUser] = useState<User | null>(null);
   const [orderBy, setOrderBy] = useState<string | undefined>(undefined);
   const [orderDir, setOrderDir] = useState<'asc' | 'desc' | undefined>(undefined);
   const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -57,6 +61,9 @@ export function UsersListPage() {
   const canCreate = usePermissionButton('users.create.button');
   const canUpdate = usePermissionButton('users.update.button');
   const canDisable = usePermissionButton('users.disable.button');
+  // Sprint 2: reenviar invitación / enlace para restablecer (grulla_be:
+  // 20261113100100-seed-user-password-link-resource.js).
+  const canSendPasswordLink = usePermissionButton('users.passwordLink.button');
 
   const { data, isLoading } = useUsers({
     page,
@@ -190,6 +197,18 @@ export function UsersListPage() {
                     <Pencil className="size-4" />
                   </Button>
                 )}
+                {canSendPasswordLink && user.status && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8"
+                    aria-label="Enlace de contraseña"
+                    title="Reenviar invitación o enlace para restablecer la contraseña"
+                    onClick={() => setLinkUser(user)}
+                  >
+                    <KeyRound className="size-4" />
+                  </Button>
+                )}
                 {canDisable && (
                   <ToggleStatusButton
                     active={user.status}
@@ -233,6 +252,7 @@ export function UsersListPage() {
       )}
 
       {editUser && <EditUserDialog user={editUser} onClose={() => setEditUser(null)} />}
+      {linkUser && <PasswordLinkDialog user={linkUser} onClose={() => setLinkUser(null)} />}
     </div>
   );
 }
@@ -272,6 +292,8 @@ const EMPTY_USER_FORM: DefaultValues<CreateUserFormValues> = {
 
 function CreateUserDialog() {
   const [open, setOpen] = useState(false);
+  // Usuario recién creado: se muestra su enlace de invitación.
+  const [invited, setInvited] = useState<{ user: PasswordLinkTarget; result: CreateUserResult } | null>(null);
   const { data: access } = useAccess();
   const isSystem = access?.isSystem ?? false;
   const { data: roles } = useRoles({ page: 1, limit: 100 });
@@ -323,9 +345,15 @@ function CreateUserDialog() {
       },
       {
         onSuccess: (result) => {
-          toast.success('Usuario creado', {
-            description: `Contraseña temporal: ${result.temporaryPassword} (se le pedirá cambiarla al iniciar sesión)`,
-            duration: 15000,
+          toast.success('Usuario creado');
+          setInvited({
+            user: {
+              id: result.id,
+              fullName: [values.name, values.paternal_lastname].filter(Boolean).join(' '),
+              email: values.email,
+              phone_number: values.phone_number || null,
+            },
+            result,
           });
           setOpen(false);
         },
@@ -336,240 +364,249 @@ function CreateUserDialog() {
   const apiError = error as ApiClientError | null;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="size-4" />
-          Nuevo usuario
-        </Button>
-      </DialogTrigger>
-      <DialogContent expandable className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Nuevo usuario</DialogTitle>
-        </DialogHeader>
+    <>
+      {invited && (
+        <PasswordLinkDialog
+          user={invited.user}
+          initialResult={{ purpose: 'invite', result: invited.result.invitation }}
+          onClose={() => setInvited(null)}
+        />
+      )}
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="size-4" />
+            Nuevo usuario
+          </Button>
+        </DialogTrigger>
+        <DialogContent expandable className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nuevo usuario</DialogTitle>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre</Label>
-              <Input id="name" maxLength={255} {...withInputFilter(register('name'), lettersFilter(255))} />
-              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paternal_lastname">Apellido paterno</Label>
-              <Input id="paternal_lastname" maxLength={255} {...withInputFilter(register('paternal_lastname'), lettersFilter(255))} />
-              {errors.paternal_lastname && (
-                <p className="text-sm text-destructive">{errors.paternal_lastname.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="maternal_lastname">Apellido materno</Label>
-              <Input id="maternal_lastname" maxLength={255} {...withInputFilter(register('maternal_lastname'), lettersFilter(255))} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date_of_birth">Fecha de nacimiento</Label>
-              <DateField
-                id="date_of_birth"
-                value={watch('date_of_birth')}
-                onChange={(value) => setValue('date_of_birth', value, { shouldValidate: true })}
-                // Solo mayores de edad (pedido explícito del usuario): el
-                // calendario ya no deja elegir una fecha de menor, en vez de
-                // dejarla elegir y recién avisar al querer guardar.
-                disabled={disableAfter(latestAdultBirthDate())}
-              />
-              {errors.date_of_birth && (
-                <p className="text-sm text-destructive">{errors.date_of_birth.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" {...register('email')} />
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Tipo de documento</Label>
-              <Select
-                value={watch('document_type') ? String(watch('document_type')) : undefined}
-                onValueChange={(value) => {
-                  setValue('document_type', Number(value), { shouldValidate: true });
-                  // Cambiar el tipo revalida el número ya escrito (ej. DNI
-                  // exige 8 dígitos exactos, RUC 11 — pedido explícito del
-                  // usuario: "los números de tipo de documento no son
-                  // acordes al documento, debe ser exacto").
-                  if (watch('document_number')) setValue('document_number', watch('document_number'), { shouldValidate: true });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona" />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypes?.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.document_type && (
-                <p className="text-sm text-destructive">{errors.document_type.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="document_number">N° de documento</Label>
-              <Input
-                id="document_number"
-                maxLength={12}
-                {...withInputFilter(
-                  register('document_number', {
-                    onBlur: () => setValue('document_type', watch('document_type'), { shouldValidate: true }),
-                  }),
-                  documentNumberFilter(watch('document_type')),
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nombre</Label>
+                <Input id="name" maxLength={255} {...withInputFilter(register('name'), lettersFilter(255))} />
+                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paternal_lastname">Apellido paterno</Label>
+                <Input id="paternal_lastname" maxLength={255} {...withInputFilter(register('paternal_lastname'), lettersFilter(255))} />
+                {errors.paternal_lastname && (
+                  <p className="text-sm text-destructive">{errors.paternal_lastname.message}</p>
                 )}
-              />
-              {errors.document_number && (
-                <p className="text-sm text-destructive">{errors.document_number.message}</p>
-              )}
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="maternal_lastname">Apellido materno</Label>
+                <Input id="maternal_lastname" maxLength={255} {...withInputFilter(register('maternal_lastname'), lettersFilter(255))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="date_of_birth">Fecha de nacimiento</Label>
+                <DateField
+                  id="date_of_birth"
+                  value={watch('date_of_birth')}
+                  onChange={(value) => setValue('date_of_birth', value, { shouldValidate: true })}
+                  // Solo mayores de edad (pedido explícito del usuario): el
+                  // calendario ya no deja elegir una fecha de menor, en vez de
+                  // dejarla elegir y recién avisar al querer guardar.
+                  disabled={disableAfter(latestAdultBirthDate())}
+                />
+                {errors.date_of_birth && (
+                  <p className="text-sm text-destructive">{errors.date_of_birth.message}</p>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label>Género</Label>
-              <Select
-                value={watch('gender') ? String(watch('gender')) : undefined}
-                onValueChange={(value) => setValue('gender', Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona" />
-                </SelectTrigger>
-                <SelectContent>
-                  {genders?.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.gender && <p className="text-sm text-destructive">{errors.gender.message}</p>}
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" {...register('email')} />
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone_number">Teléfono</Label>
-              <Input id="phone_number" maxLength={9} {...withInputFilter(register('phone_number'), digitsFilter(9))} />
-              {errors.phone_number && <p className="text-sm text-destructive">{errors.phone_number.message}</p>}
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="address">Dirección</Label>
-            <Input id="address" {...register('address')} />
-          </div>
-
-          {/* Un Super Administrador elige la EMPRESA (obligatoria) y la
-              tienda queda opcional (puede crear un admin de empresa sin
-              tienda propia); un admin de empresa nunca elige empresa
-              (siempre la suya, forzada server-side) pero SÍ debe elegir
-              tienda (obligatoria) — pedido explícito del usuario. */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {isSystem && (
-              // min-w-0: sin esto, un nombre de empresa largo no se truncaba
-              // — el grid le daba a esta columna su ancho mínimo de
-              // CONTENIDO en vez del de la grilla, y el texto se salía del
-              // input (bug reportado por QA).
-              <div className="min-w-0 space-y-2">
-                <Label>Empresa</Label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Tipo de documento</Label>
                 <Select
-                  value={watch('company_id') ? String(watch('company_id')) : undefined}
+                  value={watch('document_type') ? String(watch('document_type')) : undefined}
                   onValueChange={(value) => {
-                    setValue('company_id', Number(value), { shouldValidate: true });
-                    // Cambiar de empresa invalida la tienda elegida antes.
-                    setValue('business_unit_id', undefined);
+                    setValue('document_type', Number(value), { shouldValidate: true });
+                    // Cambiar el tipo revalida el número ya escrito (ej. DNI
+                    // exige 8 dígitos exactos, RUC 11 — pedido explícito del
+                    // usuario: "los números de tipo de documento no son
+                    // acordes al documento, debe ser exacto").
+                    if (watch('document_number')) setValue('document_number', watch('document_number'), { shouldValidate: true });
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una empresa" />
+                    <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
                   <SelectContent>
-                    {companies?.data.map((company) => (
-                      <SelectItem key={company.id} value={String(company.id)}>
-                        {company.business_name}
+                    {documentTypes?.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.company_id && (
-                  <p className="text-sm text-destructive">{errors.company_id.message}</p>
+                {errors.document_type && (
+                  <p className="text-sm text-destructive">{errors.document_type.message}</p>
                 )}
               </div>
-            )}
-            <div className="min-w-0 space-y-2">
-              <Label>Tienda{isSystem && <span className="font-normal text-muted-foreground"> (opcional)</span>}</Label>
-              {/* Antes el select quedaba vacío y "bloqueado" sin explicación
-                  cuando la empresa no tenía tiendas registradas (bug
-                  reportado por QA) — ahora se avisa explícitamente. */}
-              {businessUnits && businessUnits.data.length === 0 && !(isSystem && !selectedCompanyId) ? (
-                <p className="flex h-9 items-center text-sm text-muted-foreground">No hay tiendas disponibles.</p>
-              ) : (
+              <div className="space-y-2">
+                <Label htmlFor="document_number">N° de documento</Label>
+                <Input
+                  id="document_number"
+                  maxLength={12}
+                  {...withInputFilter(
+                    register('document_number', {
+                      onBlur: () => setValue('document_type', watch('document_type'), { shouldValidate: true }),
+                    }),
+                    documentNumberFilter(watch('document_type')),
+                  )}
+                />
+                {errors.document_number && (
+                  <p className="text-sm text-destructive">{errors.document_number.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Género</Label>
                 <Select
-                  disabled={isSystem && !selectedCompanyId}
-                  value={watch('business_unit_id') ? String(watch('business_unit_id')) : undefined}
-                  onValueChange={(value) => setValue('business_unit_id', Number(value), { shouldValidate: true })}
+                  value={watch('gender') ? String(watch('gender')) : undefined}
+                  onValueChange={(value) => setValue('gender', Number(value))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una tienda" />
+                    <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
                   <SelectContent>
-                    {businessUnits?.data.map((businessUnit) => (
-                      <SelectItem key={businessUnit.id} value={String(businessUnit.id)}>
-                        {businessUnit.business_code}
+                    {genders?.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
-              {errors.business_unit_id && (
-                <p className="text-sm text-destructive">{errors.business_unit_id.message}</p>
-              )}
+                {errors.gender && <p className="text-sm text-destructive">{errors.gender.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone_number">Teléfono</Label>
+                <Input id="phone_number" maxLength={9} {...withInputFilter(register('phone_number'), digitsFilter(9))} />
+                {errors.phone_number && <p className="text-sm text-destructive">{errors.phone_number.message}</p>}
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Rol</Label>
-            <Select
-              value={watch('roleId') ? String(watch('roleId')) : undefined}
-              onValueChange={(value) => setValue('roleId', Number(value))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un rol" />
-              </SelectTrigger>
-              <SelectContent>
-                {roles?.rows.map((role) => (
-                  <SelectItem key={role.id} value={String(role.id)}>
-                    {role.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.roleId && <p className="text-sm text-destructive">{errors.roleId.message}</p>}
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">Dirección</Label>
+              <Input id="address" {...register('address')} />
+            </div>
 
-          {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
+            {/* Un Super Administrador elige la EMPRESA (obligatoria) y la
+                tienda queda opcional (puede crear un admin de empresa sin
+                tienda propia); un admin de empresa nunca elige empresa
+                (siempre la suya, forzada server-side) pero SÍ debe elegir
+                tienda (obligatoria) — pedido explícito del usuario. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {isSystem && (
+                // min-w-0: sin esto, un nombre de empresa largo no se truncaba
+                // — el grid le daba a esta columna su ancho mínimo de
+                // CONTENIDO en vez del de la grilla, y el texto se salía del
+                // input (bug reportado por QA).
+                <div className="min-w-0 space-y-2">
+                  <Label>Empresa</Label>
+                  <Select
+                    value={watch('company_id') ? String(watch('company_id')) : undefined}
+                    onValueChange={(value) => {
+                      setValue('company_id', Number(value), { shouldValidate: true });
+                      // Cambiar de empresa invalida la tienda elegida antes.
+                      setValue('business_unit_id', undefined);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies?.data.map((company) => (
+                        <SelectItem key={company.id} value={String(company.id)}>
+                          {company.business_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.company_id && (
+                    <p className="text-sm text-destructive">{errors.company_id.message}</p>
+                  )}
+                </div>
+              )}
+              <div className="min-w-0 space-y-2">
+                <Label>Tienda{isSystem && <span className="font-normal text-muted-foreground"> (opcional)</span>}</Label>
+                {/* Antes el select quedaba vacío y "bloqueado" sin explicación
+                    cuando la empresa no tenía tiendas registradas (bug
+                    reportado por QA) — ahora se avisa explícitamente. */}
+                {businessUnits && businessUnits.data.length === 0 && !(isSystem && !selectedCompanyId) ? (
+                  <p className="flex h-9 items-center text-sm text-muted-foreground">No hay tiendas disponibles.</p>
+                ) : (
+                  <Select
+                    disabled={isSystem && !selectedCompanyId}
+                    value={watch('business_unit_id') ? String(watch('business_unit_id')) : undefined}
+                    onValueChange={(value) => setValue('business_unit_id', Number(value), { shouldValidate: true })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una tienda" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {businessUnits?.data.map((businessUnit) => (
+                        <SelectItem key={businessUnit.id} value={String(businessUnit.id)}>
+                          {businessUnit.business_code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {errors.business_unit_id && (
+                  <p className="text-sm text-destructive">{errors.business_unit_id.message}</p>
+                )}
+              </div>
+            </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              <Check className="size-4" />
-              {isPending ? 'Creando...' : 'Crear usuario'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div className="space-y-2">
+              <Label>Rol</Label>
+              <Select
+                value={watch('roleId') ? String(watch('roleId')) : undefined}
+                onValueChange={(value) => setValue('roleId', Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles?.rows.map((role) => (
+                    <SelectItem key={role.id} value={String(role.id)}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.roleId && <p className="text-sm text-destructive">{errors.roleId.message}</p>}
+            </div>
+
+            {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
+
+            <DialogFooter>
+              <Button type="submit" disabled={isPending}>
+                <Check className="size-4" />
+                {isPending ? 'Creando...' : 'Crear usuario'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

@@ -27,9 +27,21 @@ export interface CreateUserDto {
 // tienda/empresa mal asignada al crear (bug reportado por QA).
 export type UpdateUserDto = Partial<CreateUserDto>;
 
+// Enlace para crear o recuperar la contraseña (grulla_be: Sprint 2, ítem 4).
+// Ya no hay contraseña temporal: el usuario elige la suya con este enlace.
+export type PasswordLinkPurpose = 'invite' | 'reset';
+
+export interface PasswordLinkResult {
+  url: string;
+  expiresAt: { date: string; time: string };
+  // false = el correo no está configurado en el servidor: hay que mandar el
+  // enlace a mano (copiar o WhatsApp).
+  emailConfigured: boolean;
+}
+
 export interface CreateUserResult {
   id: number;
-  temporaryPassword: string;
+  invitation: PasswordLinkResult;
 }
 
 // Espejo de general_variable en modo select (GET /variable_general/list).

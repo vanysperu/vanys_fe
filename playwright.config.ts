@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Puerto del frontend: 4250 (main). Otro entorno, como el del Sprint 2 en su
+// worktree (4260 + backend 4760), lo cambia con E2E_PORT y E2E_API_URL sin
+// tocar este archivo.
+const DEFAULT_PORT = '4250';
+const E2E_PORT = process.env.E2E_PORT ?? DEFAULT_PORT;
+
 // Suite de regresión end-to-end del frontend (CLAUDE.md no define un stack de
 // testing propio todavía; Playwright se usa porque hace clics reales en el
 // navegador en vez de llamar la API directo, que es justamente lo que se
@@ -31,7 +37,7 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: 'http://localhost:4250',
+    baseURL: `http://localhost:${E2E_PORT}`,
     // 'retain-on-failure' generaba corridas falsas en Windows: al escribir
     // el .trace/.network al cerrar el contexto, Windows Defender (u otro
     // proceso) a veces bloquea el archivo a medio escribir y Playwright
@@ -53,8 +59,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npm run dev',
-      url: 'http://localhost:4250',
+      command: E2E_PORT === DEFAULT_PORT ? 'npm run dev' : `npm run dev -- --port ${E2E_PORT}`,
+      url: `http://localhost:${E2E_PORT}`,
       reuseExistingServer: true,
       timeout: 60_000,
     },
