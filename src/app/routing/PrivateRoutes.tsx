@@ -35,6 +35,9 @@ const QuotationsPage = lazy(() =>
 const PurchaseOrdersPage = lazy(() =>
   import('@/modules/purchaseOrders/pages/PurchaseOrdersPage').then((m) => ({ default: m.PurchaseOrdersPage })),
 );
+const SuppliersPage = lazy(() =>
+  import('@/modules/suppliers/pages/SuppliersPage').then((m) => ({ default: m.SuppliersPage })),
+);
 const ProductionWorkflowPage = lazy(() =>
   import('@/modules/productionWorkflow/pages/ProductionWorkflowPage').then((m) => ({ default: m.ProductionWorkflowPage })),
 );
@@ -110,6 +113,7 @@ export default function PrivateRoutes() {
           <Route path="/clientes" element={<ClientsPage />} />
           <Route path="/productos" element={<ProductsPage />} />
           <Route path="/productos/tecnicas" element={<ProductsPage />} />
+          <Route path="/proveedores" element={<SuppliersPage />} />
           <Route path="/anuncios" element={<AdvertisementsPage />} />
           <Route path="/cotizaciones" element={<QuotationsPage />} />
           <Route path="/ordenes-compra" element={<PurchaseOrdersPage />} />

@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   SlidersHorizontal,
   Store,
+  Truck,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -68,6 +69,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   lock: Lock,
   megaphone: Megaphone,
   kanban: KanbanSquare,
+  truck: Truck,
 };
 
 // Si un ícono no está mapeado, se usa uno de "falta configurar" (signo de

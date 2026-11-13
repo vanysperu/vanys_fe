@@ -49,6 +49,7 @@ export const createProductSchema = z
       .array(
         z.object({
           code: z.string().min(1).max(60),
+          supplier_id: z.number().int().positive().nullable().optional(),
           supplier: z.string().max(150).nullable(),
           color: z.string().max(60).nullable().optional(),
         }),

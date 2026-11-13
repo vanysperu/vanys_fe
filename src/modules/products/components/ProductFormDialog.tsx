@@ -286,6 +286,7 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
             value={watch('codes') ?? []}
             onChange={(codes) => setValue('codes', codes)}
             colors={watch('colors') ?? []}
+            companyId={formCompanyId}
           />
 
           {/* Foto: solo empresas con fotos habilitadas (las habilita el Super

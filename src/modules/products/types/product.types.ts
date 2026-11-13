@@ -54,6 +54,9 @@ export interface ProductColor {
 // Código con el que un proveedor identifica el producto.
 export interface ProductCode {
   code: string;
+  // Proveedor del módulo Proveedores (Sprint 2); null = sin proveedor.
+  supplier_id?: number | null;
+  // Nombre del proveedor (el backend lo copia al guardar).
   supplier: string | null;
   // Nombre de uno de los colores del producto (opcional).
   color?: string | null;

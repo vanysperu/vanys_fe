@@ -54,6 +54,9 @@ export interface MyAccess {
   // habilita el Super Administrador). Para el Super Administrador viene en
   // false: él usa la bandera images_enabled de cada producto.
   productImagesEnabled: boolean;
+  // Funcionalidades contratadas por la empresa (Sprint 2, company_feature).
+  // Vacío para el Super Administrador (sin empresa).
+  features: string[];
 }
 
 // "Tienda o empresa": la etiqueta a mostrar en el bloque de usuario del
@@ -82,6 +85,14 @@ export function useAccess() {
 export function usePermission(moduleCode: string): boolean {
   const { data } = useAccess();
   return Boolean(data?.modules.includes(moduleCode));
+}
+
+// La empresa del usuario tiene contratada la funcionalidad. Solo para UX: el
+// backend la revalida (requireCompanyFeature). El Super Administrador no tiene
+// empresa: la pantalla decide con la empresa que eligió.
+export function useCompanyFeature(featureCode: string): boolean {
+  const { data } = useAccess();
+  return Boolean(data?.features?.includes(featureCode));
 }
 
 export function usePermissionButton(buttonCode: string): boolean {
