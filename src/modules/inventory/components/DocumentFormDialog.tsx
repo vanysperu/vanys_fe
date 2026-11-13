@@ -10,7 +10,6 @@ import { todayLocalDateString } from '@/lib/dateUtils';
 import { ProductPicker } from '@/modules/inventory/components/ProductPicker';
 import { useCreateDocument, useDispatchTransfer, usePostDocument, useUpdateDocument, useWarehouses } from '@/modules/inventory/hooks/useInventory';
 import {
-  DOC_TYPE_LABEL,
   REASON_LABEL,
   REASONS_BY_TYPE,
   type DocType,
