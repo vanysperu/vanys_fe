@@ -1,5 +1,6 @@
 import type { ProductCode, ProductColor } from '@/modules/products/types/product.types';
 import type { FundingSource } from '@/modules/purchaseOrders/types/purchaseOrder.types';
+import type { StageCategory } from '@/modules/productionWorkflow/types/productionWorkflow.types';
 
 // Espejo de QUOTATION_STATUSES (grulla_be: quotation.model.ts).
 export type QuotationStatus =
@@ -185,14 +186,14 @@ export interface QuotationListSummary {
   expired_count: number;
 }
 
-// "stage" es una fila de general_variable (category="production_stage",
-// ver Variables Generales) — name = nombre de la etapa, ref1 = color hex,
-// ref2 = posición/orden (string numérico, define adyacencia permitida).
+// Columna del flujo de producción de la empresa en la que está el producto
+// (Sprint 2, ítem 5 — ver modules/productionWorkflow).
 export interface QuotationItemStage {
   id: number;
   name: string;
-  ref1: string | null;
-  ref2: string | null;
+  color: string;
+  position: number;
+  category: StageCategory;
 }
 
 // Espejo de QuotationItemPricingMode (grulla_be: quotation_item.model.ts).

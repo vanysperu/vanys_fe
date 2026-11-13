@@ -269,6 +269,8 @@ interface VariableGeneralFormDialogProps {
 const PRODUCT_CATEGORY = 'product_category';
 const PRODUCT_SUBCATEGORY = 'product_subcategory';
 const ALWAYS_OFFERED_CATEGORIES = [PRODUCT_CATEGORY, PRODUCT_SUBCATEGORY];
+// Las etapas de producción pasaron a su propia pantalla (Sprint 2, ítem 5).
+const RETIRED_PRODUCTION_STAGE_CATEGORY = 'production_stage';
 
 function ProductSubcategoryParentField({
   value,
@@ -308,7 +310,6 @@ const REF_FIELDS: Record<string, { ref1?: string; ref2?: string; note?: string }
     ref1: 'Número de cuenta / teléfono',
     note: 'El QR de la cuenta se cambia en Documentos de la empresa.',
   },
-  production_stage: { ref1: 'Color (hex, ej. #1F5FC0)', ref2: 'Orden en el tablero' },
   cash_movement_type: { ref2: 'Orden en la lista' },
 };
 
@@ -322,12 +323,14 @@ function VariableGeneralFormDialog({ variable, onClose }: VariableGeneralFormDia
   // categoría del selector — las categorías válidas son las que ya existen
   // en la tabla, más lo que el usuario escriba libremente (allowCustomValue).
   // Listado genérico (con globales) a propósito: solo se usan los NOMBRES de
-  // categoría como sugerencia (p. ej. "production_stage" para que un admin
-  // cree sus propias etapas); las filas globales no son editables desde aquí.
+  // categoría como sugerencia; las filas globales no son editables desde aquí.
+  // "production_stage" ya no se ofrece: las etapas viven en "Flujo de producción".
   const { data: allVariables } = useVariableGenerals({ ignorePagination: true });
   const categoryOptions = Array.from(
     new Set([...ALWAYS_OFFERED_CATEGORIES, ...(allVariables?.data ?? []).map((item) => item.category)]),
-  ).map((category) => ({ value: category, label: category }));
+  )
+    .filter((category) => category !== RETIRED_PRODUCTION_STAGE_CATEGORY)
+    .map((category) => ({ value: category, label: category }));
   const { mutate: create, isPending: isCreating, error: createError } = useCreateVariableGeneral();
   const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateVariableGeneral();
 
