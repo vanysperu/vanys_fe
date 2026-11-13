@@ -12,7 +12,7 @@ test.describe('Proveedores', () => {
     const name = `QA Importadora ${wordStamp().slice(0, 8)}`;
     await page.goto('/');
     await openMenuGroup(page, 'Ventas');
-    await page.locator('[data-slot="sidebar"]').getByRole('link', { name: 'Proveedores' }).click();
+    await page.locator('[data-slot="sidebar"]').getByRole('link', { name: 'Proveedores', exact: true }).click();
     await expect(page).toHaveURL('/proveedores');
 
     await page.getByRole('button', { name: 'Nuevo proveedor' }).click();
