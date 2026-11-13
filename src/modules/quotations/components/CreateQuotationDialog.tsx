@@ -13,6 +13,8 @@ import { useProducts } from '@/modules/products/hooks/useProducts';
 import type { CustomizationTechnique, Product } from '@/modules/products/types/product.types';
 import { useTechniques } from '@/modules/products/hooks/useTechniques';
 import { ClientFormDialog } from '@/modules/clients/components/ClientFormDialog';
+import { ProductStockLine } from '@/modules/supplierStock/components/ProductStockLine';
+import { useProductStockLookup } from '@/modules/supplierStock/hooks/useSupplierStock';
 import { ProductFormDialog } from '@/modules/products/components/ProductFormDialog';
 import { TechniqueFormDialog } from '@/modules/products/components/TechniqueFormDialog';
 import { useCompleteQuotation, useCreateQuotation } from '@/modules/quotations/hooks/useQuotations';
@@ -363,6 +365,15 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   const includesIgv = watch('includes_igv');
 
   const resolvedCompanyId = (isSystem ? watch('company_id') : access?.companyId) ?? undefined;
+  // Stock de proveedores (Sprint 2, ítem 6): una sola consulta para todos los
+  // productos del formulario. El Super Administrador consulta la empresa
+  // elegida (si no la tiene habilitada, responde 403 y no se muestra nada).
+  const hasSupplierStock = Boolean(access?.features?.includes('supplier_stock')) || (isSystem && Boolean(resolvedCompanyId));
+  const stockProductIds = [...new Set((watchedItems ?? []).map((row) => Number(row?.product_id)).filter((id) => id > 0))];
+  const { data: supplierStock } = useProductStockLookup(stockProductIds, {
+    enabled: hasSupplierStock && open,
+    companyId: isSystem ? resolvedCompanyId : undefined,
+  });
 
   // Super Administrador: primero la empresa, y recién ahí sus clientes,
   // productos, técnicas y tiendas — nunca los de todas las empresas
@@ -1004,6 +1015,11 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                         × {item?.quantity} = S/ {price.total.toFixed(2)}
                       </p>
                       <ItemAmounts amounts={amounts} igvRate={igvRate} includesIgv={Boolean(includesIgv)} index={index} />
+                      <ProductStockLine
+                        stock={supplierStock?.find((entry) => entry.productId === Number(item?.product_id))}
+                        quantity={Number(item?.quantity) || 0}
+                        color={item?.color}
+                      />
                     </div>
                   ) : (
                     <p className="border-t border-dashed pt-2 text-xs text-muted-foreground">

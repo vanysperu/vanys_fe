@@ -30,7 +30,7 @@ export const MENU_LAYOUT: readonly MenuLayoutEntry[] = [
       key: 'sales',
       label: 'Ventas',
       icon: ShoppingBag,
-      moduleCodes: ['cotizacion', 'purchase_order', 'cliente', 'producto', 'supplier', 'advertisement'],
+      moduleCodes: ['cotizacion', 'purchase_order', 'cliente', 'producto', 'supplier', 'supplier_stock', 'advertisement'],
     },
   },
   {

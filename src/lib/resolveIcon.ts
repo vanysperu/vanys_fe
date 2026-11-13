@@ -16,6 +16,7 @@ import {
   Lock,
   Megaphone,
   Package,
+  PackageSearch,
   Palette,
   Receipt,
   Settings,
@@ -70,6 +71,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   megaphone: Megaphone,
   kanban: KanbanSquare,
   truck: Truck,
+  stock: PackageSearch,
 };
 
 // Si un ícono no está mapeado, se usa uno de "falta configurar" (signo de
