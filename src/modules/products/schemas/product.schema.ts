@@ -20,6 +20,8 @@ export const createProductSchema = z
     price_thousand: z.number().min(0, 'Debe ser un número positivo').optional(),
     // Apagado por defecto (decisión del usuario): la mayoría no se personaliza.
     requires_customization: z.boolean().optional(),
+    tracks_stock: z.boolean().optional(),
+    is_perishable: z.boolean().optional(),
     // Pedido mínimo (opcional): entero de 1 a 1 000 000, igual que el backend.
     min_order_quantity: z
       .number({ error: 'Indica un número' })
@@ -81,6 +83,9 @@ export const EMPTY_PRODUCT_FORM: DefaultValues<CreateProductFormValues> = {
   price_half_thousand: undefined,
   price_thousand: undefined,
   requires_customization: false,
+  // D14: un producto nuevo nace manejando stock.
+  tracks_stock: true,
+  is_perishable: false,
   min_order_quantity: undefined,
   category_id: undefined,
   subcategory_id: undefined,

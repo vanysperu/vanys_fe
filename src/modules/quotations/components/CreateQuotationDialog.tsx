@@ -15,6 +15,8 @@ import { useTechniques } from '@/modules/products/hooks/useTechniques';
 import { ClientFormDialog } from '@/modules/clients/components/ClientFormDialog';
 import { ProductStockLine } from '@/modules/supplierStock/components/ProductStockLine';
 import { useProductStockLookup } from '@/modules/supplierStock/hooks/useSupplierStock';
+import { OwnStockLine } from '@/modules/inventory/components/OwnStockLine';
+import { useOwnStock } from '@/modules/inventory/hooks/useInventory';
 import { ProductFormDialog } from '@/modules/products/components/ProductFormDialog';
 import { TechniqueFormDialog } from '@/modules/products/components/TechniqueFormDialog';
 import { useCompleteQuotation, useCreateQuotation } from '@/modules/quotations/hooks/useQuotations';
@@ -370,6 +372,9 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   // elegida (si no la tiene habilitada, responde 403 y no se muestra nada).
   const hasSupplierStock = Boolean(access?.features?.includes('supplier_stock')) || (isSystem && Boolean(resolvedCompanyId));
   const stockProductIds = [...new Set((watchedItems ?? []).map((row) => Number(row?.product_id)).filter((id) => id > 0))];
+  // Stock propio (Sprint 2, ítem 2): mismo criterio, una sola consulta.
+  const hasInventory = Boolean(access?.features?.includes('inventory')) || (isSystem && Boolean(resolvedCompanyId));
+  const { data: ownStock } = useOwnStock(stockProductIds, { enabled: hasInventory && open, companyId: isSystem ? resolvedCompanyId : undefined });
   const { data: supplierStock } = useProductStockLookup(stockProductIds, {
     enabled: hasSupplierStock && open,
     companyId: isSystem ? resolvedCompanyId : undefined,
@@ -1015,6 +1020,11 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                         × {item?.quantity} = S/ {price.total.toFixed(2)}
                       </p>
                       <ItemAmounts amounts={amounts} igvRate={igvRate} includesIgv={Boolean(includesIgv)} index={index} />
+                      <OwnStockLine
+                        stock={ownStock?.find((entry) => entry.productId === Number(item?.product_id))}
+                        quantity={Number(item?.quantity) || 0}
+                        color={item?.color}
+                      />
                       <ProductStockLine
                         stock={supplierStock?.find((entry) => entry.productId === Number(item?.product_id))}
                         quantity={Number(item?.quantity) || 0}

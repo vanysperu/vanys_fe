@@ -28,6 +28,7 @@ import {
   Truck,
   Users,
   Wallet,
+  Warehouse,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -72,6 +73,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   kanban: KanbanSquare,
   truck: Truck,
   stock: PackageSearch,
+  warehouse: Warehouse,
 };
 
 // Si un ícono no está mapeado, se usa uno de "falta configurar" (signo de

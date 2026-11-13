@@ -19,7 +19,8 @@ import { Button } from '@/presentation/components/shared/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Label } from '@/presentation/components/shared/ui/label';
-import { useAccess } from '@/presentation/hooks/shared/useAccess';
+import { ToggleSwitch } from '@/presentation/components/shared/ToggleSwitch';
+import { useAccess, useCompanyFeature } from '@/presentation/hooks/shared/useAccess';
 
 interface ProductFormDialogProps {
   // Con producto = editar (el diálogo nace abierto); sin producto = crear.
@@ -80,6 +81,8 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
         price_half_thousand: product.price_half_thousand != null ? Number(product.price_half_thousand) : undefined,
         price_thousand: product.price_thousand != null ? Number(product.price_thousand) : undefined,
         requires_customization: product.requires_customization,
+        tracks_stock: product.tracks_stock ?? false,
+        is_perishable: product.is_perishable ?? false,
         min_order_quantity: product.min_order_quantity ?? undefined,
         category_id: product.category_id ?? undefined,
         subcategory_id: product.subcategory_id ?? undefined,
@@ -155,6 +158,8 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
     product?.company_id ?? fixedCompanyId ?? (access?.isSystem ? watch('company_id') : access?.companyId ?? undefined);
   const showImageField = product ? Boolean(product.images_enabled) : Boolean(access?.isSystem || access?.productImagesEnabled);
   const showCompanyFields = !isEditing && fixedCompanyId === undefined;
+  // "Maneja stock" solo tiene sentido si la empresa usa el inventario.
+  const hasInventory = useCompanyFeature('inventory') || Boolean(access?.isSystem);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -256,6 +261,35 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
             checked={watch('requires_customization') ?? false}
             onChange={(checked) => setValue('requires_customization', checked)}
           />
+
+          {hasInventory && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
+                <ToggleSwitch
+                  id={fieldId('tracks_stock')}
+                  checked={watch('tracks_stock') ?? false}
+                  label="Maneja stock"
+                  onCheckedChange={(checked) => setValue('tracks_stock', checked)}
+                />
+                <span>
+                  <span className="block font-medium">Maneja stock</span>
+                  <span className="block text-xs text-muted-foreground">Apágalo en servicios e intangibles (diseño, delivery…).</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
+                <ToggleSwitch
+                  id={fieldId('is_perishable')}
+                  checked={watch('is_perishable') ?? false}
+                  label="Perecible"
+                  onCheckedChange={(checked) => setValue('is_perishable', checked)}
+                />
+                <span>
+                  <span className="block font-medium">Perecible</span>
+                  <span className="block text-xs text-muted-foreground">Pide fecha de vencimiento en los almacenes que la controlan.</span>
+                </span>
+              </label>
+            </div>
+          )}
 
           <ProductCategoryFields
             companyId={formCompanyId}

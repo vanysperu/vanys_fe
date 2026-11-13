@@ -1,4 +1,4 @@
-import { Cog, Landmark, ShoppingBag } from 'lucide-react';
+import { Cog, Landmark, ShoppingBag, Warehouse } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import type { MyAccessModuleItem, MyAccessViewItem } from '@/presentation/hooks/shared/useAccess';
@@ -40,6 +40,16 @@ export const MENU_LAYOUT: readonly MenuLayoutEntry[] = [
       label: 'Finanzas',
       icon: Landmark,
       moduleCodes: ['cash_movement', 'cash_closing', 'payment', 'invoice', 'receivable', 'employee_debt'],
+    },
+  },
+  // Sprint 2, ítem 2: un grupo propio con las vistas del módulo inventory.
+  {
+    kind: 'group',
+    group: {
+      key: 'inventory',
+      label: 'Inventario',
+      icon: Warehouse,
+      moduleCodes: ['inventory'],
     },
   },
   { kind: 'module', moduleCode: 'reminder' },

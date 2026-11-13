@@ -16,6 +16,9 @@ export interface Product {
   // false = se cotiza sin técnica de personalización (ni en la cotización ni
   // en el PDF). Apagado por defecto en productos nuevos.
   requires_customization: boolean;
+  // Inventario (Sprint 2, ítem 2).
+  tracks_stock?: boolean;
+  is_perishable?: boolean;
   // Pedido mínimo: la menor cantidad que se puede pedir (null = sin mínimo).
   // Informativo: la cotización no lo bloquea.
   min_order_quantity?: number | null;
@@ -72,6 +75,8 @@ export interface CreateProductDto {
   price_half_thousand?: number | null;
   price_thousand?: number | null;
   requires_customization?: boolean;
+  tracks_stock?: boolean;
+  is_perishable?: boolean;
   min_order_quantity?: number | null;
   category_id?: number | null;
   subcategory_id?: number | null;
