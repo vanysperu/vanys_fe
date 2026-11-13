@@ -72,16 +72,22 @@ export function PasswordLinkDialog({ user, onClose, initialResult }: PasswordLin
         </DialogHeader>
 
         {result ? (
-          <div className="space-y-4">
+          // min-w-0 + overflow-wrap: un correo largo se corta en varias líneas
+          // en vez de ensanchar el diálogo y dejar los botones afuera.
+          <div className="min-w-0 space-y-4">
             {result.emailConfigured ? (
               <p className="flex items-start gap-2 text-sm">
                 <MailCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-                Le enviamos el enlace a <strong>{user.email}</strong>. Si no le llega, cópialo o mándalo por WhatsApp.
+                {/* Un solo bloque de texto: en un flex, cada trozo suelto
+                    (texto, <strong>, texto) se volvía una columna aparte. */}
+                <span className="min-w-0 [overflow-wrap:anywhere]">
+                  Le enviamos el enlace a <strong>{user.email}</strong>. Si no le llega, cópialo o mándalo por WhatsApp.
+                </span>
               </p>
             ) : (
               <p className="flex items-start gap-2 text-sm text-warning">
                 <MailWarning className="mt-0.5 size-4 shrink-0" aria-hidden />
-                El correo no está configurado en el servidor: copia el enlace o mándalo por WhatsApp.
+                <span className="min-w-0">El correo no está configurado en el servidor: copia el enlace o mándalo por WhatsApp.</span>
               </p>
             )}
             <CopyableLinkField url={result.url} label="Enlace de contraseña" />

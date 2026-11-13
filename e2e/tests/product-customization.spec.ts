@@ -43,7 +43,7 @@ test.describe('Productos con y sin personalización', () => {
     // Sin marcar "Requiere personalización".
     await page.click('button[title="Nuevo producto"]');
     await page.fill('#quick-product-name', `QA Bolsa ${stamp()}`);
-    await page.fill('#quick-product-price-unit', '20');
+    await page.fill('#quick-product-price_unit', '20');
     await page.click('div[role="dialog"] button:has-text("Crear producto")');
     await expect(page.locator('text=Producto creado')).toBeVisible({ timeout: 10_000 });
 

@@ -24,17 +24,17 @@ async function startQuotation(
 
   await page.click('button[title="Nuevo producto"]');
   await page.fill('#quick-product-name', productName);
-  await page.fill('#quick-product-price-unit', prices.productUnit);
-  if (prices.productHundred) await page.fill('#quick-product-price-hundred', prices.productHundred);
+  await page.fill('#quick-product-price_unit', prices.productUnit);
+  if (prices.productHundred) await page.fill('#quick-product-price_hundred', prices.productHundred);
   // Estos productos se cotizan con técnica: hay que marcarlos.
-  await page.click('#quick-product-requires-customization');
+  await page.click('#quick-product-requires_customization');
   await page.click('div[role="dialog"] button:has-text("Crear producto")');
   await expect(page.locator('text=Producto creado')).toBeVisible({ timeout: 10_000 });
 
   await page.click('button[title="Nueva técnica"]');
-  await page.fill('#quick-technique-name', `QA Técnica Cambios ${suffix}`);
-  await page.fill('#quick-technique-price-unit', prices.techniqueUnit);
-  if (prices.techniqueHundred) await page.fill('#quick-technique-price-hundred', prices.techniqueHundred);
+  await page.fill('#quick-tech-name', `QA Técnica Cambios ${suffix}`);
+  await page.fill('#quick-tech_price_unit', prices.techniqueUnit);
+  if (prices.techniqueHundred) await page.fill('#quick-tech_price_hundred', prices.techniqueHundred);
   await page.click('div[role="dialog"] button:has-text("Crear técnica")');
   await expect(page.locator('text=Técnica creada')).toBeVisible({ timeout: 10_000 });
 

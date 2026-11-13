@@ -29,15 +29,15 @@ test.describe('Pagos', () => {
 
     await page.click('button[title="Nuevo producto"]');
     await page.fill('#quick-product-name', productName);
-    await page.fill('#quick-product-price-unit', '20');
+    await page.fill('#quick-product-price_unit', '20');
     // Estos productos se cotizan con técnica: hay que marcarlos.
-    await page.click('#quick-product-requires-customization');
+    await page.click('#quick-product-requires_customization');
     await page.click('div[role="dialog"] button:has-text("Crear producto")');
     await expect(page.locator('text=Producto creado')).toBeVisible({ timeout: 10_000 });
 
     await page.click('button[title="Nueva técnica"]');
-    await page.fill('#quick-technique-name', techniqueName);
-    await page.fill('#quick-technique-price-unit', '5');
+    await page.fill('#quick-tech-name', techniqueName);
+    await page.fill('#quick-tech_price_unit', '5');
     await page.click('div[role="dialog"] button:has-text("Crear técnica")');
     await expect(page.locator('text=Técnica creada')).toBeVisible({ timeout: 10_000 });
 

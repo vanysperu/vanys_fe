@@ -161,6 +161,8 @@ test('usuario: editar muestra nombres, documento, género, teléfono, dirección
   await chooseSelectExact(page, 'Rol', 'Especialista');
   await page.click('div[role="dialog"] button:has-text("Crear usuario")');
   await expect(page.locator('text=Usuario creado')).toBeVisible({ timeout: 10_000 });
+  // Sprint 2: al crear un usuario se muestra su enlace de invitación.
+  await page.getByRole('dialog', { name: 'Invitación lista' }).getByRole('button', { name: 'Listo' }).click();
 
   const form = await openEditFor(page, name);
   await expect(form.locator('#edit-name')).toHaveValue(name);

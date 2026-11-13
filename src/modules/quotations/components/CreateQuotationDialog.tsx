@@ -12,9 +12,9 @@ import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFi
 import { useProducts } from '@/modules/products/hooks/useProducts';
 import type { CustomizationTechnique, Product } from '@/modules/products/types/product.types';
 import { useTechniques } from '@/modules/products/hooks/useTechniques';
-import { QuickCreateClientDialog } from '@/modules/quotations/components/QuickCreateClientDialog';
-import { QuickCreateProductDialog } from '@/modules/quotations/components/QuickCreateProductDialog';
-import { QuickCreateTechniqueDialog } from '@/modules/quotations/components/QuickCreateTechniqueDialog';
+import { ClientFormDialog } from '@/modules/clients/components/ClientFormDialog';
+import { ProductFormDialog } from '@/modules/products/components/ProductFormDialog';
+import { TechniqueFormDialog } from '@/modules/products/components/TechniqueFormDialog';
 import { useCompleteQuotation, useCreateQuotation } from '@/modules/quotations/hooks/useQuotations';
 import { createQuotationSchema, type CreateQuotationFormValues } from '@/modules/quotations/schemas/quotation.schema';
 import {
@@ -296,6 +296,14 @@ function toCompleteFormValues(quotation: QuotationDetail): CreateQuotationFormVa
   };
 }
 
+// "+" al lado de Cliente, Producto y Técnica: abre el mismo formulario del
+// módulo correspondiente, sin salir de la cotización.
+const quickAddTrigger = (title: string) => (
+  <Button type="button" variant="ghost" size="icon" className="size-9 shrink-0" title={title} aria-label={title}>
+    <Plus className="size-4" />
+  </Button>
+);
+
 export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuotationDialogProps = {}) {
   const isCompleting = Boolean(completeQuotation);
   // Un pedido de la web se "completa"; cualquier otra cotización se edita. Es
@@ -553,7 +561,10 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* noValidate: las reglas las valida el esquema (mensajes en español
+            debajo de cada campo). Sin esto, el min={1} de Cantidad frenaba el
+            envío con el aviso del navegador en inglés. */}
+        <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Completar: el cliente (y su empresa/tienda) ya vienen del pedido
               de la web y no se cambian acá. */}
           {completeQuotation && (
@@ -589,15 +600,20 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                   options={companyClients.map((client) => ({ value: String(client.id), label: client.name }))}
                 />
                 {canQuickCreateClient && (
-                  <QuickCreateClientDialog
-                    companyId={resolvedCompanyId}
+                  // Mismo formulario que la pantalla Clientes (Sprint 2, ítem 9),
+                  // con la empresa y la tienda ya elegidas en la cotización.
+                  <ClientFormDialog
+                    fixedCompanyId={resolvedCompanyId}
+                    fixedBusinessUnitId={watch('business_unit_id') ?? defaultStoreId}
+                    idPrefix="quick-client-"
+                    trigger={quickAddTrigger('Nuevo cliente')}
                     // shouldValidate: true — sin esto, el error "Selecciona un
                     // cliente" (si ya se había mostrado) se quedaba pegado en
                     // pantalla aunque el cliente recién creado sí quedara
                     // guardado en el formulario (bug reportado por el usuario:
                     // "creé un usuario desde la cotización y siempre salió el
                     // mensaje de debe seleccionar un cliente").
-                    onCreated={(id) => setValue('client_id', id, { shouldValidate: true })}
+                    onCreated={(client) => setValue('client_id', client.id, { shouldValidate: true })}
                   />
                 )}
               </div>
@@ -786,10 +802,13 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                           emptyText="No hay productos con ese nombre, SKU o código"
                         />
                         {canQuickCreateProduct && (
-                          <QuickCreateProductDialog
-                            companyId={resolvedCompanyId}
-                            onCreated={(id) => {
-                              setValue(`items.${index}.product_id`, id, { shouldValidate: true });
+                          // Mismo formulario que la pantalla Productos (ítem 9).
+                          <ProductFormDialog
+                            fixedCompanyId={resolvedCompanyId}
+                            idPrefix="quick-product-"
+                            trigger={quickAddTrigger('Nuevo producto')}
+                            onCreated={(product) => {
+                              setValue(`items.${index}.product_id`, product.id, { shouldValidate: true });
                               setValue(`items.${index}.color`, undefined);
                               setValue(`items.${index}.product_code`, undefined);
                             }}
@@ -835,9 +854,12 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                           options={companyTechniques.map((row) => ({ value: String(row.id), label: row.name }))}
                         />
                         {canQuickCreateTechnique && (
-                          <QuickCreateTechniqueDialog
-                            companyId={resolvedCompanyId}
-                            onCreated={(id) => setValue(`items.${index}.technique_id`, id, { shouldValidate: true })}
+                          // Mismo formulario que la pestaña Técnicas de Productos (ítem 9).
+                          <TechniqueFormDialog
+                            fixedCompanyId={resolvedCompanyId}
+                            idPrefix="quick-"
+                            trigger={quickAddTrigger('Nueva técnica')}
+                            onCreated={(technique) => setValue(`items.${index}.technique_id`, technique.id, { shouldValidate: true })}
                           />
                         )}
                       </div>

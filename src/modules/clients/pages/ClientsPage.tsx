@@ -1,15 +1,9 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
-import { Check, Pencil, Plus, Search, Users2 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useState } from 'react';
+import { Pencil, Search, Users2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
-import { useCatalog } from '@/modules/users/hooks/useCreateUser';
-import { useClients, useCreateClient, useToggleClientStatus, useUpdateClient } from '@/modules/clients/hooks/useClients';
-import { createClientSchema, PHONE_MAX_DIGITS, type CreateClientFormValues } from '@/modules/clients/schemas/client.schema';
-import { digitsFilter, maxLengthFilter, withInputFilter } from '@/lib/inputRestrictions';
-import { documentNumberMaxLength, documentNumberOnlyDigits } from '@/lib/documentType';
+import { ClientFormDialog } from '@/modules/clients/components/ClientFormDialog';
+import { useClients, useToggleClientStatus } from '@/modules/clients/hooks/useClients';
 import { ACTIVE_STATUS_FILTER_OPTIONS } from '@/lib/constants';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
@@ -20,19 +14,8 @@ import { Pagination } from '@/presentation/components/shared/Pagination';
 import { ToggleStatusButton } from '@/presentation/components/shared/ToggleStatusButton';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Button } from '@/presentation/components/shared/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
-import { Label } from '@/presentation/components/shared/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/presentation/components/shared/ui/select';
-import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
-import type { ApiClientError } from '@/config/api.types';
+import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 
 export function ClientsPage() {
   const [page, setPage] = useState(1);
@@ -217,201 +200,5 @@ export function ClientsPage() {
 
       {editClient && <ClientFormDialog client={editClient} onClose={() => setEditClient(null)} />}
     </div>
-  );
-}
-
-interface ClientFormDialogProps {
-  client?: Client;
-  onClose?: () => void;
-}
-
-function ClientFormDialog({ client, onClose }: ClientFormDialogProps) {
-  const isEditing = Boolean(client);
-  const [open, setOpen] = useState(isEditing);
-  const { data: access } = useAccess();
-  const { data: documentTypes } = useCatalog('document_type');
-  const { mutate: create, isPending: isCreating, error: createError } = useCreateClient();
-  const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateClient();
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    setError,
-    watch,
-    formState: { errors },
-  } = useForm<CreateClientFormValues>({ resolver: zodResolver(createClientSchema) });
-
-  useEffect(() => {
-    if (client) {
-      reset({
-        name: client.name,
-        document_type: client.document_type ? Number(client.document_type) : undefined,
-        document_number: client.document_number ?? '',
-        email: client.email ?? '',
-        phone: client.phone ?? '',
-        address: client.address ?? '',
-      });
-    }
-  }, [client, reset]);
-
-  const handleOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (!next) onClose?.();
-  };
-
-  const onSubmit = (values: CreateClientFormValues) => {
-    const dto = { ...values, email: values.email || undefined };
-
-    if (isEditing && client) {
-      update(
-        { id: client.id, dto },
-        {
-          onSuccess: () => {
-            toast.success('Cliente actualizado correctamente');
-            handleOpenChange(false);
-          },
-        },
-      );
-      return;
-    }
-
-    const companyId = access?.isSystem ? dto.company_id : access?.companyId;
-    if (!companyId) {
-      setError('company_id', { message: 'Selecciona la empresa' });
-      return;
-    }
-
-    create(
-      { ...dto, company_id: companyId },
-      {
-        onSuccess: () => {
-          toast.success('Cliente creado correctamente');
-          reset();
-          handleOpenChange(false);
-        },
-      },
-    );
-  };
-
-  const apiError = (isEditing ? updateError : createError) as ApiClientError | null;
-  const isPending = isEditing ? isUpdating : isCreating;
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      {!isEditing && (
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="size-4" />
-            Nuevo cliente
-          </Button>
-        </DialogTrigger>
-      )}
-      <DialogContent expandable>
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Editar cliente' : 'Nuevo cliente'}</DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {!isEditing && (
-            <CompanyStoreFields
-              companyId={watch('company_id')}
-              onCompanyChange={(value) => setValue('company_id', value, { shouldValidate: true })}
-              businessUnitId={watch('business_unit_id')}
-              onBusinessUnitChange={(value) => setValue('business_unit_id', value)}
-              companyError={errors.company_id?.message}
-            />
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Nombre</Label>
-            <Input id="name" {...register('name')} />
-            {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...register('email')} />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Teléfono</Label>
-              {/* Solo dígitos y máximo 9 mientras se escribe; el mínimo de 6
-                  se avisa con el mensaje de abajo. Antes este error no se
-                  mostraba y el guardado se bloqueaba sin decir por qué. */}
-              <Input
-                id="phone"
-                inputMode="numeric"
-                maxLength={PHONE_MAX_DIGITS}
-                {...withInputFilter(register('phone'), digitsFilter(PHONE_MAX_DIGITS))}
-              />
-              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Tipo de documento (opcional)</Label>
-              <Select
-                value={watch('document_type') ? String(watch('document_type')) : undefined}
-                onValueChange={(value) => {
-                  setValue('document_type', Number(value), { shouldValidate: true });
-                  // Cambiar de tipo puede dejar un número que ya no calza
-                  // con el nuevo largo exacto (ej. de RUC a DNI) — se
-                  // revalida de una.
-                  if (watch('document_number')) setValue('document_number', watch('document_number'), { shouldValidate: true });
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona" />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypes?.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.document_type && <p className="text-sm text-destructive">{errors.document_type.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="document_number">N° de documento</Label>
-              {/* Mismas reglas EXACTAS por tipo que Usuarios (lib/documentType.ts)
-                  — antes era un texto libre sin tope real, permitía letras y
-                  más de 12 dígitos sin avisar (bug reportado por QA). */}
-              <Input
-                id="document_number"
-                maxLength={documentNumberMaxLength(watch('document_type'))}
-                {...withInputFilter(
-                  register('document_number'),
-                  documentNumberOnlyDigits(watch('document_type'))
-                    ? digitsFilter(documentNumberMaxLength(watch('document_type')))
-                    : maxLengthFilter(documentNumberMaxLength(watch('document_type'))),
-                )}
-              />
-              {errors.document_number && <p className="text-sm text-destructive">{errors.document_number.message}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address">Dirección</Label>
-            <Input id="address" {...register('address')} />
-            {errors.address && <p className="text-sm text-destructive">{errors.address.message}</p>}
-          </div>
-
-          {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
-
-          <DialogFooter>
-            <Button type="submit" disabled={isPending}>
-              <Check className="size-4" />
-              {isPending ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Crear cliente'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }

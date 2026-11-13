@@ -45,13 +45,13 @@ test('nueva cotización: tienda fija, modo de precio y precios de "Personalizado
 
   await page.click('button[title="Nuevo producto"]');
   await page.fill('#quick-product-name', `QA Producto Campos ${suffix}`);
-  await page.fill('#quick-product-price-unit', '20');
-  await page.click('#quick-product-requires-customization');
+  await page.fill('#quick-product-price_unit', '20');
+  await page.click('#quick-product-requires_customization');
   await page.click('div[role="dialog"] button:has-text("Crear producto")');
   await expect(page.locator('text=Producto creado')).toBeVisible({ timeout: 10_000 });
   await page.click('button[title="Nueva técnica"]');
-  await page.fill('#quick-technique-name', `QA Técnica Campos ${wordStamp()}`);
-  await page.fill('#quick-technique-price-unit', '5');
+  await page.fill('#quick-tech-name', `QA Técnica Campos ${wordStamp()}`);
+  await page.fill('#quick-tech_price_unit', '5');
   await page.click('div[role="dialog"] button:has-text("Crear técnica")');
   await expect(page.locator('text=Técnica creada')).toBeVisible({ timeout: 10_000 });
 
@@ -73,4 +73,44 @@ test('nueva cotización: tienda fija, modo de precio y precios de "Personalizado
   const modeTop = await topOf(/^Modo de precio$/);
   expect(Math.abs((await topOf(/^Cantidad$/)) - modeTop)).toBeLessThanOrEqual(1);
   expect(Math.abs((await topOf(/^Precio producto \(S\/\)$/)) - modeTop)).toBeLessThanOrEqual(1);
+});
+
+// Sprint 2, ítem 9 (pedido del usuario): el "+" de cliente y de producto en
+// Nueva cotización abre el MISMO formulario que los módulos Clientes y
+// Productos, y crearlos ahí no envía la cotización.
+test('nueva cotización: el "+" de cliente y producto abre el formulario de cada módulo', async ({ page }) => {
+  const clientName = `QA Cliente Modulo ${wordStamp()}`;
+  const productName = `QA Producto Modulo ${stamp()}`;
+  await page.goto('/cotizaciones');
+  await page.click('button:has-text("Nueva cotización")');
+  const quotationDialog = page.getByRole('dialog', { name: 'Nueva cotización' });
+
+  await page.click('button[title="Nuevo cliente"]');
+  const clientDialog = page.getByRole('dialog', { name: 'Nuevo cliente' });
+  // Campos que el diálogo rápido de antes no tenía.
+  await expect(clientDialog.getByText('Tipo de documento (opcional)')).toBeVisible();
+  await expect(clientDialog.getByLabel('Dirección')).toBeVisible();
+  await clientDialog.locator('#quick-client-name').fill(clientName);
+  await clientDialog.locator('#quick-client-address').fill('Av. Siempre Viva 742');
+  await clientDialog.getByRole('button', { name: 'Crear cliente' }).click();
+  await expect(page.getByText('Cliente creado correctamente')).toBeVisible({ timeout: 10_000 });
+  await expect(clientDialog).toBeHidden();
+  await expect(quotationDialog.getByText(clientName)).toBeVisible();
+
+  await page.click('button[title="Nuevo producto"]');
+  const productDialog = page.getByRole('dialog', { name: 'Nuevo producto' });
+  await expect(productDialog.getByLabel('SKU')).toBeVisible();
+  await expect(productDialog.getByText('Pedido mínimo (opcional)')).toBeVisible();
+  await expect(productDialog.getByText('Colores')).toBeVisible();
+  await productDialog.locator('#quick-product-name').fill(productName);
+  await productDialog.locator('#quick-product-sku').fill(`SKU-${stamp()}`);
+  await productDialog.locator('#quick-product-price_unit').fill('12');
+  await productDialog.getByRole('button', { name: 'Crear producto' }).click();
+  await expect(page.getByText('Producto creado correctamente')).toBeVisible({ timeout: 10_000 });
+  await expect(productDialog).toBeHidden();
+  await expect(quotationDialog.getByText(productName)).toBeVisible();
+
+  // La cotización sigue abierta y sin enviar: crear el producto no la mandó.
+  await expect(quotationDialog.getByRole('button', { name: 'Crear cotización' })).toBeVisible();
+  await expect(page.getByText(/Cotización creada/)).toHaveCount(0);
 });
