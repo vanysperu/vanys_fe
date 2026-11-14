@@ -16,6 +16,7 @@ import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorr
 import { statisticsKeys } from '@/modules/statistics/hooks/statistics.keys';
 import {
   changeQuotationItemStage,
+  setQuotationItemExcluded,
   changeQuotationStatus,
   completeQuotation,
   correctQuotationExpense,
@@ -217,6 +218,18 @@ export function useChangeQuotationStatusAny() {
       queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
       invalidateCashViews(queryClient);
+    },
+  });
+}
+
+// Cambia el total: detalle (y su PDF), listas, tablero y por cobrar.
+export function useSetQuotationItemExcluded(quotationId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, excluded }: { itemId: number; excluded: boolean }) => setQuotationItemExcluded(itemId, excluded),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(quotationId) });
+      queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
     },
   });
 }

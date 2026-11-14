@@ -102,6 +102,13 @@ export async function changeQuotationStatus(
   return response.data.data;
 }
 
+// Producto no aceptado por el cliente (o reactivado), sin editar la cotización.
+export async function setQuotationItemExcluded(itemId: number, excluded: boolean): Promise<{ item_id: number; is_excluded: boolean; total: number }> {
+  const response = await apiClient.put<ApiResponse<{ item_id: number; is_excluded: boolean; total: number }>>(`/quotation/item/${itemId}/excluded`, { excluded });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
 export async function changeQuotationItemStage(itemId: number, stageId: number): Promise<unknown> {
   const response = await apiClient.put<ApiResponse<unknown>>(`/quotation/item/${itemId}/stage`, {
     stage_id: stageId,

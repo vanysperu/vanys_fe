@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { AcceptQuotationDialog, type AcceptQuotationTarget } from '@/modules/quotations/components/AcceptQuotationDialog';
@@ -7,6 +7,7 @@ import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import { QuotationExpensesSection } from '@/modules/quotations/components/QuotationExpensesSection';
 import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/components/QuotationPurchaseOrdersSection';
 import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationItemsKanban';
+import { ExcludeItemButton, ExcludedItemsList } from '@/modules/quotations/components/QuotationItemExclusion';
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { MinOrderNotice } from '@/modules/quotations/components/MinOrderNotice';
 import { QuotationPaymentsSection } from '@/modules/quotations/components/QuotationPaymentsSection';
@@ -52,16 +53,22 @@ function money(n: number) {
 function QuotationItemCards({
   rows,
   includesIgv,
+  action,
 }: {
   rows: Array<{ line: QuotationItem; amounts: LineIgvAmounts }>;
   includesIgv: boolean;
+  // Acción opcional por tarjeta (ej. "No aceptado").
+  action?: (item: QuotationItem) => ReactNode;
 }) {
   return (
     <ul className="space-y-2" data-testid="quotation-item-cards">
       {rows.map(({ line: item, amounts: { subtotal, igv, total } }) => {
         return (
           <li key={item.id} className="rounded-lg border bg-card p-3 text-sm">
-            <p className="font-medium">{item.product?.name}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-medium">{item.product?.name}</p>
+              {action?.(item)}
+            </div>
             <QuotationItemVariant item={item} />
             <MinOrderNotice quantity={item.quantity} minOrderQuantity={item.product?.min_order_quantity} showWhenMet={false} />
             <p className="text-xs text-muted-foreground">{item.technique?.name ?? 'Sin personalización'}</p>
@@ -137,6 +144,8 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const canToggleLink = usePermissionButton('cotizacion.publicLink.toggle.button');
   const canShare = canShareWhatsapp || canShareEmail || canToggleLink;
   const [shareOpen, setShareOpen] = useState(false);
+  // Producto no aceptado por el cliente (pedido del usuario, 14-nov).
+  const canExcludeItems = usePermissionButton('cotizacion.item.exclude.button');
   // Guía de remisión (Sprint 2, ítem 1): se arma desde una cotización Lista o Entregada.
   const canCreateGuide = usePermissionButton('dispatch_guide.create.button');
   const hasGuides = useCompanyFeature('dispatch_guide');
@@ -214,9 +223,15 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   // subtotal, así coincide aunque el % configurado cambie después) repartido
   // entre los ítems con el MISMO reparto que el PDF. Antes cada ítem
   // redondeaba su propia parte y las filas podían no sumar el total.
+  // Productos que el cliente no aceptó: no suman (el total del backend ya no
+  // los cuenta), así que el reparto del IGV va solo sobre los aceptados.
+  const acceptedItems = quotation ? quotation.items.filter((item) => !item.is_excluded) : [];
+  const excludedItems = quotation ? quotation.items.filter((item) => item.is_excluded) : [];
+  const canEditItems = Boolean(quotation && !['rejected', 'cancelled', 'expired', 'finished'].includes(quotation.status));
+  const showExcludeAction = canExcludeItems && canEditItems && acceptedItems.length > 1;
   const itemRows = quotation
     ? allocateIgvByLine(
-        quotation.items,
+        acceptedItems,
         quotation.includes_igv ? Number(quotation.total) - Number(quotation.subtotal) : 0,
       )
     : [];
@@ -446,7 +461,11 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
 
               <TabsContent value="products" className="space-y-4">
                 {isMobile ? (
-                  <QuotationItemCards rows={itemRows} includesIgv={Boolean(quotation.includes_igv)} />
+                  <QuotationItemCards
+                    rows={itemRows}
+                    includesIgv={Boolean(quotation.includes_igv)}
+                    action={showExcludeAction ? (item) => <ExcludeItemButton quotationId={quotation.id} item={item} /> : undefined}
+                  />
                 ) : (
                 /* overflow-x-auto: si la ventana es angosta, la tabla se
                    desliza de lado sin ensanchar el modal. */
@@ -468,6 +487,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                         ) : (
                           <th className="px-3 py-2 text-right whitespace-nowrap">Total (sin IGV)</th>
                         )}
+                        {showExcludeAction && <th className="w-10 px-1 py-2" aria-label="Acciones" />}
                       </tr>
                     </thead>
                     <tbody>
@@ -504,6 +524,11 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                           <td className="px-3 py-2 text-right font-semibold whitespace-nowrap text-primary">
                             S/ {amounts.total.toFixed(2)}
                           </td>
+                          {showExcludeAction && (
+                            <td className="px-1 py-2 text-right">
+                              <ExcludeItemButton quotationId={quotation.id} item={item} />
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -511,11 +536,13 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                 </div>
                 )}
 
+                <ExcludedItemsList quotationId={quotation.id} items={excludedItems} canReactivate={canExcludeItems && canEditItems} />
+
                 <div>
                   <p className="mb-2 text-sm font-medium">Avance por etapa de producción</p>
                   <QuotationItemsKanban
                     quotationId={quotation.id}
-                    items={quotation.items}
+                    items={acceptedItems}
                     companyId={quotation.company_id}
                     canMoveStage={canMoveStage && isActive}
                   />
@@ -552,7 +579,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                 <QuotationPurchaseOrdersSection
                   quotationId={quotation.id}
                   companyId={quotation.company_id}
-                  items={quotation.items}
+                  items={acceptedItems}
                   canCreate={canCreatePurchaseOrder && isActive}
                   quotationActive={isActive}
                 />

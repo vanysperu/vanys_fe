@@ -461,7 +461,12 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
     }
     return computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price);
   });
-  const subtotal = roundMoney(itemPrices.reduce((sum, price) => sum + (price?.total ?? 0), 0));
+  // Productos que el cliente no aceptó: siguen en la cotización pero no suman
+  // (mismo cálculo que el backend al guardar).
+  const excludedItemIds = new Set((completeQuotation?.items ?? []).filter((row) => row.is_excluded).map((row) => row.id));
+  const isExcludedLine = (index: number) => excludedItemIds.has(watchedItems[index]?.item_id ?? -1);
+  const countedTotal = (index: number) => (isExcludedLine(index) ? 0 : (itemPrices[index]?.total ?? 0));
+  const subtotal = roundMoney(itemPrices.reduce((sum, _price, index) => sum + countedTotal(index), 0));
   // Viene de "Variables Generales" (categoría "tax_config"), ya no es un
   // 18% hardcodeado — el backend recalcula con el mismo valor real al
   // guardar (ver access.service.ts -> getIgvRate).
@@ -472,7 +477,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   const igvAmount = computeQuotationIgv(subtotal, Boolean(includesIgv), igvRate);
   const grandTotal = roundMoney(subtotal + igvAmount);
   const itemAmounts = allocateIgvByLine(
-    itemPrices.map((price) => ({ subtotal: price?.total ?? 0 })),
+    itemPrices.map((_price, index) => ({ subtotal: countedTotal(index) })),
     igvAmount,
   ).map(({ amounts }) => amounts);
 
@@ -757,7 +762,10 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                   {/* Encabezado del ítem: número y botón de quitar (en el
                       celular ya no ocupa una fila propia). */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-muted-foreground">Ítem {index + 1}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      Ítem {index + 1}
+                      {isExcludedLine(index) && <span className="ml-2 rounded bg-destructive/10 px-1.5 py-0.5 text-destructive">No aceptado: no suma</span>}
+                    </span>
                     <Button
                       type="button"
                       variant="ghost"

@@ -227,6 +227,9 @@ export interface QuotationItem {
   pricing_mode: QuotationItemPricingMode;
   unit_price: number;
   subtotal: number;
+  // "No aceptado" por el cliente: el equipo lo ve, el cliente no, y no suma al total.
+  is_excluded?: boolean;
+  excluded_at?: string | null;
   product?: {
     id: number;
     company_id: number;
@@ -371,7 +374,10 @@ export type QuotationEventAction =
   | 'purchase_invoice_unlinked'
   // Guía de remisión registrada o anulada (Sprint 2, ítem 1).
   | 'dispatch_guide_registered'
-  | 'dispatch_guide_voided';
+  | 'dispatch_guide_voided'
+  // Producto no aceptado por el cliente o reactivado.
+  | 'item_excluded'
+  | 'item_included';
 
 export interface QuotationEvent {
   id: number;
