@@ -157,6 +157,31 @@ export interface CreatePurchaseOrderItemPurchaseDto {
   invoice_id?: number | null;
   // "Sí, llega después" (Sprint 2, ítem 3): queda en "Compras sin factura".
   invoice_pending?: boolean;
+  // "Ingresar al almacén" (plan §8.4): almacén, y en uno con lotes el lote
+  // (opcional) y el vencimiento (obligatorio para un perecible si el almacén lo controla).
+  warehouse_id?: number | null;
+  lot_code?: string | null;
+  expiry_date?: string | null;
+}
+
+// GET /purchase-order/item/:itemId/warehouse-options
+export interface PurchaseWarehouseOption {
+  id: number;
+  code: string;
+  name: string;
+  business_unit_id: number | null;
+  business_unit_name: string | null;
+  is_default: boolean;
+  track_lots: boolean;
+  requires_expiry: boolean;
+}
+
+export interface PurchaseWarehouseOptions {
+  available: boolean;
+  reason: 'inventory_disabled' | 'product_without_stock' | 'no_warehouses' | null;
+  product_name: string;
+  suggested_warehouse_id: number | null;
+  warehouses: PurchaseWarehouseOption[];
 }
 
 // Código y detalle con los que el backend rechaza una compra que supera lo

@@ -11,6 +11,7 @@ import {
   createPurchaseOrder,
   createPurchaseOrderItemPurchase,
   getPurchaseOrders,
+  getPurchaseWarehouseOptions,
   updatePurchaseOrderItemStatus,
 } from '@/modules/purchaseOrders/api/purchaseOrder.api';
 import { purchaseOrderKeys } from '@/modules/purchaseOrders/hooks/purchaseOrder.keys';
@@ -24,6 +25,7 @@ import { invoicesKeys } from '@/modules/invoices/hooks/invoices.keys';
 import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
 import { cashMovementsKeys } from '@/modules/cashMovements/hooks/cashMovements.keys';
 import { employeeDebtsKeys } from '@/modules/employeeDebts/hooks/employeeDebts.keys';
+import { inventoryKeys } from '@/modules/inventory/hooks/useInventory';
 
 export function usePurchaseOrders(params: PurchaseOrderListParams, options?: { enabled?: boolean; refetchInterval?: number }) {
   return useQuery({
@@ -114,6 +116,17 @@ export function useCreatePurchaseOrderItemPurchase(quotationId?: number) {
       queryClient.invalidateQueries({ queryKey: statisticsKeys.all });
       queryClient.invalidateQueries({ queryKey: cashClosingsKeys.all });
       if (quotationId) queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(quotationId) });
+      // "Ingresar al almacén": stock, documentos y kardex.
+      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
     },
+  });
+}
+
+// Almacenes a los que puede ingresar la compra de un item (plan §8.4).
+export function usePurchaseWarehouseOptions(itemId: number) {
+  return useQuery({
+    queryKey: purchaseOrderKeys.warehouseOptions(itemId),
+    queryFn: () => getPurchaseWarehouseOptions(itemId),
+    staleTime: 60 * 1000,
   });
 }

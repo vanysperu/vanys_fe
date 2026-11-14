@@ -2,6 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, ChevronDown, ChevronUp, Eye, ImageIcon, RotateCcw, ShoppingCart } from 'lucide-react';
 import { PurchaseItemProductDialog } from '@/modules/purchaseOrders/components/PurchaseItemProductDialog';
 import { PurchaseLinesList } from '@/modules/purchaseOrders/components/PurchaseLinesList';
+import { PurchaseWarehouseField } from '@/modules/purchaseOrders/components/PurchaseWarehouseField';
+import { useWarehouseChoice, type WarehouseChoice } from '@/modules/purchaseOrders/hooks/useWarehouseChoice';
 import { EMPTY_INVOICE_ANSWER, InvoiceQuestion, type InvoiceAnswer } from '@/modules/invoices/components/InvoiceQuestion';
 import { useUploadInvoiceFile } from '@/modules/invoices/hooks/useInvoices';
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
@@ -117,7 +119,7 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
       { itemId, dto },
       {
         onSuccess: async (purchase) => {
-          const label = dto.allow_exceed ? 'Compra adicional registrada' : 'Compra registrada';
+          const label = `${dto.allow_exceed ? 'Compra adicional registrada' : 'Compra registrada'}${dto.warehouse_id ? ' e ingresada al almacén' : ''}`;
           setOpenFormItemId(null);
           setPendingExceed(null);
           // Sumada a una factura ya registrada: no hay nada que subir acá.
@@ -320,13 +322,27 @@ function RegisterPurchaseForm({
   remaining: number;
   companyId?: number;
   isPending: boolean;
-  onSubmit: (values: RegisterPurchaseFormValues & { has_invoice: boolean; invoice_id?: number; invoice_pending?: boolean }, invoiceFile: File | null) => void;
+  onSubmit: (
+    values: RegisterPurchaseFormValues & {
+      has_invoice: boolean;
+      invoice_id?: number;
+      invoice_pending?: boolean;
+      warehouse_id?: number | null;
+      lot_code?: string | null;
+      expiry_date?: string | null;
+    },
+    invoiceFile: File | null,
+  ) => void;
   onCancel: () => void;
 }) {
   // ¿La compra llevaba factura? Es obligatorio responder (pedido explícito del
   // usuario: tener mapeadas todas las facturas).
   const [invoice, setInvoice] = useState<InvoiceAnswer>(EMPTY_INVOICE_ANSWER);
   const [invoiceError, setInvoiceError] = useState<string | undefined>(undefined);
+  // "Ingresar al almacén" (plan §8.4): undefined = el sugerido por el backend.
+  const [warehouseChoice, setWarehouseChoice] = useState<WarehouseChoice | undefined>(undefined);
+  const [warehouseError, setWarehouseError] = useState<string | undefined>(undefined);
+  const { choice: warehouse, warehouse: chosenWarehouse } = useWarehouseChoice(itemId, warehouseChoice);
   const {
     register,
     handleSubmit,
@@ -346,6 +362,10 @@ function RegisterPurchaseForm({
       setInvoiceError('Indica si la compra tiene factura');
       return;
     }
+    if (chosenWarehouse?.requires_expiry && !warehouse.expiryDate) {
+      setWarehouseError('Este producto es perecible: indica el vencimiento del lote');
+      return;
+    }
     const usesExisting = invoice.hasInvoice && invoice.usesExisting;
     if (usesExisting && !invoice.existingInvoiceId) {
       setInvoiceError('Elige la factura en la que va esta compra');
@@ -361,6 +381,9 @@ function RegisterPurchaseForm({
         invoice_id: usesExisting ? (invoice.existingInvoiceId ?? undefined) : undefined,
         // "Sí, llega después": queda en Facturas → "Compras sin factura".
         invoice_pending: invoice.later || undefined,
+        warehouse_id: warehouse.warehouseId,
+        lot_code: chosenWarehouse?.track_lots ? warehouse.lotCode.trim() || null : null,
+        expiry_date: chosenWarehouse?.requires_expiry ? warehouse.expiryDate || null : null,
       },
       invoice.hasInvoice && !usesExisting ? invoice.file : null,
     );
@@ -435,6 +458,15 @@ function RegisterPurchaseForm({
       {fundingSource === 'company' && (
         <OperationNumberField id="purchase-operation" className="h-8" error={errors.operation_number?.message} {...register('operation_number')} />
       )}
+      <PurchaseWarehouseField
+        itemId={itemId}
+        value={warehouseChoice}
+        onChange={(next) => {
+          setWarehouseChoice(next);
+          setWarehouseError(undefined);
+        }}
+        error={warehouseError}
+      />
       <InvoiceQuestion
         question="¿La compra tiene factura?"
         value={invoice}

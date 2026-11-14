@@ -11,6 +11,7 @@ import type {
   PurchaseOrderItemPurchase,
   PurchaseOrderItemStatus,
   PurchaseOrderListParams,
+  PurchaseWarehouseOptions,
 } from '@/modules/purchaseOrders/types/purchaseOrder.types';
 
 export async function getPurchaseOrders(params: PurchaseOrderListParams): Promise<PagedListResult<PurchaseOrder>> {
@@ -67,6 +68,13 @@ export async function createPurchaseOrderItemPurchase(
     `/purchase-order/item/${itemId}/purchases`,
     dto,
   );
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Almacenes a los que puede ingresar la compra de un item ("Ingresar al almacén").
+export async function getPurchaseWarehouseOptions(itemId: number): Promise<PurchaseWarehouseOptions> {
+  const response = await apiClient.get<ApiResponse<PurchaseWarehouseOptions>>(`/purchase-order/item/${itemId}/warehouse-options`);
   if (!response.data.success) throw response.data;
   return response.data.data;
 }
