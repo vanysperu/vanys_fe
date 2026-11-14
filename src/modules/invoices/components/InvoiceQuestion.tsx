@@ -13,6 +13,9 @@ export interface InvoiceAnswer {
   // cubrir varios productos) y existingInvoiceId dice en cuál.
   usesExisting: boolean;
   existingInvoiceId: number | null;
+  // Solo con allowLater: "Sí, llega después" (hasInvoice queda en false: la
+  // compra se registra sin factura y va a la bandeja "Compras sin factura").
+  later: boolean;
 }
 
 export const EMPTY_INVOICE_ANSWER: InvoiceAnswer = {
@@ -20,6 +23,7 @@ export const EMPTY_INVOICE_ANSWER: InvoiceAnswer = {
   file: null,
   usesExisting: false,
   existingInvoiceId: null,
+  later: false,
 };
 
 interface InvoiceQuestionProps {
@@ -33,6 +37,9 @@ interface InvoiceQuestionProps {
   // Al corregir una compra que ya tiene factura: se puede dejar esa o pasarla
   // a otra. Sin esto, se ofrece crear una nueva.
   currentInvoice?: { id: number; hasFile: boolean };
+  // Sprint 2, ítem 3 (opcional, por defecto el Sí/No de siempre): tres
+  // respuestas, "Sí, ya la tengo" / "Sí, llega después" / "No lleva factura".
+  allowLater?: boolean;
 }
 
 interface ChoiceProps {
@@ -61,7 +68,7 @@ function Choice({ active, onClick, children }: ChoiceProps) {
 // Con "Sí" se puede adjuntar la foto o el archivo en el momento; si no se
 // adjunta, la factura queda en "Faltan subir". En una compra, además, la
 // factura puede ser una ya registrada: varios productos, una sola factura.
-export function InvoiceQuestion({ question, value, onChange, error, purchaseItemId, currentInvoice }: InvoiceQuestionProps) {
+export function InvoiceQuestion({ question, value, onChange, error, purchaseItemId, currentInvoice, allowLater = false }: InvoiceQuestionProps) {
   const canUseExisting = purchaseItemId !== undefined;
   const hasCurrent = currentInvoice !== undefined;
   const usesExisting = canUseExisting && value.usesExisting;
@@ -69,14 +76,24 @@ export function InvoiceQuestion({ question, value, onChange, error, purchaseItem
   return (
     <div className="space-y-2" data-testid="invoice-question">
       <Label className="text-xs">{question}</Label>
-      <div className="flex gap-2">
-        <Choice active={value.hasInvoice === true} onClick={() => onChange({ ...value, hasInvoice: true })}>
-          Sí
+      <div className="flex flex-wrap gap-2">
+        <Choice active={value.hasInvoice === true} onClick={() => onChange({ ...value, hasInvoice: true, later: false })}>
+          {allowLater ? 'Sí, ya la tengo' : 'Sí'}
         </Choice>
-        <Choice active={value.hasInvoice === false} onClick={() => onChange({ ...EMPTY_INVOICE_ANSWER, hasInvoice: false })}>
-          No
+        {allowLater && (
+          <Choice active={value.later} onClick={() => onChange({ ...EMPTY_INVOICE_ANSWER, hasInvoice: false, later: true })}>
+            Sí, llega después
+          </Choice>
+        )}
+        <Choice active={value.hasInvoice === false && !value.later} onClick={() => onChange({ ...EMPTY_INVOICE_ANSWER, hasInvoice: false })}>
+          {allowLater ? 'No lleva factura' : 'No'}
         </Choice>
       </div>
+      {value.later && (
+        <p className="text-xs text-muted-foreground">
+          Queda en Facturas → "Compras sin factura". Cuando llegue, la registras ahí para esta y otras compras a la vez.
+        </p>
+      )}
       {value.hasInvoice && canUseExisting && (
         <div className="flex flex-wrap gap-2" data-testid="invoice-source">
           <Choice active={!usesExisting} onClick={() => onChange({ ...value, usesExisting: false, existingInvoiceId: null })}>

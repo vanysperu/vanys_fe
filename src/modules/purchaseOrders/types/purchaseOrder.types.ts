@@ -1,3 +1,4 @@
+import type { PurchaseInvoiceStatus } from '@/modules/invoices/types/invoice.types';
 import type { ProductColor } from '@/modules/products/types/product.types';
 import { QUOTATION_ACTIVE_STATUSES } from '@/modules/quotations/types/quotation.types';
 
@@ -64,6 +65,8 @@ export interface PurchaseOrderItemPurchase {
   // Factura de la compra (null = sin factura), si ya tiene archivo y cuántas
   // compras vigentes cubre.
   invoice_id: number | null;
+  // linked | pending (la factura llega después) | not_required (Sprint 2, ítem 3).
+  invoice_status: PurchaseInvoiceStatus;
   invoice_has_file: boolean;
   invoice_purchases_count: number;
   created_at: string;
@@ -152,6 +155,8 @@ export interface CreatePurchaseOrderItemPurchaseDto {
   // Factura de compra ya registrada a la que se suma esta compra (una factura
   // puede cubrir varios productos). Sin esto, se registra una nueva.
   invoice_id?: number | null;
+  // "Sí, llega después" (Sprint 2, ítem 3): queda en "Compras sin factura".
+  invoice_pending?: boolean;
 }
 
 // Código y detalle con los que el backend rechaza una compra que supera lo

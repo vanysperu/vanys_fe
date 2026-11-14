@@ -1,9 +1,11 @@
-import { Eye, FileText, RefreshCw, Search, Upload } from 'lucide-react';
+import { Eye, FileText, ListChecks, RefreshCw, Search, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import type { ApiClientError } from '@/config/api.types';
 import { InvoiceFileDialog } from '@/modules/invoices/components/InvoiceFileDialog';
+import { InvoicePurchasesDialog } from '@/modules/invoices/components/InvoicePurchasesDialog';
+import { PendingPurchasesTab } from '@/modules/invoices/components/PendingPurchasesTab';
 import { UploadInvoiceDialog } from '@/modules/invoices/components/UploadInvoiceDialog';
 import { useInvoices, useRetryInvoiceDrive } from '@/modules/invoices/hooks/useInvoices';
 import {
@@ -29,6 +31,8 @@ import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useA
 import { formatDate } from '@/lib/dateUtils';
 
 type TypeTab = 'all' | InvoiceType;
+// Pestañas principales: las facturas, o la bandeja de compras sin factura (Sprint 2, ítem 3).
+type ViewTab = 'invoices' | 'pending-purchases';
 
 const DRIVE_BADGE: Record<InvoiceDriveStatus, 'muted' | 'warning' | 'success' | 'destructive'> = {
   none: 'muted',
@@ -43,6 +47,10 @@ const sizeLabel = (bytes: number | null) => (bytes === null ? '' : `${Math.max(1
 // compra de una orden de compra), con la lista de las que "faltan subir" —
 // pedido explícito del usuario: tener todas las facturas mapeadas.
 export function InvoicesPage() {
+  const [view, setView] = useState<ViewTab>('invoices');
+  // Factura de compra abierta para ver/editar sus compras y datos (se lee de la
+  // lista, así se actualiza sola después de quitar o agregar compras).
+  const [managingId, setManagingId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [typeTab, setTypeTab] = useState<TypeTab>('all');
@@ -61,6 +69,10 @@ export function InvoicesPage() {
   const canUpload = usePermissionButton('invoice.file.upload.button');
   const canView = usePermissionButton('invoice.file.view.button');
   const canRetry = usePermissionButton('invoice.drive.retry.button');
+  const canLink = usePermissionButton('invoice.link.button');
+  const canRemovePurchase = usePermissionButton('invoice.removePurchase.button');
+  const canEditDetails = usePermissionButton('invoice.details.button');
+  const canManagePurchases = canLink || canRemovePurchase || canEditDetails;
 
   const { data, isLoading } = useInvoices({
     page,
@@ -92,11 +104,29 @@ export function InvoicesPage() {
   const showError = (error: unknown) => toast.error((error as ApiClientError).message);
   const pendingCount = data?.summary.pending_count ?? 0;
   const failedCount = data?.summary.drive_failed_count ?? 0;
+  const pendingPurchasesCount = data?.summary.pending_purchases_count ?? 0;
+  const managing = (data?.data ?? []).find((row) => row.id === managingId) ?? null;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Facturas" description="Facturas emitidas a clientes y facturas de las compras" />
 
+      {canLink && (
+        <Tabs value={view} onValueChange={(value) => setView(value as ViewTab)}>
+          <TabsList>
+            <TabsTrigger value="invoices">Facturas</TabsTrigger>
+            <TabsTrigger value="pending-purchases" data-testid="pending-purchases-tab">
+              Compras sin factura
+              {pendingPurchasesCount > 0 && <Badge variant="warning">{pendingPurchasesCount}</Badge>}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {view === 'pending-purchases' ? (
+        <PendingPurchasesTab companyId={companyFilter ? Number(companyFilter) : undefined} />
+      ) : (
+      <>
       <div className="flex flex-wrap items-center gap-3">
         <Tabs value={typeTab} onValueChange={(value) => withPageReset(setTypeTab)(value as TypeTab)}>
           <TabsList>
@@ -127,7 +157,7 @@ export function InvoicesPage() {
         <div className="relative">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar cotización, cliente o producto..."
+            placeholder="Buscar número, proveedor, cotización o producto..."
             className="h-9 w-72 pl-9"
             value={search}
             onChange={(event) => withPageReset(setSearch)(event.target.value)}
@@ -172,6 +202,11 @@ export function InvoicesPage() {
                 <span className="block max-w-64 truncate text-[10px] text-muted-foreground" title={row.description}>
                   {row.description}
                 </span>
+                {(row.series_number || row.supplier_name) && (
+                  <span className="block text-[10px] text-muted-foreground">
+                    {[row.series_number, row.supplier_name].filter(Boolean).join(' · ')}
+                  </span>
+                )}
                 {/* Una factura puede cubrir varios productos: el detalle está en el visor. */}
                 {row.purchases.length > 1 && (
                   <span className="block text-[10px] text-muted-foreground" data-testid={`invoice-products-${row.id}`}>
@@ -209,6 +244,17 @@ export function InvoicesPage() {
             align: 'right',
             cell: (row) => (
               <div className="flex justify-end gap-1">
+                {canManagePurchases && row.type === 'purchase' && (
+                  <button
+                    type="button"
+                    title="Compras y datos de la factura"
+                    onClick={() => setManagingId(row.id)}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                    data-testid={`invoice-manage-${row.id}`}
+                  >
+                    <ListChecks className="size-3.5" />
+                  </button>
+                )}
                 {canView && row.has_file && (
                   <button
                     type="button"
@@ -268,7 +314,11 @@ export function InvoicesPage() {
         />
       )}
 
+      </>
+      )}
+
       <UploadInvoiceDialog invoice={uploading} onClose={() => setUploading(null)} />
+      <InvoicePurchasesDialog invoice={managing} onClose={() => setManagingId(null)} />
       <InvoiceFileDialog invoice={viewing} onClose={() => setViewing(null)} />
     </div>
   );

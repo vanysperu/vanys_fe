@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
-import { Ban, Check, Pencil, Plus, X } from 'lucide-react';
+import { Ban, Check, FilePlus2, Pencil, Plus, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -9,6 +9,7 @@ import { CorrectedBadge } from '@/modules/moneyCorrections/components/CorrectedB
 import { CorrectionHistoryDialog } from '@/modules/moneyCorrections/components/CorrectionHistoryDialog';
 import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
 import { CorrectPurchaseDialog } from '@/modules/purchaseOrders/components/CorrectPurchaseDialog';
+import { LinkInvoiceDialog } from '@/modules/invoices/components/LinkInvoiceDialog';
 import { usePurchaseAnnulment } from '@/modules/purchaseOrders/hooks/usePurchaseAnnulment';
 import { quotationExpenseCorrectionsUrl } from '@/modules/quotations/api/quotations.api';
 import { CorrectQuotationExpenseDialog } from '@/modules/quotations/components/CorrectQuotationExpenseDialog';
@@ -91,6 +92,9 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
   const { requestAnnul, dialog: annulDialog } = usePurchaseAnnulment(companyId);
   const [correctingExpenseId, setCorrectingExpenseId] = useState<number | null>(null);
   const [correctingPurchaseId, setCorrectingPurchaseId] = useState<number | null>(null);
+  // "Vincular factura" de una compra sin factura (Sprint 2, ítem 3): sin motivo.
+  const canLinkInvoice = usePermissionButton('invoice.link.button');
+  const [linkingExpense, setLinkingExpense] = useState<QuotationExpense | null>(null);
   const [historyExpense, setHistoryExpense] = useState<QuotationExpense | null>(null);
   const [togglingExpense, setTogglingExpense] = useState<QuotationExpense | null>(null);
   const { mutateAsync: toggleExpense } = useToggleQuotationExpenseStatus();
@@ -165,6 +169,7 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
           const canCorrect = !expense.is_deleted && !locked && (isPurchase ? canCorrectPurchase : canCorrectExpense);
           const canToggle = !isPurchase && canToggleExpense && !locked;
           const canAnnul = isPurchase && !expense.is_deleted && !locked && canAnnulPurchase;
+          const canLink = isPurchase && !expense.is_deleted && canLinkInvoice && expense.purchase_invoice_status !== 'linked';
           return (
           <div key={expense.id} className={cn('space-y-1 rounded-lg border p-3', expense.is_deleted && 'opacity-60')}>
             <div className="flex items-start justify-between gap-3">
@@ -175,8 +180,21 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
               <span className={cn('font-mono-nums shrink-0 font-semibold text-destructive', expense.is_deleted && 'line-through')}>
                 {money(expense.amount)}
               </span>
-              {(canCorrect || canToggle || canAnnul) && (
+              {(canCorrect || canToggle || canAnnul || canLink) && (
                 <div className="flex shrink-0 items-center">
+                  {canLink && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      title="Vincular factura"
+                      aria-label="Vincular factura"
+                      onClick={() => setLinkingExpense(expense)}
+                    >
+                      <FilePlus2 className="size-4" />
+                    </Button>
+                  )}
                   {canCorrect && (
                     <Button
                       type="button"
@@ -269,6 +287,16 @@ export function QuotationExpensesSection({ quotationId, expenses, canRegister, c
       )}
       {adjustmentReason.dialog}
       {annulDialog}
+      <LinkInvoiceDialog
+        open={linkingExpense !== null}
+        companyId={companyId}
+        purchases={
+          linkingExpense?.purchase_id
+            ? [{ id: linkingExpense.purchase_id, label: linkingExpense.description, amount: Number(linkingExpense.amount) }]
+            : []
+        }
+        onClose={() => setLinkingExpense(null)}
+      />
       <ConfirmDialog
         open={togglingExpense !== null}
         onOpenChange={(open) => !open && setTogglingExpense(null)}

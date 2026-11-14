@@ -1,7 +1,8 @@
-import { Ban, FileText, Landmark, Pencil, UserRound, Wallet } from 'lucide-react';
+import { Ban, FilePlus2, FileText, Landmark, Pencil, UserRound, Wallet } from 'lucide-react';
 import { useState } from 'react';
 
 import { cn } from '@/lib/utils';
+import { LinkInvoiceDialog } from '@/modules/invoices/components/LinkInvoiceDialog';
 import { CorrectedBadge } from '@/modules/moneyCorrections/components/CorrectedBadge';
 import { CorrectionHistoryDialog } from '@/modules/moneyCorrections/components/CorrectionHistoryDialog';
 import { moneyCorrectionsKeys } from '@/modules/moneyCorrections/hooks/moneyCorrections.keys';
@@ -29,6 +30,9 @@ export function PurchaseLinesList({ purchases, productName }: PurchaseLinesListP
   const canOpenHistory = usePermissionButton('purchase_order.purchase.corrections.button');
   const [correctingId, setCorrectingId] = useState<number | null>(null);
   const [history, setHistory] = useState<PurchaseOrderItemPurchase | null>(null);
+  // "Vincular factura" (Sprint 2, ítem 3): sin motivo y sin pasar por Corregir.
+  const canLinkInvoice = usePermissionButton('invoice.link.button');
+  const [linking, setLinking] = useState<PurchaseOrderItemPurchase | null>(null);
   // Mismo flujo de anular que en la pestaña Gastos y en Caja.
   const { requestAnnul, isLocked, dialog: annulDialog } = usePurchaseAnnulment();
 
@@ -61,10 +65,29 @@ export function PurchaseLinesList({ purchases, productName }: PurchaseLinesListP
                 Factura
               </Badge>
             )}
+            {purchase.invoice_id === null && purchase.invoice_status === 'pending' && !purchase.is_deleted && (
+              <Badge variant="warning" title="La factura llega después: está en Facturas → Compras sin factura">
+                <FileText className="size-3 shrink-0" />
+                Factura pendiente
+              </Badge>
+            )}
             {purchase.is_deleted && <Badge variant="destructive">Anulada</Badge>}
             <CorrectedBadge count={purchase.corrections_count} canOpen={canOpenHistory} onOpen={() => setHistory(purchase)} />
-            {!purchase.is_deleted && (canCorrect || canAnnul) && !isLocked(purchase) && (
+            {!purchase.is_deleted && (canCorrect || canAnnul || canLinkInvoice) && !isLocked(purchase) && (
               <span className="ml-auto flex shrink-0 items-center">
+                {canLinkInvoice && purchase.invoice_id === null && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    title="Vincular factura"
+                    aria-label="Vincular factura"
+                    onClick={() => setLinking(purchase)}
+                  >
+                    <FilePlus2 className="size-3.5" />
+                  </Button>
+                )}
                 {canCorrect && (
                   <Button
                     type="button"
@@ -115,6 +138,11 @@ export function PurchaseLinesList({ purchases, productName }: PurchaseLinesListP
         />
       )}
       {annulDialog}
+      <LinkInvoiceDialog
+        open={linking !== null}
+        purchases={linking ? [{ id: linking.id, label: `${productName} × ${linking.quantity}`, amount: Number(linking.amount) }] : []}
+        onClose={() => setLinking(null)}
+      />
     </>
   );
 }

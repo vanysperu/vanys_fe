@@ -6,12 +6,57 @@ import {
   getDriveStatus,
   getInvoiceFile,
   getInvoices,
+  getPendingPurchases,
   getPurchaseInvoiceCandidates,
+  linkPurchases,
+  removeInvoicePurchase,
   retryInvoiceDrive,
+  updateInvoiceDetails,
   uploadInvoiceFile,
 } from '@/modules/invoices/api/invoices.api';
 import { invoicesKeys } from '@/modules/invoices/hooks/invoices.keys';
-import type { InvoiceListParams } from '@/modules/invoices/types/invoice.types';
+import type { InvoiceListParams, PendingPurchaseParams } from '@/modules/invoices/types/invoice.types';
+import { purchaseOrderKeys } from '@/modules/purchaseOrders/hooks/purchaseOrder.keys';
+import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
+
+export function usePendingPurchases(params: PendingPurchaseParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: invoicesKeys.pendingPurchases(params),
+    queryFn: () => getPendingPurchases(params),
+    enabled: options?.enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+// Vincular o quitar compras cambia: Facturas (y su bandeja), el detalle de las
+// órdenes de compra (insignia de factura) y el detalle de las cotizaciones
+// (Gastos e historial).
+const useInvalidateInvoiceLinks = () => {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
+    queryClient.invalidateQueries({ queryKey: purchaseOrderKeys.all });
+    queryClient.invalidateQueries({ queryKey: [...quotationsKeys.all, 'detail'] });
+  };
+};
+
+export function useLinkPurchases() {
+  const invalidate = useInvalidateInvoiceLinks();
+  return useMutation({ mutationFn: linkPurchases, onSuccess: invalidate });
+}
+
+export function useRemoveInvoicePurchase() {
+  const invalidate = useInvalidateInvoiceLinks();
+  return useMutation({ mutationFn: removeInvoicePurchase, onSuccess: invalidate });
+}
+
+export function useUpdateInvoiceDetails() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateInvoiceDetails,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() }),
+  });
+}
 
 export function useInvoices(params: InvoiceListParams) {
   return useQuery({

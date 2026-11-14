@@ -3,11 +3,59 @@ import type { ApiResponse } from '@/config/api.types';
 import type {
   DriveStatus,
   InvoiceDriveStatus,
+  InvoiceDetailsDto,
   InvoiceListParams,
   InvoiceListResult,
+  LinkPurchasesDto,
+  LinkPurchasesResult,
+  PendingPurchaseListResult,
+  PendingPurchaseParams,
   PurchaseInvoiceCandidate,
   UploadInvoiceFileResult,
 } from '@/modules/invoices/types/invoice.types';
+
+// ---- Compras sin factura (Sprint 2, ítem 3) ----
+
+export async function getPendingPurchases(params: PendingPurchaseParams): Promise<PendingPurchaseListResult> {
+  const response = await apiClient.get<ApiResponse<PendingPurchaseListResult>>('/invoice/pending-purchases', { params });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Una factura para varias compras (nueva o ya registrada). Va como multipart
+// para mandar el archivo en el mismo paso; los vacíos no se mandan.
+export async function linkPurchases({ file, purchase_ids, ...fields }: LinkPurchasesDto): Promise<LinkPurchasesResult> {
+  const formData = new FormData();
+  formData.append('purchase_ids', purchase_ids.join(','));
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    formData.append(key, String(value));
+  });
+  if (file) formData.append('file', file);
+  const response = await apiClient.post<ApiResponse<LinkPurchasesResult>>('/invoice/link-purchases', formData);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+export async function removeInvoicePurchase({ invoiceId, purchaseId }: { invoiceId: number; purchaseId: number }): Promise<{ invoice_deleted: boolean }> {
+  const response = await apiClient.put<ApiResponse<{ invoice_deleted: boolean }>>(`/invoice/${invoiceId}/remove-purchase`, {
+    purchase_id: purchaseId,
+  });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+export async function updateInvoiceDetails({
+  invoiceId,
+  dto,
+}: {
+  invoiceId: number;
+  dto: InvoiceDetailsDto & { allow_duplicate?: boolean };
+}): Promise<{ id: number }> {
+  const response = await apiClient.put<ApiResponse<{ id: number }>>(`/invoice/${invoiceId}/details`, dto);
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
 
 // Facturas de compra a las que se puede sumar la compra de un item.
 export async function getPurchaseInvoiceCandidates(itemId: number, search?: string): Promise<PurchaseInvoiceCandidate[]> {

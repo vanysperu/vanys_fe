@@ -1,3 +1,4 @@
+import type { PurchaseInvoiceStatus } from '@/modules/invoices/types/invoice.types';
 import type { ProductCode, ProductColor } from '@/modules/products/types/product.types';
 import type { FundingSource } from '@/modules/purchaseOrders/types/purchaseOrder.types';
 import type { StageCategory } from '@/modules/productionWorkflow/types/productionWorkflow.types';
@@ -292,6 +293,8 @@ export interface QuotationExpense {
   purchase_id: number | null;
   // Quién puso la plata de esa compra (null = gasto manual).
   purchase_funding_source: FundingSource | null;
+  // Factura de la compra (Sprint 2, ítem 3): pending = llega después.
+  purchase_invoice_status: PurchaseInvoiceStatus | null;
   // Gasto manual: quién puso la plata y, si fue un trabajador, a quién se le
   // debe y cómo va esa deuda.
   funding_source: FundingSource;
@@ -362,7 +365,10 @@ export type QuotationEventAction =
   | 'shared_whatsapp'
   | 'shared_email'
   | 'public_link_changed'
-  | 'viewed_by_client';
+  | 'viewed_by_client'
+  // Factura de una compra vinculada o quitada (Sprint 2, ítem 3).
+  | 'purchase_invoice_linked'
+  | 'purchase_invoice_unlinked';
 
 export interface QuotationEvent {
   id: number;

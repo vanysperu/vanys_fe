@@ -125,6 +125,10 @@ export function PurchaseOrderItemsChecklist({ items, canEdit, quotationId, compa
             toast.success(`${label} en la factura elegida`);
             return;
           }
+          if (dto.invoice_pending) {
+            toast.success(`${label}. Quedó en Facturas → "Compras sin factura".`);
+            return;
+          }
           if (!purchase.invoice_id || !invoiceFile) {
             toast.success(dto.has_invoice ? `${label}. Falta subir la factura (Facturas → "Faltan subir").` : label);
             return;
@@ -316,7 +320,7 @@ function RegisterPurchaseForm({
   remaining: number;
   companyId?: number;
   isPending: boolean;
-  onSubmit: (values: RegisterPurchaseFormValues & { has_invoice: boolean; invoice_id?: number }, invoiceFile: File | null) => void;
+  onSubmit: (values: RegisterPurchaseFormValues & { has_invoice: boolean; invoice_id?: number; invoice_pending?: boolean }, invoiceFile: File | null) => void;
   onCancel: () => void;
 }) {
   // ¿La compra llevaba factura? Es obligatorio responder (pedido explícito del
@@ -355,6 +359,8 @@ function RegisterPurchaseForm({
         operation_number: values.funding_source === 'company' ? values.operation_number : undefined,
         has_invoice: invoice.hasInvoice,
         invoice_id: usesExisting ? (invoice.existingInvoiceId ?? undefined) : undefined,
+        // "Sí, llega después": queda en Facturas → "Compras sin factura".
+        invoice_pending: invoice.later || undefined,
       },
       invoice.hasInvoice && !usesExisting ? invoice.file : null,
     );
@@ -438,6 +444,7 @@ function RegisterPurchaseForm({
         }}
         error={invoiceError}
         purchaseItemId={itemId}
+        allowLater
       />
       <div className="flex justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
