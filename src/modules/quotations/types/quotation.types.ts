@@ -368,7 +368,10 @@ export type QuotationEventAction =
   | 'viewed_by_client'
   // Factura de una compra vinculada o quitada (Sprint 2, ítem 3).
   | 'purchase_invoice_linked'
-  | 'purchase_invoice_unlinked';
+  | 'purchase_invoice_unlinked'
+  // Guía de remisión registrada o anulada (Sprint 2, ítem 1).
+  | 'dispatch_guide_registered'
+  | 'dispatch_guide_voided';
 
 export interface QuotationEvent {
   id: number;

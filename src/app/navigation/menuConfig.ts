@@ -1,4 +1,4 @@
-import { Cog, Landmark, ShoppingBag, Warehouse } from 'lucide-react';
+import { Cog, Landmark, ShoppingBag, Truck, Warehouse } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import type { MyAccessModuleItem, MyAccessViewItem } from '@/presentation/hooks/shared/useAccess';
@@ -50,6 +50,16 @@ export const MENU_LAYOUT: readonly MenuLayoutEntry[] = [
       label: 'Inventario',
       icon: Warehouse,
       moduleCodes: ['inventory'],
+    },
+  },
+  // Sprint 2, ítem 1: guías de remisión, vehículos y conductores.
+  {
+    kind: 'group',
+    group: {
+      key: 'logistics',
+      label: 'Logística',
+      icon: Truck,
+      moduleCodes: ['dispatch_guide'],
     },
   },
   { kind: 'module', moduleCode: 'reminder' },

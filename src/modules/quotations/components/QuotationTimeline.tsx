@@ -1,4 +1,4 @@
-import { ArrowRightLeft, CircleDollarSign, Eye, FilePlus, FileText, Link2, Mail, MessageCircle, Pencil, Receipt, RotateCcw, ShoppingCart, Workflow } from 'lucide-react';
+import { ArrowRightLeft, CircleDollarSign, Eye, FilePlus, FileText, Link2, Mail, MessageCircle, Pencil, Receipt, RotateCcw, ShoppingCart, Truck, Workflow } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import type { QuotationEvent, QuotationEventAction } from '@/modules/quotations/types/quotation.types';
@@ -29,6 +29,8 @@ const EVENT_STYLE: Record<QuotationEventAction, { icon: LucideIcon; tag: string;
   viewed_by_client: { icon: Eye, fg: '#5B3FD6', bg: '#EFEBFF', tag: 'Vista del cliente' },
   purchase_invoice_linked: { icon: FileText, fg: '#1F5FC0', bg: '#E6EEFB', tag: 'Factura' },
   purchase_invoice_unlinked: { icon: FileText, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Factura quitada' },
+  dispatch_guide_registered: { icon: Truck, fg: '#1F8A5F', bg: '#E6F5EE', tag: 'Guía de remisión' },
+  dispatch_guide_voided: { icon: Truck, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Guía anulada' },
 };
 
 // "expense_added" generado por una compra usa el mismo tag "Gasto" — si en

@@ -47,6 +47,11 @@ const KardexPage = lazy(() =>
 const WarehousesPage = lazy(() =>
   import('@/modules/inventory/pages/WarehousesPage').then((m) => ({ default: m.WarehousesPage })),
 );
+const DispatchGuidesPage = lazy(() =>
+  import('@/modules/dispatchGuides/pages/DispatchGuidesPage').then((m) => ({ default: m.DispatchGuidesPage })),
+);
+const VehiclesPage = lazy(() => import('@/modules/dispatchGuides/pages/VehiclesPage').then((m) => ({ default: m.VehiclesPage })));
+const DriversPage = lazy(() => import('@/modules/dispatchGuides/pages/DriversPage').then((m) => ({ default: m.DriversPage })));
 const SupplierStockPage = lazy(() =>
   import('@/modules/supplierStock/pages/SupplierStockPage').then((m) => ({ default: m.SupplierStockPage })),
 );
@@ -134,6 +139,9 @@ export default function PrivateRoutes() {
           <Route path="/inventario/documentos" element={<InventoryDocumentsPage />} />
           <Route path="/inventario/kardex" element={<KardexPage />} />
           <Route path="/inventario/almacenes" element={<WarehousesPage />} />
+          <Route path="/logistica/guias" element={<DispatchGuidesPage />} />
+          <Route path="/logistica/vehiculos" element={<VehiclesPage />} />
+          <Route path="/logistica/conductores" element={<DriversPage />} />
           <Route path="/anuncios" element={<AdvertisementsPage />} />
           <Route path="/cotizaciones" element={<QuotationsPage />} />
           <Route path="/ordenes-compra" element={<PurchaseOrdersPage />} />

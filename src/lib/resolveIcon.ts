@@ -10,6 +10,7 @@ import {
   Flag,
   HandCoins,
   HelpCircle,
+  IdCard,
   LayoutDashboard,
   KeyRound,
   KanbanSquare,
@@ -74,6 +75,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   truck: Truck,
   stock: PackageSearch,
   warehouse: Warehouse,
+  'id-card': IdCard,
 };
 
 // Si un ícono no está mapeado, se usa uno de "falta configurar" (signo de

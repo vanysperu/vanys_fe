@@ -16,7 +16,8 @@ import { ResetQuotationDialog } from '@/modules/quotations/components/ResetQuota
 import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/QuotationPdfPreviewDialog';
 import { QuotationShareDialog } from '@/modules/quotations/components/share/QuotationShareDialog';
 import { useChangeQuotationStatus, useDownloadQuotationPdf, useQuotation } from '@/modules/quotations/hooks/useQuotations';
-import { ArrowRight, Download, Eye, PencilLine, RotateCcw, Share2 } from 'lucide-react';
+import { ArrowRight, Download, Eye, PencilLine, RotateCcw, Share2, Truck } from 'lucide-react';
+import { GuideFormDialog } from '@/modules/dispatchGuides/components/GuideFormDialog';
 import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
 import {
   QUOTATION_ACTIVE_STATUSES,
@@ -37,7 +38,7 @@ import {
 } from '@/presentation/components/shared/ui/dialog';
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
-import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useAccess, useCompanyFeature, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { useIsMobile } from '@/presentation/hooks/use-mobile';
 import type { ApiClientError } from '@/config/api.types';
 
@@ -136,6 +137,11 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const canToggleLink = usePermissionButton('cotizacion.publicLink.toggle.button');
   const canShare = canShareWhatsapp || canShareEmail || canToggleLink;
   const [shareOpen, setShareOpen] = useState(false);
+  // Guía de remisión (Sprint 2, ítem 1): se arma desde una cotización Lista o Entregada.
+  const canCreateGuide = usePermissionButton('dispatch_guide.create.button');
+  const hasGuides = useCompanyFeature('dispatch_guide');
+  const { data: access } = useAccess();
+  const [guideOpen, setGuideOpen] = useState(false);
   const [resettingId, setResettingId] = useState<number | null>(null);
   const { mutate: downloadPdf } = useDownloadQuotationPdf();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -242,6 +248,17 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                 >
                   <Download className="size-4" />
                 </button>
+                {canCreateGuide && (hasGuides || access?.isSystem) && (quotation.status === 'ready' || quotation.status === 'delivered') && (
+                  <button
+                    type="button"
+                    title="Armar guía de remisión"
+                    aria-label="Armar guía de remisión"
+                    onClick={() => setGuideOpen(true)}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Truck className="size-4" />
+                  </button>
+                )}
                 {/* Una "Pendiente de cotizar" (pedido de la web) todavía no se comparte. */}
                 {canShare && quotation.status !== 'quote_requested' && (
                   <button
@@ -262,6 +279,13 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
         <QuotationPdfPreviewDialog quotationId={previewOpen ? quotationId : null} onClose={() => setPreviewOpen(false)} />
         {quotation && shareOpen && (
           <QuotationShareDialog quotation={quotation} open={shareOpen} onClose={() => setShareOpen(false)} />
+        )}
+        {quotationId && guideOpen && (
+          <GuideFormDialog
+            source={{ quotationId }}
+            onClose={() => setGuideOpen(false)}
+            onSaved={(guide) => toast.success(`Borrador de guía #${guide.id} listo: regístralo en Logística → Guías al emitirlo en SUNAT`)}
+          />
         )}
         <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
         <FinishQuotationDialog quotation={finishing} onClose={() => setFinishing(null)} />
