@@ -1,10 +1,11 @@
-import { Ban, Check, PackageCheck, Pencil, Send } from 'lucide-react';
+import { Ban, Check, PackageCheck, Pencil, Send, Truck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import type { ApiClientError } from '@/config/api.types';
 import { formatDate, formatDateTime } from '@/lib/dateUtils';
 import { DocumentFormDialog } from '@/modules/inventory/components/DocumentFormDialog';
+import { GuideFormDialog } from '@/modules/dispatchGuides/components/GuideFormDialog';
 import { statusVariant } from '@/modules/inventory/components/documentStatus';
 import { useCancelDocument, useDispatchTransfer, usePostDocument, useReceiveTransfer, useStockDocument } from '@/modules/inventory/hooks/useInventory';
 import { DOC_STATUS_LABEL, DOC_TYPE_LABEL, REASON_LABEL, type StockDocument } from '@/modules/inventory/types/inventory.types';
@@ -14,7 +15,7 @@ import { Checkbox } from '@/presentation/components/shared/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { Skeleton } from '@/presentation/components/shared/ui/skeleton';
-import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { useAccess, useCompanyFeature, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 
 const numberFormatter = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 3 });
 
@@ -33,12 +34,18 @@ export function DocumentDetailDialog({ documentId, onClose, companyId }: { docum
   const canDispatch = usePermissionButton('inventory.transfers.dispatch.button');
   const canReceive = usePermissionButton('inventory.transfers.receive.button');
   const canCancel = usePermissionButton('inventory.documents.cancel.button');
+  // Guía de remisión de la transferencia (motivo 04, Sprint 2 ítem 1).
+  const canCreateGuide = usePermissionButton('dispatch_guide.create.button');
+  const hasGuides = useCompanyFeature('dispatch_guide');
+  const { data: access } = useAccess();
+  const [guideOpen, setGuideOpen] = useState(false);
   const onError = (error: unknown) => toast.error((error as ApiClientError).message);
 
   if (editing && document) {
     return <DocumentFormDialog docType={document.doc_type} document={document} companyId={companyId} onClose={() => setEditing(false)} />;
   }
   if (receiving && document) return <ReceiveTransferDialog document={document} onClose={() => setReceiving(false)} />;
+  if (guideOpen && document) return <GuideFormDialog source={{ transferId: document.id }} onClose={() => setGuideOpen(false)} />;
 
   const isDraft = document?.status === 'draft';
   const inTransit = document?.status === 'dispatched' || document?.status === 'partially_received';
@@ -154,6 +161,12 @@ export function DocumentDetailDialog({ documentId, onClose, companyId }: { docum
               <Button disabled={isPosting} onClick={() => post(document.id, { onSuccess: () => toast.success('Documento confirmado'), onError })}>
                 <Check className="size-4" />
                 Confirmar
+              </Button>
+            )}
+            {document.doc_type === 'transfer' && document.status !== 'cancelled' && canCreateGuide && (hasGuides || access?.isSystem) && (
+              <Button variant="outline" onClick={() => setGuideOpen(true)}>
+                <Truck className="size-4" />
+                Guía de remisión
               </Button>
             )}
             {inTransit && canReceive && (
