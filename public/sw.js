@@ -59,3 +59,44 @@ self.addEventListener('fetch', (event) => {
     })(),
   );
 });
+
+// Notificaciones al teléfono (Web Push, ver grulla_be push_notification).
+// El servidor manda { title, body, url, tag }; se muestra aunque la app esté
+// cerrada. "tag" hace que un mismo pedido no se apile dos veces.
+self.addEventListener('push', (event) => {
+  const fallback = { title: 'Vanys', body: 'Tienes una novedad en Vanys.', url: '/', tag: undefined };
+  let payload = fallback;
+  try {
+    payload = { ...fallback, ...(event.data ? event.data.json() : {}) };
+  } catch {
+    payload = { ...fallback, body: event.data ? event.data.text() : fallback.body };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      tag: payload.tag,
+      icon: '/icons/icon-192.png',
+      data: { url: payload.url },
+    }),
+  );
+});
+
+// Al tocar el aviso: si la app ya está abierta se lleva al frente en esa
+// pantalla; si no, se abre. Solo se aceptan rutas de la propia app.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const rawUrl = event.notification.data && event.notification.data.url;
+  const target = new URL(typeof rawUrl === 'string' ? rawUrl : '/', self.location.origin);
+  const url = target.origin === self.location.origin ? target.href : self.location.origin;
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const existing = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (!existing) return self.clients.openWindow(url);
+      await existing.focus();
+      return existing.navigate(url).catch(() => self.clients.openWindow(url));
+    })(),
+  );
+});

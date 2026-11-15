@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, LogOut } from 'lucide-react';
+import { Bell, ChevronDown, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom';
@@ -13,6 +13,8 @@ import { resolveIcon } from '@/lib/resolveIcon';
 import { cn } from '@/lib/utils';
 import { logout } from '@/modules/auth/api/auth.api';
 import { useAuthStore } from '@/modules/auth/hooks/useAuthStore';
+import { disablePushOnThisDevice } from '@/modules/pushNotifications/hooks/usePushNotifications';
+import { PushNotificationsDialog } from '@/modules/pushNotifications/components/PushNotificationsDialog';
 import { Avatar, AvatarFallback } from '@/presentation/components/shared/ui/avatar';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/components/shared/ui/popover';
@@ -57,6 +59,7 @@ export function AppSidebar() {
   const user = useAuthStore((state) => state.user);
   const { pathname } = useLocation();
   const { state, isMobile, setOpenMobile } = useSidebar();
+  const [pushDialogOpen, setPushDialogOpen] = useState(false);
   // En el celular el menú es un panel deslizable (Sheet) que siempre se
   // muestra completo: el estado "colapsado" (solo íconos) es de escritorio y
   // viene guardado en cookie, así que sin este corte el panel del celular
@@ -72,7 +75,13 @@ export function AppSidebar() {
   const menu = useMemo(() => buildMenu(access?.views ?? []), [access]);
 
   const { mutate: signOut, isPending } = useMutation({
-    mutationFn: logout,
+    mutationFn: async () => {
+      // Al salir se apagan los avisos de ESTE teléfono (antes de borrar el
+      // token, porque el servidor necesita saber de quién es): el aviso trae
+      // el nombre del cliente y no debe seguir llegando a un teléfono sin sesión.
+      await disablePushOnThisDevice();
+      await logout();
+    },
     onSettled: () => {
       // Misma razón que en LoginPage: limpiar la caché de React Query para
       // que el siguiente login (otro usuario/empresa) no arranque con
@@ -217,6 +226,14 @@ export function AppSidebar() {
             </div>
             <button
               type="button"
+              onClick={() => setPushDialogOpen(true)}
+              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+            >
+              <Bell className="size-4" />
+              Notificaciones
+            </button>
+            <button
+              type="button"
               disabled={isPending}
               onClick={() => signOut()}
               className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
@@ -226,6 +243,7 @@ export function AppSidebar() {
             </button>
           </PopoverContent>
         </Popover>
+        <PushNotificationsDialog open={pushDialogOpen} onOpenChange={setPushDialogOpen} />
       </SidebarFooter>
     </Sidebar>
   );

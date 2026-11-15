@@ -1,5 +1,6 @@
 import { LayoutGrid, List } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
@@ -28,6 +29,24 @@ export function QuotationsPage() {
   const [previewId, setPreviewId] = useState<number | null>(null);
   const [initialTab, setInitialTab] = useState<QuotationQuickActionTab | 'products'>('products');
   const [view, setView] = useState<ViewMode>('board');
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Enlace directo (?abrir=<id>), lo usa el aviso al teléfono de "pedido nuevo
+  // para cotizar": abre esa cotización y limpia el parámetro de la URL para que
+  // al cerrar el detalle y recargar no se vuelva a abrir.
+  const openParam = searchParams.get('abrir');
+  useEffect(() => {
+    if (!openParam) return;
+    const id = Number(openParam);
+    if (Number.isInteger(id) && id > 0) {
+      setInitialTab('products');
+      setSelectedId(id);
+    }
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete('abrir');
+      return next;
+    }, { replace: true });
+  }, [openParam, setSearchParams]);
   const canCreate = usePermissionButton('cotizacion.create.button');
   const canChangeStatus = usePermissionButton('cotizacion.changeStatus.button');
   const [clientFilter, setClientFilter] = useState<string | undefined>(undefined);
