@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import type { ApiClientError } from '@/config/api.types';
 import { formatDate } from '@/lib/dateUtils';
 import { GuideStatusBadge } from '@/modules/dispatchGuides/components/GuideStatusBadge';
+import { formatUbigeo } from '@/lib/ubigeo/ubigeo';
+import { useUbigeoEntry } from '@/presentation/hooks/shared/useUbigeoTable';
 import { useGuide, useGuidePdf, useUploadGuidePdf, useVoidGuide } from '@/modules/dispatchGuides/hooks/useDispatchGuides';
 import { voidGuideSchema, type VoidGuideFormValues } from '@/modules/dispatchGuides/schemas/dispatchGuide.schema';
 import { IDENTITY_DOC_TYPES } from '@/modules/dispatchGuides/types/dispatchGuide.types';
@@ -67,6 +69,9 @@ function GuidePdfViewer({ guideId, fileName }: { guideId: number; fileName: stri
  */
 export function GuideDetailDialog({ guideId, onClose }: GuideDetailDialogProps) {
   const { data: guide, isLoading } = useGuide(guideId);
+  // Distrito en palabras (el código solo, "150122", no dice nada a quien lee la guía).
+  const originDistrict = useUbigeoEntry(guide?.origin_ubigeo);
+  const destinationDistrict = useUbigeoEntry(guide?.destination_ubigeo);
   const canUpload = usePermissionButton('dispatch_guide.uploadFile.button');
   const canDownload = usePermissionButton('dispatch_guide.downloadFile.button');
   const canVoid = usePermissionButton('dispatch_guide.void.button');
@@ -122,8 +127,8 @@ export function GuideDetailDialog({ guideId, onClose }: GuideDetailDialogProps) 
               <Row label="Inicio del traslado" value={formatDate(guide.transfer_start_date)} />
               <Row label="Destinatario" value={`${guide.recipient_name ?? ''} (${IDENTITY_DOC_TYPES[guide.recipient_doc_type ?? ''] ?? ''} ${guide.recipient_doc_number ?? ''})`} />
               <Row label="Peso bruto" value={guide.gross_weight_kg === null ? null : `${guide.gross_weight_kg} kg`} />
-              <Row label="Partida" value={[guide.origin_address, guide.origin_ubigeo].filter(Boolean).join(' · ')} />
-              <Row label="Llegada" value={[guide.destination_address, guide.destination_ubigeo].filter(Boolean).join(' · ')} />
+              <Row label="Partida" value={[guide.origin_address, originDistrict ? `${formatUbigeo(originDistrict)} (${originDistrict.code})` : guide.origin_ubigeo].filter(Boolean).join(' · ')} />
+              <Row label="Llegada" value={[guide.destination_address, destinationDistrict ? `${formatUbigeo(destinationDistrict)} (${destinationDistrict.code})` : guide.destination_ubigeo].filter(Boolean).join(' · ')} />
               <Row
                 label="Transporte"
                 value={

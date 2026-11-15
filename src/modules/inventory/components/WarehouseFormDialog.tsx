@@ -10,6 +10,7 @@ import { useCreateWarehouse, useUpdateWarehouse } from '@/modules/inventory/hook
 import type { Warehouse } from '@/modules/inventory/types/inventory.types';
 import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
 import { ToggleSwitch } from '@/presentation/components/shared/ToggleSwitch';
+import { UbigeoField } from '@/presentation/components/shared/UbigeoField';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
@@ -176,9 +177,15 @@ export function WarehouseFormDialog({ warehouse, onClose, companyId }: { warehou
                 <Label htmlFor="warehouse-address" className="text-xs">Dirección</Label>
                 <Input id="warehouse-address" {...register('address')} />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="warehouse-ubigeo" className="text-xs">Ubigeo</Label>
-                <Input id="warehouse-ubigeo" inputMode="numeric" maxLength={6} {...register('ubigeo')} />
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="warehouse-ubigeo" className="text-xs">Distrito (ubigeo)</Label>
+                <UbigeoField
+                  id="warehouse-ubigeo"
+                  ariaLabel="Distrito del almacén"
+                  value={watch('ubigeo') ?? ''}
+                  onChange={(code) => setValue('ubigeo', code, { shouldDirty: true, shouldValidate: true })}
+                  address={watch('address') ?? ''}
+                />
                 {errors.ubigeo && <p className="text-xs text-destructive">{errors.ubigeo.message}</p>}
               </div>
               <div className="space-y-1">

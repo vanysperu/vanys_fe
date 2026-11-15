@@ -18,6 +18,7 @@ import {
 } from '@/modules/dispatchGuides/types/dispatchGuide.types';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { DateField } from '@/presentation/components/shared/DateField';
+import { UbigeoField } from '@/presentation/components/shared/UbigeoField';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Checkbox } from '@/presentation/components/shared/ui/checkbox';
@@ -399,24 +400,32 @@ function GuideForm({ initial, guideId, source, prefill, companyId, originWarehou
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">Punto de partida{prefill?.origin_warehouse_id || originWarehouseName ? ' (almacén)' : ''}</h3>
           <Input aria-label="Dirección de partida" id="guide-origin-address" placeholder="Dirección" maxLength={255} {...register('origin_address')} />
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Input aria-label="Ubigeo de partida" id="guide-origin-ubigeo" placeholder="Ubigeo (6 dígitos)" maxLength={6} {...register('origin_ubigeo')} />
-              {fieldError(errors.origin_ubigeo?.message)}
-            </div>
-            <Input aria-label="Establecimiento de partida" placeholder="Cód. establecimiento" maxLength={4} {...register('origin_establishment_code')} />
+          <div>
+            <UbigeoField
+              id="guide-origin-ubigeo"
+              ariaLabel="Ubigeo de partida"
+              value={watch('origin_ubigeo') ?? ''}
+              onChange={(code) => setValue('origin_ubigeo', code, { shouldDirty: true, shouldValidate: true })}
+              address={watch('origin_address') ?? ''}
+            />
+            {fieldError(errors.origin_ubigeo?.message)}
           </div>
+          <Input aria-label="Establecimiento de partida" placeholder="Cód. establecimiento SUNAT (4 dígitos)" maxLength={4} {...register('origin_establishment_code')} />
         </div>
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">Punto de llegada</h3>
           <Input aria-label="Dirección de llegada" id="guide-destination-address" placeholder="Dirección" maxLength={255} {...register('destination_address')} />
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Input aria-label="Ubigeo de llegada" id="guide-destination-ubigeo" placeholder="Ubigeo (6 dígitos)" maxLength={6} {...register('destination_ubigeo')} />
-              {fieldError(errors.destination_ubigeo?.message)}
-            </div>
-            <Input aria-label="Establecimiento de llegada" placeholder="Cód. establecimiento" maxLength={4} {...register('destination_establishment_code')} />
+          <div>
+            <UbigeoField
+              id="guide-destination-ubigeo"
+              ariaLabel="Ubigeo de llegada"
+              value={watch('destination_ubigeo') ?? ''}
+              onChange={(code) => setValue('destination_ubigeo', code, { shouldDirty: true, shouldValidate: true })}
+              address={watch('destination_address') ?? ''}
+            />
+            {fieldError(errors.destination_ubigeo?.message)}
           </div>
+          <Input aria-label="Establecimiento de llegada" placeholder="Cód. establecimiento SUNAT (4 dígitos)" maxLength={4} {...register('destination_establishment_code')} />
         </div>
       </section>
 

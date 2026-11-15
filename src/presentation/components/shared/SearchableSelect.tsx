@@ -54,6 +54,8 @@ interface SearchableSelectProps {
   // Texto del botón cuando la opción elegida no está entre los resultados
   // actuales de la búsqueda.
   selectedLabel?: string;
+  // Opcional: nombre accesible del botón cuando no hay un <Label htmlFor> al lado.
+  ariaLabel?: string;
 }
 
 // Reemplazo de <Select> para listas largas cargadas de la API (clientes,
@@ -79,6 +81,7 @@ export function SearchableSelect({
   serverSearch = false,
   isSearching = false,
   selectedLabel,
+  ariaLabel,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearchState] = useState('');
@@ -118,6 +121,7 @@ export function SearchableSelect({
           type="button"
           variant="outline"
           role="combobox"
+          aria-label={ariaLabel}
           aria-expanded={open}
           disabled={disabled}
           className={cn(

@@ -83,8 +83,22 @@ test.describe('Guías de remisión', () => {
     await expect(form.locator('#guide-destination-address')).toHaveValue('Av. Arequipa 1200, Lince');
 
     await form.locator('#guide-origin-address').fill('Jr. Gamarra 600, La Victoria');
-    await form.getByRole('textbox', { name: 'Ubigeo de partida' }).fill('150115');
-    await form.getByRole('textbox', { name: 'Ubigeo de llegada' }).fill('150116');
+
+    // Llegada: la dirección trae "Lince" (nombre único en el país): el distrito se rellena solo.
+    const destination = form.getByRole('combobox', { name: 'Ubigeo de llegada' });
+    await expect(destination).toHaveText('Lince, Lima, Lima');
+    await expect(form.getByText('Detectado de la dirección, verifícalo · ubigeo 150116')).toBeVisible();
+
+    // Partida: "La Victoria" existe en Lima y en Chiclayo, parecidos en tamaño: no se
+    // rellena solo, ofrece las opciones y la persona elige buscando por nombre.
+    const origin = form.getByRole('combobox', { name: 'Ubigeo de partida' });
+    await expect(origin).toHaveText('Distrito (escribe para buscar)');
+    await expect(form.getByRole('button', { name: 'La Victoria, Lima, Lima' })).toBeVisible();
+    await origin.click();
+    await gestor.getByPlaceholder('Distrito (escribe para buscar)').fill('la victoria lima');
+    await gestor.locator('[cmdk-item]', { hasText: 'La Victoria, Lima, Lima' }).first().click();
+    await expect(origin).toHaveText('La Victoria, Lima, Lima');
+    await expect(form.getByText('Ubigeo 150115')).toBeVisible();
     await form.locator('#guide-weight').fill('6.5');
     await form.locator('#guide-vehicle').click();
     await gestor.locator('[cmdk-item]', { hasText: 'BXK482' }).first().click();
