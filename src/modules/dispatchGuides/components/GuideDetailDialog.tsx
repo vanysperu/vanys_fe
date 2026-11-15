@@ -155,6 +155,13 @@ export function GuideDetailDialog({ guideId, onClose }: GuideDetailDialogProps) 
             </ul>
 
             {guide.pdf && canDownload && <GuidePdfViewer guideId={guide.id} fileName={guide.pdf.file_name} />}
+            {!guide.pdf && guide.status !== 'voided' && (
+              <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                {guide.status === 'draft'
+                  ? 'Este borrador todavía no tiene PDF: el sistema no genera la guía, la emite SUNAT. Emítela en SEE-SOL o App Emprender, luego toca "Registrar guía emitida" en la lista (ícono de check) con su serie y número, y sube ahí el PDF que te dio SUNAT.'
+                  : 'Falta subir el PDF que te dio SUNAT: usa el recuadro de abajo.'}
+              </p>
+            )}
             {canUpload && guide.status !== 'voided' && (
               <div className="space-y-2 rounded-md border p-3">
                 <Label>{guide.pdf ? 'Reemplazar el PDF de SUNAT' : 'Subir el PDF de SUNAT'}</Label>

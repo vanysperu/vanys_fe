@@ -19,6 +19,7 @@ import { QuotationShareDialog } from '@/modules/quotations/components/share/Quot
 import { useChangeQuotationStatus, useDownloadQuotationPdf, useQuotation } from '@/modules/quotations/hooks/useQuotations';
 import { ArrowRight, Download, Eye, PencilLine, RotateCcw, Share2, Truck } from 'lucide-react';
 import { GuideFormDialog } from '@/modules/dispatchGuides/components/GuideFormDialog';
+import { QuotationGuides } from '@/modules/dispatchGuides/components/QuotationGuides';
 import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
 import {
   QUOTATION_ACTIVE_STATUSES,
@@ -299,7 +300,15 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
           <GuideFormDialog
             source={{ quotationId }}
             onClose={() => setGuideOpen(false)}
-            onSaved={(guide) => toast.success(`Borrador de guía #${guide.id} listo: regístralo en Logística → Guías al emitirlo en SUNAT`)}
+            onSaved={(guide) =>
+              toast.success(`Borrador de guía #${guide.id} guardado`, {
+                // Sin botón en el aviso: con esta ventana abierta el resto de la pantalla
+                // está bloqueado y no se podría tocar. El camino es la franja "Guías de
+                // remisión" de esta misma cotización.
+                description: 'La ves arriba, en "Guías de remisión", y en Logística → Guías. Al emitirla en SUNAT, regístrala ahí con su número y su PDF.',
+                duration: 12_000,
+              })
+            }
           />
         )}
         <AcceptQuotationDialog quotation={accepting} onClose={() => setAccepting(null)} />
@@ -335,6 +344,8 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
               </div>
               <Badge>{QUOTATION_STATUS_LABEL[quotation.status]}</Badge>
             </div>
+
+            <QuotationGuides quotationId={quotation.id} enabled={canCreateGuide && (hasGuides || Boolean(access?.isSystem))} />
 
             {quotation.production_days && (
               <p className="text-sm text-muted-foreground">

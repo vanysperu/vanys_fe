@@ -1,5 +1,6 @@
 import { Eye, FileCheck2, FileText, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import type { ApiClientError } from '@/config/api.types';
@@ -33,6 +34,9 @@ export function DispatchGuidesPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
+  // ?cotizacion=<id>: llegan desde el detalle de una cotización a ver SUS guías.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const quotationFilter = Number(searchParams.get('cotizacion')) || undefined;
   // undefined = cerrado; null = guía nueva de cero; número = editar ese borrador.
   const [editing, setEditing] = useState<number | null | undefined>(undefined);
   const [viewing, setViewing] = useState<number | null>(null);
@@ -49,6 +53,7 @@ export function DispatchGuidesPage() {
     limit: pageSize,
     searchTerm: search.trim() || undefined,
     status,
+    quotationId: quotationFilter,
     dateFrom: dateRange.dateFrom,
     dateTo: dateRange.dateTo,
   });
@@ -72,6 +77,15 @@ export function DispatchGuidesPage() {
           )
         }
       />
+
+      {quotationFilter && (
+        <p className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full border px-2.5 py-0.5">Solo las guías de la cotización #{quotationFilter}</span>
+          <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => { setSearchParams({}); setPage(1); }}>
+            Ver todas
+          </button>
+        </p>
+      )}
 
       <FiltersBar
         hasActiveFilters={Boolean(search || status || dateRange.dateFrom || dateRange.dateTo)}

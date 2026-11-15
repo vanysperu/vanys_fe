@@ -105,7 +105,17 @@ test.describe('Guías de remisión', () => {
     await form.locator('#guide-driver').click();
     await gestor.locator('[cmdk-item]', { hasText: 'Rosa Huamán' }).first().click();
     await form.getByRole('button', { name: 'Guardar borrador' }).click();
-    await expect(gestor.getByText(/Borrador de guía #\d+ listo/)).toBeVisible({ timeout: 10_000 });
+    await expect(gestor.getByText(/Borrador de guía #\d+ guardado/)).toBeVisible({ timeout: 10_000 });
+
+    // Lo guardado se ve en la propia cotización (antes el camión solo abría una guía nueva)...
+    const strip = detail.getByTestId('quotation-guides');
+    await expect(strip).toContainText('Borrador');
+
+    // ...y tocarla lleva a Logística, filtrado a las guías de esta cotización.
+    await strip.getByRole('button').first().click();
+    await expect(gestor).toHaveURL(/\/logistica\/guias\?cotizacion=\d+$/);
+    await expect(gestor.getByText(/Solo las guías de la cotización #\d+/)).toBeVisible();
+    await expect(gestor.locator('tr', { hasText: clientName })).toContainText('Borrador');
   });
 
   test('2. en Logística → Guías registra el número que dio SUNAT', async () => {

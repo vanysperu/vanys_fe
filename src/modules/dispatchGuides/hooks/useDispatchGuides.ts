@@ -7,8 +7,13 @@ import { inventoryKeys } from '@/modules/inventory/hooks/useInventory';
 import { quotationsKeys } from '@/modules/quotations/hooks/quotations.keys';
 
 // ---------------------------------------------------------------- guías
-export function useGuides(params: GuideListParams) {
-  return useQuery({ queryKey: dispatchGuidesKeys.list(params), queryFn: () => api.getGuides(params), placeholderData: keepPreviousData });
+export function useGuides(params: GuideListParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: dispatchGuidesKeys.list(params),
+    queryFn: () => api.getGuides(params),
+    placeholderData: keepPreviousData,
+    enabled: options?.enabled ?? true,
+  });
 }
 
 export function useGuide(id: number | null) {
