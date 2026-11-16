@@ -66,6 +66,43 @@ test.describe('Productos', () => {
     await expect(row).toContainText('Activo');
   });
 
+  // Caso real (15-nov-2026): se escribió el código de un color (C3010-02), se le
+  // eligió el color Negro y se guardó sin presionar "Agregar": decía "actualizado"
+  // pero el código se perdía. Lo escrito sin agregar ahora también se guarda.
+  test('un color y un código escritos sin presionar "Agregar" se guardan igual', async ({ page }) => {
+    const suffix = stamp();
+    const name = `QA Producto pendiente ${suffix}`;
+    const code = `QA-${suffix}-02`;
+
+    await page.goto('/productos');
+    await page.click('button:has-text("Nuevo producto")');
+    const createDialog = page.locator('div[role="dialog"]', { hasText: 'Nuevo producto' });
+    await page.fill('#name', name);
+    await page.fill('#sku', `QA-${suffix}`);
+    await page.fill('#price_unit', '10');
+    // Color escrito, sin "Agregar".
+    await createDialog.getByPlaceholder('Ej. Azul marino').fill('Negro');
+    await createDialog.getByRole('button', { name: 'Crear producto' }).click();
+    await expect(page.locator('text=Producto creado correctamente')).toBeVisible({ timeout: 10_000 });
+
+    const row = page.locator('tr', { hasText: name });
+    await row.getByRole('button', { name: 'Editar producto' }).click();
+    const editDialog = page.locator('div[role="dialog"]', { hasText: 'Editar producto' });
+    await expect(editDialog.getByTestId('product-colors')).toContainText('Negro');
+
+    // Código con su color, sin "Agregar".
+    await editDialog.getByLabel('Código nuevo', { exact: true }).fill(code);
+    await editDialog.getByLabel('Color del código nuevo').click();
+    await page.getByRole('option', { name: 'Negro' }).click();
+    await editDialog.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(page.locator('text=Producto actualizado correctamente')).toBeVisible({ timeout: 10_000 });
+    await expect(editDialog).toBeHidden();
+
+    await row.getByRole('button', { name: 'Editar producto' }).click();
+    await expect(editDialog.getByTestId('product-codes')).toContainText(code);
+    await expect(editDialog.getByLabel(`Color del código ${code}`)).toContainText('Negro');
+  });
+
   test('crear, editar y deshabilitar/habilitar una técnica de personalización', async ({ page }) => {
     const suffix = stamp();
     const name = `QA Técnica ${suffix}`;

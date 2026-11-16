@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Plus } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -14,7 +14,7 @@ import { ProductImageField } from '@/modules/products/components/ProductImageFie
 import { RequiresCustomizationField } from '@/modules/products/components/RequiresCustomizationField';
 import { useCreateProduct, useUpdateProduct } from '@/modules/products/hooks/useProducts';
 import { createProductSchema, EMPTY_PRODUCT_FORM, type CreateProductFormValues } from '@/modules/products/schemas/product.schema';
-import type { Product } from '@/modules/products/types/product.types';
+import type { Product, ProductCode, ProductColor } from '@/modules/products/types/product.types';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/presentation/components/shared/ui/dialog';
 import { Input } from '@/presentation/components/shared/ui/input';
@@ -56,6 +56,19 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
   const { mutate: create, isPending: isCreating, error: createError, reset: clearCreateError } = useCreateProduct();
   const { mutate: update, isPending: isUpdating, error: updateError } = useUpdateProduct();
   const fieldId = (name: string) => `${idPrefix}${name}`;
+
+  // Color o código escrito sin presionar "Agregar"/"+": se suma al guardar.
+  // Antes se descartaba en silencio y el producto quedaba "guardado" sin él
+  // (caso real: código C3010-02 con color Negro en una taza).
+  const pendingColor = useRef<ProductColor | null>(null);
+  const pendingCode = useRef<ProductCode | null>(null);
+  const trackPendingColor = useCallback((draft: ProductColor | null) => {
+    pendingColor.current = draft;
+  }, []);
+  const trackPendingCode = useCallback((draft: ProductCode | null) => {
+    pendingCode.current = draft;
+  }, []);
+  const withPending = <T,>(list: T[] | undefined, pending: T | null): T[] => [...(list ?? []), ...(pending ? [pending] : [])];
 
   const {
     register,
@@ -105,7 +118,12 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
     if (!next) onClose?.();
   };
 
-  const onSubmit = (values: CreateProductFormValues) => {
+  const onSubmit = (formValues: CreateProductFormValues) => {
+    const values: CreateProductFormValues = {
+      ...formValues,
+      colors: withPending(formValues.colors, pendingColor.current),
+      codes: withPending(formValues.codes, pendingCode.current),
+    };
     if (isEditing && product) {
       const { company_id: _companyId, ...rest } = values;
       // Al editar, lo que se vació se manda como null para limpiarlo.
@@ -302,6 +320,7 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
           />
 
           <ProductColorsField
+            onDraftChange={trackPendingColor}
             value={watch('colors') ?? []}
             onChange={(colors) => {
               setValue('colors', colors);
@@ -317,6 +336,7 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
 
           {/* Después de los colores: cada código se puede vincular con uno. */}
           <ProductCodesField
+            onDraftChange={trackPendingCode}
             value={watch('codes') ?? []}
             onChange={(codes) => setValue('codes', codes)}
             colors={watch('colors') ?? []}

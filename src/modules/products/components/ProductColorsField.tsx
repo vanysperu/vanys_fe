@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
 import type { ProductColor } from '@/modules/products/types/product.types';
@@ -13,11 +13,14 @@ const DEFAULT_SWATCH = '#000000';
 interface ProductColorsFieldProps {
   value: ProductColor[];
   onChange: (colors: ProductColor[]) => void;
+  // Color escrito que todavía no se agregó con "Agregar" (null si no hay uno
+  // válido). El formulario lo suma al guardar: antes se perdía en silencio.
+  onDraftChange?: (draft: ProductColor | null) => void;
 }
 
 // Colores en los que viene el producto (pedido explícito del usuario): nombre
 // + muestra de color opcional, en el orden en que se agregan.
-export function ProductColorsField({ value, onChange }: ProductColorsFieldProps) {
+export function ProductColorsField({ value, onChange, onDraftChange }: ProductColorsFieldProps) {
   const [name, setName] = useState('');
   const [hex, setHex] = useState(DEFAULT_SWATCH);
   const [useSwatch, setUseSwatch] = useState(true);
@@ -25,10 +28,17 @@ export function ProductColorsField({ value, onChange }: ProductColorsFieldProps)
   const trimmed = name.trim();
   const isDuplicate = value.some((color) => color.name.toLowerCase() === trimmed.toLowerCase());
   const canAdd = Boolean(trimmed) && !isDuplicate && value.length < MAX_COLORS;
+  const draftHex = useSwatch ? hex.toUpperCase() : null;
+
+  // Avisa al formulario qué color quedó escrito sin agregar (al desmontar, ninguno).
+  useEffect(() => {
+    onDraftChange?.(canAdd ? { name: trimmed, hex: draftHex } : null);
+    return () => onDraftChange?.(null);
+  }, [onDraftChange, canAdd, trimmed, draftHex]);
 
   const addColor = () => {
     if (!canAdd) return;
-    onChange([...value, { name: trimmed, hex: useSwatch ? hex.toUpperCase() : null }]);
+    onChange([...value, { name: trimmed, hex: draftHex }]);
     setName('');
   };
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
 import type { ProductCode, ProductColor } from '@/modules/products/types/product.types';
@@ -26,6 +26,10 @@ interface ProductCodesFieldProps {
   // Empresa del producto: de ella salen los proveedores (opcional para no
   // romper a quien no la manda: sin empresa se usa la del usuario).
   companyId?: number;
+  // Código escrito (con su proveedor y color) que todavía no se agregó con "+"
+  // (null si no hay uno válido). El formulario lo suma al guardar: antes se
+  // perdía en silencio y el producto quedaba "guardado" sin ese código.
+  onDraftChange?: (draft: ProductCode | null) => void;
 }
 
 // Selector del color de un código. Sin colores cargados no se muestra.
@@ -82,7 +86,7 @@ const sameEntry = (a: ProductCode, b: ProductCode) =>
 // solo SKU, pero cada proveedor puede identificarlo con su propio código. Cada
 // código puede vincularse con un color del producto (ej. E1000-02 = Negro). El
 // proveedor sale del módulo Proveedores (con "+" para crear uno sin salir).
-export function ProductCodesField({ value, onChange, colors, companyId }: ProductCodesFieldProps) {
+export function ProductCodesField({ value, onChange, colors, companyId, onDraftChange }: ProductCodesFieldProps) {
   const [code, setCode] = useState('');
   const [supplierId, setSupplierId] = useState<number | null>(null);
   const [supplierText, setSupplierText] = useState('');
@@ -105,6 +109,15 @@ export function ProductCodesField({ value, onChange, colors, companyId }: Produc
     : { code: code.trim(), supplier_id: null, supplier: supplierText.trim() || null, color: selectedColor };
   const isDuplicate = value.some((entry) => sameEntry(entry, candidate));
   const canAdd = Boolean(candidate.code) && !isDuplicate && value.length < MAX_CODES;
+
+  // Avisa al formulario qué código quedó escrito sin agregar (al desmontar, ninguno).
+  const { code: draftCode, supplier_id: draftSupplierId, supplier: draftSupplier, color: draftColor } = candidate;
+  useEffect(() => {
+    onDraftChange?.(
+      canAdd ? { code: draftCode, supplier_id: draftSupplierId, supplier: draftSupplier, color: draftColor } : null,
+    );
+    return () => onDraftChange?.(null);
+  }, [onDraftChange, canAdd, draftCode, draftSupplierId, draftSupplier, draftColor]);
 
   const addCode = () => {
     if (!canAdd) return;
