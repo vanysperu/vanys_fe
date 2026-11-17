@@ -6,6 +6,11 @@ export const ADVERTISEMENT_ZONE_CATEGORY = 'advertisement_zone';
 
 export type AdvertisementStatusFilter = 'active' | 'inactive' | 'all';
 
+// Peso máximo de la imagen de un anuncio (pedido del usuario, 17-nov-2026). Es el
+// mismo tope que valida el backend (ADVERTISEMENT_IMAGE_MAX_BYTES en
+// grulla_be/src/middlewares/upload-image.ts): si cambia allá, cambiar acá.
+export const ADVERTISEMENT_IMAGE_MAX_MB = 3;
+
 export interface LocalDateTime {
   date: string;
   time: string;

@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { IMAGE_INPUT_ACCEPT, IMAGE_UPLOAD_HINT, validateImageFile } from '@/lib/imageUpload';
+import { IMAGE_INPUT_ACCEPT, MAX_IMAGE_SIZE_MB, imageUploadHint, validateImageFile } from '@/lib/imageUpload';
 import { buildAssetUrl, cn } from '@/lib/utils';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { Label } from '@/presentation/components/shared/ui/label';
@@ -27,6 +27,8 @@ interface ImageUploadFieldProps {
   previewTestId?: string;
   hint?: string;
   error?: string;
+  // Peso máximo en MB. Sin él vale el de siempre (2 MB).
+  maxSizeMb?: number;
 }
 
 // Imagen de un formulario: se sube al ELEGIR el archivo y se asigna al
@@ -45,13 +47,14 @@ export function ImageUploadField({
   previewTestId,
   hint,
   error,
+  maxSizeMb = MAX_IMAGE_SIZE_MB,
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = buildAssetUrl(value);
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    const problem = validateImageFile(file);
+    const problem = validateImageFile(file, maxSizeMb);
     if (problem) {
       toast.error(problem);
       return;
@@ -96,7 +99,7 @@ export function ImageUploadField({
               </Button>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{hint ? `${IMAGE_UPLOAD_HINT} · ${hint}` : IMAGE_UPLOAD_HINT}</p>
+          <p className="text-xs text-muted-foreground">{hint ? `${imageUploadHint(maxSizeMb)} · ${hint}` : imageUploadHint(maxSizeMb)}</p>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <input

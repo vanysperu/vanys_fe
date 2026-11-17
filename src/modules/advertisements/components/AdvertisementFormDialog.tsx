@@ -12,7 +12,7 @@ import {
   useUploadAdvertisementImage,
 } from '@/modules/advertisements/hooks/useAdvertisements';
 import { advertisementFormSchema, type AdvertisementFormValues } from '@/modules/advertisements/schemas/advertisement.schema';
-import type { Advertisement } from '@/modules/advertisements/types/advertisement.types';
+import { ADVERTISEMENT_IMAGE_MAX_MB, type Advertisement } from '@/modules/advertisements/types/advertisement.types';
 import { CompanyStoreFields } from '@/modules/platform/components/CompanyStoreFields';
 import { ImageUploadField } from '@/presentation/components/shared/ImageUploadField';
 import { SearchableSelect } from '@/presentation/components/shared/SearchableSelect';
@@ -201,6 +201,7 @@ export function AdvertisementFormDialog({ advertisement, onClose }: Advertisemen
             previewClassName="h-24 w-40"
             previewTestId="advertisement-image-preview"
             hint="tal como se verá en la web"
+            maxSizeMb={ADVERTISEMENT_IMAGE_MAX_MB}
             error={errors.image_path?.message}
           />
 
