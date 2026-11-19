@@ -279,6 +279,11 @@ function PurchaseCorrectionForm({ purchase, onClose }: { purchase: PurchaseDetai
               step={DECIMAL_INPUT_STEP}
               {...register('amount', { valueAsNumber: true })}
             />
+            {/* Caso real (cotización #37, 19-nov): la devolución del proveedor
+                se registró como pago del cliente y descuadró la cotización. */}
+            <p className="text-[11px] text-muted-foreground">
+              ¿El proveedor te devolvió dinero? Pon aquí lo que realmente costó. No registres la devolución como pago del cliente.
+            </p>
             {workerLocked && (
               <p className="text-[11px] text-muted-foreground">Mínimo {formatMoney(reimbursed)} (ya repuesto al trabajador).</p>
             )}

@@ -741,6 +741,16 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
               </Button>
             </div>
 
+            {/* Al editar, quitar un producto lo borra de la cotización. Si el
+                cliente solo no lo quiso, lo correcto es "No aceptado" (queda
+                registrado, en rojo, fuera del PDF y sin sumar). */}
+            {isEditing && (
+              <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                ¿El cliente no quiere algún producto? No lo quites aquí: ciérralo y usa el botón «No aceptado» en la pestaña
+                Productos de la cotización. Deja de salir en el PDF y no suma al total, pero queda registrado.
+              </p>
+            )}
+
             <div className="space-y-3">
               {fields.map((field, index) => {
                 const item = watchedItems[index];

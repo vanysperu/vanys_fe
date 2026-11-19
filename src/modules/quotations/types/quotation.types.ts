@@ -275,6 +275,10 @@ export interface QuotationPayment {
   operation_number: string | null;
   // Cuenta a la que entró (null = efectivo).
   payment_account_id: number | null;
+  // Pago anulado: se ve tachado en la pestaña Pagos y no suma (total_paid ya lo excluye).
+  is_deleted: boolean;
+  // Cuántas correcciones tiene (badge "Corregido"); solo en el detalle de la cotización.
+  corrections_count?: number;
   created_at: string;
   actor?: QuotationActor;
 }

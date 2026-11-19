@@ -498,7 +498,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                         ) : (
                           <th className="px-3 py-2 text-right whitespace-nowrap">Total (sin IGV)</th>
                         )}
-                        {showExcludeAction && <th className="w-10 px-1 py-2" aria-label="Acciones" />}
+                        {showExcludeAction && <th className="px-2 py-2" aria-label="Acciones" />}
                       </tr>
                     </thead>
                     <tbody>
@@ -536,7 +536,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                             S/ {amounts.total.toFixed(2)}
                           </td>
                           {showExcludeAction && (
-                            <td className="px-1 py-2 text-right">
+                            <td className="px-2 py-2 text-right">
                               <ExcludeItemButton quotationId={quotation.id} item={item} />
                             </td>
                           )}
@@ -574,6 +574,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   totalPaid={Number(quotation.total_paid)}
                   balance={balance}
                   canRegister={canRegisterPayment && isActive}
+                  companyId={quotation.company_id}
                 />
               </TabsContent>
 

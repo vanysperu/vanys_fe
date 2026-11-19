@@ -21,17 +21,20 @@ export function ExcludeItemButton({ quotationId, item }: ExclusionButtonProps) {
   const { mutate: setExcluded, isPending } = useSetQuotationItemExcluded(quotationId);
   return (
     <>
+      {/* Botón con texto (no solo ícono): con el ícono suelto nadie lo
+          encontraba y se terminaba borrando el producto al editar la cotización. */}
       <Button
         type="button"
-        variant="ghost"
-        size="icon"
-        className="size-7"
-        title="Marcar como no aceptado"
+        variant="outline"
+        size="sm"
+        className="h-7 gap-1 px-2 text-xs whitespace-nowrap text-destructive hover:text-destructive"
+        title="El cliente no aceptó este producto: deja de salir en el PDF y no suma al total"
         aria-label={`Marcar ${item.product?.name ?? 'producto'} como no aceptado`}
         disabled={isPending}
         onClick={() => setConfirming(true)}
       >
-        <Ban className="size-3.5 text-destructive" />
+        <Ban className="size-3.5" />
+        No aceptado
       </Button>
       <ConfirmDialog
         open={confirming}
@@ -68,11 +71,13 @@ export function ExcludedItemsList({ quotationId, items, canReactivate }: Exclude
   if (items.length === 0) return null;
   return (
     <div className="space-y-2" data-testid="excluded-items">
-      <p className="text-sm font-medium">No aceptados por el cliente</p>
-      <ul className="divide-y rounded-lg border border-dashed text-sm">
+      {/* En rojo (pedido del usuario): a simple vista se distingue de lo que sí se cobra. */}
+      <p className="text-sm font-medium text-destructive">No aceptados por el cliente</p>
+      <ul className="divide-y divide-destructive/20 rounded-lg border border-destructive/40 bg-destructive/5 text-sm">
         {items.map((item) => (
           <li key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
-            <span className="min-w-0 flex-1 text-muted-foreground line-through">
+            <span className="shrink-0 rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-medium text-destructive">No aceptado</span>
+            <span className="min-w-0 flex-1 text-destructive line-through">
               {item.product?.name} × {item.quantity} · S/ {Number(item.subtotal).toFixed(2)}
             </span>
             {item.excluded_at && <span className="text-xs text-muted-foreground">desde {formatDateTime(item.excluded_at)}</span>}
