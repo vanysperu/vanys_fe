@@ -78,3 +78,10 @@ export async function getPurchaseWarehouseOptions(itemId: number): Promise<Purch
   if (!response.data.success) throw response.data;
   return response.data.data;
 }
+
+// Órdenes de compra en Excel (21-nov): mismos filtros que el listado (el backend ignora
+// la página y trae todo lo filtrado).
+export async function exportPurchaseOrders(params: PurchaseOrderListParams): Promise<Blob> {
+  const response = await apiClient.get<Blob>('/purchase-order/export', { params, responseType: 'blob' });
+  return response.data;
+}

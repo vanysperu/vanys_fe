@@ -95,6 +95,10 @@ import { flattenViewRoutes, useAccess, usePermissionButton } from '@/presentatio
 import type { ApiClientError } from '@/config/api.types';
 import { DECIMAL_INPUT_STEP } from '@/lib/inputRestrictions';
 import { formatDate } from '@/lib/dateUtils';
+import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
+import { exportCashMovements } from '@/modules/cashMovements/api/cashMovements.api';
+import { todayLocalDateString } from '@/lib/dateUtils';
+import type { CashMovementListParams } from '@/modules/cashMovements/types/cashMovement.types';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -164,6 +168,7 @@ export function CashMovementsPage() {
     [...(categoriesResult?.data ?? []), ...(methodsResult?.data ?? [])].map((row) => [row.prefix_id, row.name]),
   );
 
+  const canExport = usePermissionButton('cash_movement.export.button');
   const canCreate = usePermissionButton('cash_movement.create.button');
   const canDisable = usePermissionButton('cash_movement.disable.button');
   const canViewHistory = usePermissionButton('cash_movement.corrections.button');
@@ -193,7 +198,7 @@ export function CashMovementsPage() {
   // registro de auditoría), así que solo las demás fuentes lo abren.
   const [historyMovement, setHistoryMovement] = useState<CashMovementSourceRow | null>(null);
 
-  const { data, isLoading } = useCashMovements({
+  const listParams: CashMovementListParams = {
     companyId,
     page,
     limit: pageSize,
@@ -203,7 +208,8 @@ export function CashMovementsPage() {
     paymentAccountId: account === 'cash' ? 'cash' : account ? Number(account) : undefined,
     dateFrom: dateRange.dateFrom,
     dateTo: dateRange.dateTo,
-  });
+  };
+  const { data, isLoading } = useCashMovements(listParams);
 
   const hasActiveFilters = Boolean(
     companyFilter || direction || source || account || category || dateRange.dateFrom || dateRange.dateTo,
@@ -266,6 +272,9 @@ export function CashMovementsPage() {
         description="Ingresos y salidas de dinero — pagos, gastos y movimientos manuales"
         action={
           <div className="flex items-center gap-3">
+            {canExport && (
+              <ExportExcelButton onExport={() => exportCashMovements(listParams)} fileName={`caja-${todayLocalDateString()}.xlsx`} />
+            )}
             {canOpenClosings && (
               <Button asChild variant="outline">
                 <Link to="/caja/cierres">

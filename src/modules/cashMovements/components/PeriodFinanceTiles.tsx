@@ -2,9 +2,11 @@ import { Calculator, Info } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
+import { exportIgvBreakdown } from '@/modules/cashMovements/api/cashMovements.api';
 import { IgvBreakdownDialog } from '@/modules/cashMovements/components/IgvBreakdownDialog';
 import type { MonthSummaryParams, PeriodFinance } from '@/modules/cashMovements/types/cashMovement.types';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
 import { Button } from '@/presentation/components/shared/ui/button';
 
 const money = (amount: number) =>
@@ -47,6 +49,7 @@ interface PeriodFinanceTilesProps {
 // cierre, con el mismo cálculo del backend (period_finance.ts).
 export function PeriodFinanceTiles({ finance, wideColumns = 5, breakdownParams }: PeriodFinanceTilesProps) {
   const canSeeBreakdown = usePermissionButton('cash_movement.igvBreakdown.button');
+  const canExportBreakdown = usePermissionButton('cash_movement.igvBreakdown.export.button');
   const [breakdownOpen, setBreakdownOpen] = useState(false);
   const showBreakdown = Boolean(breakdownParams) && canSeeBreakdown;
   const igvHint = `IGV de cobros ${money(finance.igv_sales)} − IGV de compras con factura ${money(finance.igv_purchases)}`;
@@ -97,7 +100,20 @@ export function PeriodFinanceTiles({ finance, wideColumns = 5, breakdownParams }
         comprobantes.
       </p>
       {breakdownParams && showBreakdown && (
-        <IgvBreakdownDialog params={breakdownParams} open={breakdownOpen} onOpenChange={setBreakdownOpen} />
+        <IgvBreakdownDialog
+          params={breakdownParams}
+          open={breakdownOpen}
+          onOpenChange={setBreakdownOpen}
+          actions={
+            canExportBreakdown && (
+              <ExportExcelButton
+                size="sm"
+                onExport={() => exportIgvBreakdown(breakdownParams)}
+                fileName={`igv-${breakdownParams.period}.xlsx`}
+              />
+            )
+          }
+        />
       )}
     </div>
   );

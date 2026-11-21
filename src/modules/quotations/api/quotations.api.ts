@@ -32,6 +32,12 @@ export async function getQuotations(params: QuotationListParams): Promise<Quotat
   return response.data.data;
 }
 
+// Reporte en Excel (21-nov): mismos filtros que el listado, sin paginar.
+export async function exportQuotations(params: Partial<QuotationListParams>): Promise<Blob> {
+  const response = await apiClient.get<Blob>('/quotation/export', { params, responseType: 'blob' });
+  return response.data;
+}
+
 // Todas las columnas del tablero en una sola llamada.
 export async function getQuotationBoard(params: QuotationBoardParams & { perStatus: number }): Promise<QuotationBoard> {
   const response = await apiClient.get<ApiResponse<QuotationBoard>>('/quotation/board', { params });

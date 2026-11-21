@@ -116,3 +116,10 @@ export async function disconnectDrive(companyId: number): Promise<{ company_id: 
   if (!response.data.success) throw response.data;
   return response.data.data;
 }
+
+// Facturas en Excel (21-nov): mismos filtros que el listado (el backend ignora
+// la página y trae todo lo filtrado).
+export async function exportInvoices(params: InvoiceListParams): Promise<Blob> {
+  const response = await apiClient.get<Blob>('/invoice/export', { params, responseType: 'blob' });
+  return response.data;
+}

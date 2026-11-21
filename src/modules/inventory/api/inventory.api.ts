@@ -43,6 +43,10 @@ export const setTracksStock = async (dto: { all?: boolean; productIds?: number[]
 export const getStock = async (params: { page: number; limit: number; warehouseId?: number; searchTerm?: string; companyId?: number }) =>
   unwrap(await apiClient.get<ApiResponse<PagedListResult<StockRow>>>('/inventory/stock', { params }));
 
+// Stock en Excel (21-nov): mismos filtros que la pantalla, sin paginar.
+export const exportStock = async (params: { warehouseId?: number; searchTerm?: string; companyId?: number }): Promise<Blob> =>
+  (await apiClient.get<Blob>('/inventory/stock/export', { params, responseType: 'blob' })).data;
+
 export const getOwnStock = async (productIds: number[], companyId?: number) =>
   unwrap(
     await apiClient.get<ApiResponse<OwnStockLookup[]>>('/inventory/stock/by-products', {

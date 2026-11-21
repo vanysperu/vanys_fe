@@ -19,6 +19,9 @@ import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
+import { exportQuotations } from '@/modules/quotations/api/quotations.api';
+import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
+import { todayLocalDateString } from '@/lib/dateUtils';
 
 const ALL_STATUS_VALUE = 'all';
 type ViewMode = 'list' | 'board';
@@ -49,6 +52,7 @@ export function QuotationsPage() {
   }, [openParam, setSearchParams]);
   const canCreate = usePermissionButton('cotizacion.create.button');
   const canChangeStatus = usePermissionButton('cotizacion.changeStatus.button');
+  const canExport = usePermissionButton('cotizacion.export.button');
   const [clientFilter, setClientFilter] = useState<string | undefined>(undefined);
   const [businessUnitFilter, setBusinessUnitFilter] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<DateRangeValue>({});
@@ -127,6 +131,13 @@ export function QuotationsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            )}
+            {/* Excel con los mismos filtros de la pantalla (21-nov). */}
+            {canExport && (
+              <ExportExcelButton
+                onExport={() => exportQuotations({ ...filters, status: view === 'list' ? status : undefined })}
+                fileName={`cotizaciones-${todayLocalDateString()}.xlsx`}
+              />
             )}
             {canCreate && <CreateQuotationDialog />}
           </div>

@@ -29,6 +29,10 @@ import { Input } from '@/presentation/components/shared/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/presentation/components/shared/ui/tabs';
 import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { formatDate } from '@/lib/dateUtils';
+import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
+import { exportInvoices } from '@/modules/invoices/api/invoices.api';
+import { todayLocalDateString } from '@/lib/dateUtils';
+import type { InvoiceListParams } from '@/modules/invoices/types/invoice.types';
 
 type TypeTab = 'all' | InvoiceType;
 // Pestañas principales: las facturas, o la bandeja de compras sin factura (Sprint 2, ítem 3).
@@ -74,7 +78,7 @@ export function InvoicesPage() {
   const canEditDetails = usePermissionButton('invoice.details.button');
   const canManagePurchases = canLink || canRemovePurchase || canEditDetails;
 
-  const { data, isLoading } = useInvoices({
+  const listParams: InvoiceListParams = {
     page,
     limit: pageSize,
     type: typeTab === 'all' ? undefined : typeTab,
@@ -84,7 +88,9 @@ export function InvoicesPage() {
     search: search.trim() || undefined,
     dateFrom: dateRange.dateFrom,
     dateTo: dateRange.dateTo,
-  });
+  };
+  const { data, isLoading } = useInvoices(listParams);
+  const canExport = usePermissionButton('invoice.export.button');
   const { mutate: retryDrive, isPending: isRetrying } = useRetryInvoiceDrive();
 
   const withPageReset = <T,>(setter: (value: T) => void) => (value: T) => {
@@ -109,7 +115,15 @@ export function InvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Facturas" description="Facturas emitidas a clientes y facturas de las compras" />
+      <PageHeader
+        title="Facturas"
+        description="Facturas emitidas a clientes y facturas de las compras"
+        action={
+          canExport && (
+            <ExportExcelButton onExport={() => exportInvoices(listParams)} fileName={`facturas-${todayLocalDateString()}.xlsx`} />
+          )
+        }
+      />
 
       {canLink && (
         <Tabs value={view} onValueChange={(value) => setView(value as ViewTab)}>

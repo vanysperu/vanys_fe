@@ -9,7 +9,10 @@ import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
 import { Pagination } from '@/presentation/components/shared/Pagination';
 import { Input } from '@/presentation/components/shared/ui/input';
-import { useAccess } from '@/presentation/hooks/shared/useAccess';
+import { useAccess, usePermissionButton } from '@/presentation/hooks/shared/useAccess';
+import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
+import { exportStock } from '@/modules/inventory/api/inventory.api';
+import { todayLocalDateString } from '@/lib/dateUtils';
 
 const numberFormatter = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 3 });
 
@@ -26,7 +29,10 @@ export function InventoryStockPage() {
   const [search, setSearch] = useState('');
   const [warehouseId, setWarehouseId] = useState<string | undefined>(undefined);
   const { data: warehouses } = useWarehouses({ page: 1, limit: 100, companyId }, { enabled: ready });
-  const { data, isLoading } = useStock({ page, limit: pageSize, searchTerm: search.trim() || undefined, warehouseId: Number(warehouseId) || undefined, companyId });
+  const filters = { searchTerm: search.trim() || undefined, warehouseId: Number(warehouseId) || undefined, companyId };
+  const { data, isLoading } = useStock({ page, limit: pageSize, ...filters });
+  // Excel con los mismos filtros (21-nov).
+  const canExport = usePermissionButton('inventory.stock.export.button');
 
   const columns = (warehouses?.data ?? []).filter((warehouse) => !warehouseId || String(warehouse.id) === warehouseId);
   const showCost = (data?.data ?? []).some((row) => row.avgCost !== null);
@@ -42,7 +48,13 @@ export function InventoryStockPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Stock" description="Lo que hay en cada almacén, por producto y color" />
+      <PageHeader
+        title="Stock"
+        description="Lo que hay en cada almacén, por producto y color"
+        action={
+          canExport && <ExportExcelButton onExport={() => exportStock(filters)} fileName={`stock-${todayLocalDateString()}.xlsx`} />
+        }
+      />
       <CompanyStoreFields companyId={selectedCompanyId} onCompanyChange={setSelectedCompanyId} />
       {ready && (
         <>

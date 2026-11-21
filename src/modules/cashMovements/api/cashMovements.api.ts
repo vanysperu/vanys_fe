@@ -21,6 +21,12 @@ export async function getIgvBreakdown(params: MonthSummaryParams): Promise<IgvBr
   return response.data.data;
 }
 
+// Detalle del IGV en Excel (21-nov).
+export async function exportIgvBreakdown(params: MonthSummaryParams): Promise<Blob> {
+  const response = await apiClient.get<Blob>('/cash-movement/igv-breakdown/export', { params, responseType: 'blob' });
+  return response.data;
+}
+
 export async function getMonthSummary(params: MonthSummaryParams): Promise<MonthSummary> {
   const response = await apiClient.get<ApiResponse<MonthSummary>>('/cash-movement/month-summary', { params });
   if (!response.data.success) throw response.data;
@@ -70,4 +76,11 @@ export async function toggleCashTransferStatus(id: number): Promise<CashTransfer
   const response = await apiClient.put<ApiResponse<CashTransferItem>>(`/cash-movement/transfer/disable/${id}`);
   if (!response.data.success) throw response.data;
   return response.data.data;
+}
+
+// Caja en Excel (21-nov): mismos filtros que el listado (el backend ignora
+// la página y trae todo lo filtrado).
+export async function exportCashMovements(params: CashMovementListParams): Promise<Blob> {
+  const response = await apiClient.get<Blob>('/cash-movement/export', { params, responseType: 'blob' });
+  return response.data;
 }

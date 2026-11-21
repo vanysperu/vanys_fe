@@ -27,6 +27,10 @@ import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Input } from '@/presentation/components/shared/ui/input';
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { formatDate } from '@/lib/dateUtils';
+import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
+import { exportPayments } from '@/modules/payments/api/payments.api';
+import { todayLocalDateString } from '@/lib/dateUtils';
+import type { PaymentListParams } from '@/modules/payments/types/payment.types';
 
 function money(amount: number) {
   return 'S/ ' + amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,7 +62,7 @@ export function PaymentsPage() {
   // siempre), acá SÍ se listan los anulados con su badge — la columna de
   // estado y el botón de alternar (ToggleStatusButton) no tendrían sentido
   // si el pago desapareciera de la tabla al anularlo.
-  const { data, isLoading } = usePayments({
+  const listParams: PaymentListParams = {
     page,
     limit: pageSize,
     // Sin filtro elegido se listan vigentes y anulados (con su badge).
@@ -68,7 +72,9 @@ export function PaymentsPage() {
     clientName: clientName.trim() || undefined,
     dateFrom: dateRange.dateFrom,
     dateTo: dateRange.dateTo,
-  });
+  };
+  const { data, isLoading } = usePayments(listParams);
+  const canExport = usePermissionButton('payment.export.button');
 
   const hasActiveFilters = Boolean(
     statusFilter || methodFilter || accountFilter || clientName || dateRange.dateFrom || dateRange.dateTo,
@@ -121,7 +127,15 @@ export function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Pagos recibidos" description="Pagos de los clientes registrados en las cotizaciones de la empresa" />
+      <PageHeader
+        title="Pagos recibidos"
+        description="Pagos de los clientes registrados en las cotizaciones de la empresa"
+        action={
+          canExport && (
+            <ExportExcelButton onExport={() => exportPayments(listParams)} fileName={`pagos-${todayLocalDateString()}.xlsx`} />
+          )
+        }
+      />
 
       <FiltersBar hasActiveFilters={hasActiveFilters} onClear={clearFilters}>
         <div className="relative">

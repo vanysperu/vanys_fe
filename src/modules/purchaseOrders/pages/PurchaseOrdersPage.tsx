@@ -17,6 +17,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
+import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
+import { exportPurchaseOrders } from '@/modules/purchaseOrders/api/purchaseOrder.api';
+import { todayLocalDateString } from '@/lib/dateUtils';
+import type { PurchaseOrderListParams } from '@/modules/purchaseOrders/types/purchaseOrder.types';
 
 const ALL_STATUS_VALUE = 'all';
 
@@ -47,7 +51,7 @@ export function PurchaseOrdersPage() {
     setPage(1);
   };
 
-  const { data, isLoading } = usePurchaseOrders({
+  const listParams: PurchaseOrderListParams = {
     page,
     limit: pageSize,
     status,
@@ -57,7 +61,9 @@ export function PurchaseOrdersPage() {
     assigneeName: columnFilters.assigneeName || undefined,
     dateFrom: dateRange.dateFrom,
     dateTo: dateRange.dateTo,
-  });
+  };
+  const { data, isLoading } = usePurchaseOrders(listParams);
+  const canExport = usePermissionButton('purchase_order.export.button');
 
   return (
     <div className="space-y-6">
@@ -65,25 +71,30 @@ export function PurchaseOrdersPage() {
         title="Órdenes de compra"
         description="Qué producto de cada cotización le toca comprar a quién"
         action={
-          <Select
-            value={status ?? ALL_STATUS_VALUE}
-            onValueChange={(value) => {
-              setStatus(value === ALL_STATUS_VALUE ? undefined : (value as PurchaseOrderStatus));
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Todos los estados" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_STATUS_VALUE}>Todos los estados</SelectItem>
-              {Object.entries(PURCHASE_ORDER_STATUS_LABEL).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={status ?? ALL_STATUS_VALUE}
+              onValueChange={(value) => {
+                setStatus(value === ALL_STATUS_VALUE ? undefined : (value as PurchaseOrderStatus));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Todos los estados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_STATUS_VALUE}>Todos los estados</SelectItem>
+                {Object.entries(PURCHASE_ORDER_STATUS_LABEL).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {canExport && (
+              <ExportExcelButton onExport={() => exportPurchaseOrders(listParams)} fileName={`ordenes-de-compra-${todayLocalDateString()}.xlsx`} />
+            )}
+          </div>
         }
       />
 
