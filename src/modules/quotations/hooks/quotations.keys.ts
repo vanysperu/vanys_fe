@@ -23,6 +23,10 @@ export const quotationsKeys = {
   // Enlace para compartir con el cliente: cuelga del detalle (compartir deja
   // un evento en el historial, que se refresca con el detalle).
   publicLink: (id: number) => [...quotationsKeys.detail(id), 'public-link'] as const,
+  // Mockups (21-nov): NO cuelgan del detalle (un cambio de estado no debe
+  // volver a bajar los archivos). El archivo de un diseño nunca cambia.
+  mockups: (quotationId: number) => [...quotationsKeys.all, 'mockups', quotationId] as const,
+  mockupFile: (mockupId: number) => [...quotationsKeys.all, 'mockup-file', mockupId] as const,
 };
 
 // Vista pública (/c/<código>): no es de la sesión, va aparte.

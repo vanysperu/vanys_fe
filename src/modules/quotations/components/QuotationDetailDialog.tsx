@@ -10,6 +10,7 @@ import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/compone
 import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationItemsKanban';
 import { ExcludeItemButton, ExcludedItemsList, ExclusionUnavailableNotice } from '@/modules/quotations/components/QuotationItemExclusion';
 import { ForceStatusControl } from '@/modules/quotations/components/ForceStatusControl';
+import { QuotationMockupsSection } from '@/modules/quotations/components/QuotationMockupsSection';
 import { describeItemDiscount } from '@/modules/quotations/utils/itemDiscount';
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { MinOrderNotice } from '@/modules/quotations/components/MinOrderNotice';
@@ -114,7 +115,7 @@ function QuotationItemCards({
 // principal (primario) — mismo criterio visual que el diagrama de estados.
 const EXIT_STATUSES: QuotationStatus[] = ['rejected', 'expired', 'cancelled'];
 
-type QuotationDetailTab = 'products' | 'payments' | 'expenses' | 'purchase-orders' | 'profit' | 'timeline';
+type QuotationDetailTab = 'products' | 'mockups' | 'payments' | 'expenses' | 'purchase-orders' | 'profit' | 'timeline';
 
 interface QuotationDetailDialogProps {
   quotationId: number | null;
@@ -479,6 +480,8 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
             <Tabs value={tab} onValueChange={(value) => setTab(value as QuotationDetailTab)}>
               <TabsList>
                 <TabsTrigger value="products">Productos</TabsTrigger>
+                {/* Mockups del equipo (21-nov): se piden solo al abrir la pestaña. */}
+                <TabsTrigger value="mockups">Diseños</TabsTrigger>
                 <TabsTrigger value="payments">Pagos</TabsTrigger>
                 <TabsTrigger value="expenses">Gastos</TabsTrigger>
                 <TabsTrigger value="purchase-orders">Compras</TabsTrigger>
@@ -631,6 +634,10 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   <QuotationProfitSection quotationId={quotation.id} enabled={tab === 'profit'} />
                 </TabsContent>
               )}
+
+              <TabsContent value="mockups">
+                <QuotationMockupsSection quotationId={quotation.id} items={quotation.items} active={tab === 'mockups'} />
+              </TabsContent>
 
               <TabsContent value="timeline">
                 <QuotationTimeline events={quotation.events} />
