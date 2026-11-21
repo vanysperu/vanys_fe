@@ -13,11 +13,17 @@ export function isTransferRow(row: CashMovementListItem): row is CashTransferRow
 }
 
 // Fila de una de las fuentes con historial de correcciones (todas menos las
-// transferencias, que dejan su rastro en el registro de auditoría).
+// transferencias y los préstamos, que dejan su rastro en el registro de auditoría).
 export type CashMovementSourceRow = CashMovementListItem & { source: CashMovementSource };
 
 export function isMovementSourceRow(row: CashMovementListItem): row is CashMovementSourceRow {
-  return row.source !== 'transfer';
+  return row.source !== 'transfer' && row.source !== 'loan';
+}
+
+// Capital de un préstamo (lo prestado o lo devuelto): mueve la caja sin ser
+// ingreso ni egreso. El interés de un cobro sí es ingreso (21-nov).
+export function isLoanCapitalRow(row: CashMovementListItem): boolean {
+  return row.source === 'loan' && row.loan?.part !== 'interest';
 }
 
 // Efecto de la fila en el saldo: ingreso suma, egreso resta. Las patas de un

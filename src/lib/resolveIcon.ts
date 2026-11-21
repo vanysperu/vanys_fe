@@ -1,4 +1,5 @@
 import {
+  Banknote,
   BarChart3,
   Bell,
   Boxes,
@@ -66,6 +67,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   wallet: Wallet,
   'credit-card': CreditCard,
   'hand-coins': HandCoins,
+  // Préstamos (21-nov).
+  banknote: Banknote,
   receipt: Receipt,
   bell: Bell,
   chart: BarChart3,

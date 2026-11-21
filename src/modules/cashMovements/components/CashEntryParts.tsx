@@ -11,8 +11,9 @@ const SOURCE_NOUN: Record<CashFlowSource, string> = {
   quotation_expense: 'El gasto',
   employee_debt: 'La deuda',
   employee_debt_payment: 'La reposición',
-  // Las transferencias nunca generan patas de ajuste; completa el Record.
+  // Las transferencias y los préstamos nunca generan patas de ajuste; completan el Record.
   transfer: 'La transferencia',
+  loan: 'El préstamo',
 };
 
 const ACTION_TEXT = { correction: 'corregido', annul: 'anulado', restore: 'restaurado' } as const;

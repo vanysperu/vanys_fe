@@ -27,6 +27,7 @@ import { AdjustmentEntryDescription, PeriodLockIcon } from '@/modules/cashMoveme
 import {
   adjustmentCategoryText,
   isMovementSourceRow,
+  isLoanCapitalRow,
   isTransferRow,
   netAmountOf,
   type CashMovementSourceRow,
@@ -111,6 +112,7 @@ const SOURCE_LABEL: Record<CashFlowSource, string> = {
   employee_debt: 'Pagado por un trabajador',
   employee_debt_payment: 'Reposición a trabajador',
   transfer: 'Transferencia entre cuentas',
+  loan: 'Préstamo',
 };
 
 // Botón de permiso que habilita corregir cada tipo de fila (el backend lo
@@ -122,6 +124,8 @@ const UPDATE_BUTTON_BY_SOURCE: Record<CashFlowSource, string> = {
   employee_debt: 'employee_debt.update.button',
   employee_debt_payment: 'employee_debt.payment.update.button',
   transfer: 'cash_movement.transfer.update.button',
+  // Los préstamos se corrigen en su pantalla (ver canCorrect).
+  loan: 'loan.update.button',
 };
 
 // Una compra de orden (gasto con purchase_id) se corrige como compra.
@@ -188,6 +192,8 @@ export function CashMovementsPage() {
   // Cada fila se corrige con el diálogo de su módulo, que llama a SU endpoint
   // (Caja solo anula las filas manuales).
   const canCorrect = (row: CashMovementListItem): boolean => {
+    // Un préstamo o su cobro se corrige en Préstamos, nunca desde acá.
+    if (row.source === 'loan') return false;
     // Una deuda de compra se corrige desde la compra, nunca desde acá.
     if (row.source === 'employee_debt' && row.debt_origin !== 'manual') return false;
     const code = row.source === 'quotation_expense' && row.purchase_id !== null ? PURCHASE_UPDATE_BUTTON : UPDATE_BUTTON_BY_SOURCE[row.source];
@@ -365,7 +371,11 @@ export function CashMovementsPage() {
             header: 'Tipo',
             cell: (row) =>
               // Una transferencia no es ingreso ni egreso de la empresa.
-              row.source === 'transfer' ? (
+              isLoanCapitalRow(row) ? (
+                <Badge variant="default" title="No es ingreso ni egreso: es el capital de un préstamo">
+                  {row.direction === 'income' ? 'Préstamo (capital devuelto)' : 'Préstamo (sale)'}
+                </Badge>
+              ) : row.source === 'transfer' ? (
                 <Badge variant="default" title="No es ingreso ni egreso: solo cambia de cuenta">
                   <ArrowLeftRight className="size-3" />
                   {row.direction === 'income' ? 'Transferencia (entra)' : 'Transferencia (sale)'}
@@ -560,6 +570,9 @@ function CorrectRowDialog({ row, onClose }: { row: CashMovementListItem; onClose
     case 'transfer':
       // Sin sus dos puntas no hay qué corregir (no debería pasar).
       return null;
+    case 'loan':
+      // Se corrige en Préstamos (canCorrect no ofrece el botón).
+      return null;
   }
 }
 
@@ -628,7 +641,7 @@ function CashSummaryCards({
           <SummaryCard
             icon={ArrowLeftRight}
             iconClassName="text-primary"
-            label={`Transferencias (${scope})`}
+            label={`Transferencias y capital de préstamos (${scope})`}
             value={transfers}
           />
         )}

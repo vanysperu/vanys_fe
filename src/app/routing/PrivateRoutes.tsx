@@ -76,6 +76,8 @@ const PaymentsPage = lazy(() =>
 const InvoicesPage = lazy(() =>
   import('@/modules/invoices/pages/InvoicesPage').then((m) => ({ default: m.InvoicesPage })),
 );
+// Préstamos a personas (21-nov).
+const LoansPage = lazy(() => import('@/modules/loans/pages/LoansPage').then((m) => ({ default: m.LoansPage })));
 const EmployeeDebtsPage = lazy(() =>
   import('@/modules/employeeDebts/pages/EmployeeDebtsPage').then((m) => ({ default: m.EmployeeDebtsPage })),
 );
@@ -134,6 +136,7 @@ export default function PrivateRoutes() {
           <Route path="/productos" element={<ProductsPage />} />
           <Route path="/productos/tecnicas" element={<ProductsPage />} />
           <Route path="/proveedores" element={<SuppliersPage />} />
+          <Route path="/prestamos" element={<LoansPage />} />
           <Route path="/stock-proveedores" element={<SupplierStockPage />} />
           <Route path="/inventario/stock" element={<InventoryStockPage />} />
           <Route path="/inventario/documentos" element={<InventoryDocumentsPage />} />

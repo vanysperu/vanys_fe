@@ -30,7 +30,16 @@ export type CashMovementSource =
 // a otra): mueven el saldo de cada cuenta pero no son ingreso ni egreso de la
 // empresa (van a `transfers` en el resumen). No tienen historial de
 // correcciones ni patas de ajuste.
-export type CashFlowSource = CashMovementSource | 'transfer';
+// 'loan' (21-nov): préstamos a personas. El capital no es ingreso ni egreso
+// (suma en transferencias); el interés cobrado sí es ingreso.
+export type CashFlowSource = CashMovementSource | 'transfer' | 'loan';
+
+// Solo en filas de préstamo: de qué préstamo y qué parte es.
+export interface CashLoanLegInfo {
+  loan_id: number;
+  borrower_name: string;
+  part: 'disbursement' | 'principal' | 'interest';
+}
 
 // Solo en filas de transferencia: las dos puntas (null = Efectivo).
 export interface CashTransferLegInfo {
@@ -93,6 +102,8 @@ export interface CashMovementListItem {
   adjustment: CashRowAdjustmentInfo | null;
   // Solo en filas source = 'transfer'.
   transfer: CashTransferLegInfo | null;
+  // Solo en filas source = 'loan' (21-nov).
+  loan?: CashLoanLegInfo | null;
 }
 
 export interface CashAccountSummary {

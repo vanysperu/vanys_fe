@@ -39,7 +39,7 @@ export const MENU_LAYOUT: readonly MenuLayoutEntry[] = [
       key: 'finance',
       label: 'Finanzas',
       icon: Landmark,
-      moduleCodes: ['cash_movement', 'cash_closing', 'payment', 'invoice', 'receivable', 'employee_debt'],
+      moduleCodes: ['cash_movement', 'cash_closing', 'payment', 'invoice', 'receivable', 'employee_debt', 'loan'],
     },
   },
   // Sprint 2, ítem 2: un grupo propio con las vistas del módulo inventory.
