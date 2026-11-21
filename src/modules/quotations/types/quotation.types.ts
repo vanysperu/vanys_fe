@@ -213,6 +213,9 @@ export const QUOTATION_ITEM_PRICING_MODE_LABEL: Record<QuotationItemPricingMode,
   custom: 'Personalizado',
 };
 
+// Descuento por producto (21-nov): "20%" o "que quede en S/ X" por unidad.
+export type QuotationItemDiscountType = 'percent' | 'final_price';
+
 export interface QuotationItem {
   id: number;
   quotation_id: number;
@@ -225,7 +228,12 @@ export interface QuotationItem {
   color?: string | null;
   quantity: number;
   pricing_mode: QuotationItemPricingMode;
+  // Precio final por unidad (ya con el descuento, si lo hay).
   unit_price: number;
+  discount_type?: QuotationItemDiscountType | null;
+  discount_value?: number | string | null;
+  // Precio por unidad antes del descuento (null = sin descuento).
+  list_unit_price?: number | string | null;
   subtotal: number;
   // "No aceptado" por el cliente: el equipo lo ve, el cliente no, y no suma al total.
   is_excluded?: boolean;
@@ -448,6 +456,9 @@ export interface CreateQuotationItemDto {
   // usuario: "cuando se le da personalizado debe darte para colocar el
   // precio del producto y de la técnica").
   custom_technique_price?: number | null;
+  // Descuento opcional (21-nov). El backend lo valida y calcula el precio.
+  discount_type?: QuotationItemDiscountType | null;
+  discount_value?: number | null;
 }
 
 export interface CreateQuotationDto {

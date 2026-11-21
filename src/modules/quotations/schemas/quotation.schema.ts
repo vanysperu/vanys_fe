@@ -29,10 +29,23 @@ export const quotationItemSchema = z
     // técnica es "percentage" no hace falta, ya escala desde custom_price;
     // si es "fixed" y no se manda, el backend cae a technique.price_unit).
     custom_technique_price: z.number().min(0, 'Debe ser un número positivo').optional(),
+    // Descuento opcional (21-nov): "percent" (ej. 20) o "final_price" (precio
+    // unitario final). Que el precio final sea menor al de lista se revisa en
+    // vivo en el formulario y lo revalida el backend.
+    discount_type: z.enum(['percent', 'final_price']).optional(),
+    discount_value: z.number().positive('Debe ser mayor a 0').optional(),
   })
   .refine((data) => data.pricing_mode !== 'custom' || data.custom_price != null, {
     message: 'Ingresa el precio personalizado',
     path: ['custom_price'],
+  })
+  .refine((data) => !data.discount_type || (data.discount_value != null && !Number.isNaN(data.discount_value)), {
+    message: 'Indica el descuento',
+    path: ['discount_value'],
+  })
+  .refine((data) => data.discount_type !== 'percent' || (data.discount_value ?? 0) < 100, {
+    message: 'Debe ser menor a 100%',
+    path: ['discount_value'],
   });
 
 export const createQuotationSchema = z.object({

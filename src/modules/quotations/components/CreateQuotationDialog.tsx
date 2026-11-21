@@ -24,8 +24,10 @@ import { createQuotationSchema, type CreateQuotationFormValues } from '@/modules
 import {
   QUOTATION_ITEM_PRICING_MODE_LABEL,
   type QuotationDetail,
+  type QuotationItemDiscountType,
   type QuotationItemPricingMode,
 } from '@/modules/quotations/types/quotation.types';
+import { applyItemDiscount, QUOTATION_ITEM_DISCOUNT_LABEL } from '@/modules/quotations/utils/itemDiscount';
 import {
   allocateIgvByLine,
   computeQuotationIgv,
@@ -103,8 +105,24 @@ function availablePricingModes(
 interface ItemPriceBreakdown {
   productPrice: number;
   techniquePrice: number;
+  // Precio por unidad que se cobra (con el descuento, si lo hay).
   unitPrice: number;
+  // Precio por unidad antes del descuento (21-nov); igual a unitPrice sin descuento.
+  listUnitPrice: number;
+  // Descuento mal puesto (ej. precio final mayor al de lista): se avisa en la fila.
+  discountError: string | null;
   total: number;
+}
+
+// Aplica el descuento opcional del ítem (21-nov) sobre el precio de lista,
+// igual que el backend (services/shared/item_discount.ts).
+function withDiscount(
+  base: ItemPriceBreakdown | null,
+  item: CreateQuotationFormValues['items'][number] | undefined,
+): ItemPriceBreakdown | null {
+  if (!base || !item) return base;
+  const { unitPrice, error } = applyItemDiscount(base.listUnitPrice, item.discount_type, item.discount_value);
+  return { ...base, unitPrice, discountError: error, total: roundMoney(unitPrice * (item.quantity || 0)) };
 }
 
 // Precio en vivo del item, MISMO cálculo que el backend al crear (grulla_be:
@@ -148,7 +166,7 @@ function computeItemPrice(
   if (!quantity || Number.isNaN(quantity)) return null;
 
   const unitPrice = roundMoney(productPrice + techniquePrice);
-  return { productPrice, techniquePrice, unitPrice, total: roundMoney(unitPrice * quantity) };
+  return { productPrice, techniquePrice, unitPrice, listUnitPrice: unitPrice, discountError: null, total: roundMoney(unitPrice * quantity) };
 }
 
 // Montos de un ítem: subtotal, IGV y lo que se cobra por ese ítem. El IGV del
@@ -263,7 +281,8 @@ function agreedUnitPrice(
     stored.product_id === item.product_id &&
     (stored.technique_id ?? undefined) === (item.technique_id ?? undefined) &&
     stored.pricing_mode === item.pricing_mode;
-  return isSameLine ? Number(stored.unit_price) : null;
+  // Precio de lista pactado (antes del descuento): el descuento se recalcula aparte.
+  return isSameLine ? Number(stored.list_unit_price ?? stored.unit_price) : null;
 }
 
 // Valores iniciales del formulario a partir de la cotización a completar.
@@ -292,8 +311,10 @@ function toCompleteFormValues(quotation: QuotationDetail): CreateQuotationFormVa
             color: item.color ?? undefined,
             quantity: item.quantity,
             pricing_mode: item.pricing_mode,
-            custom_price: item.pricing_mode === 'custom' ? Number(item.unit_price) : undefined,
+            custom_price: item.pricing_mode === 'custom' ? Number(item.list_unit_price ?? item.unit_price) : undefined,
             custom_technique_price: item.pricing_mode === 'custom' && item.technique_id ? 0 : undefined,
+            discount_type: item.discount_type ?? undefined,
+            discount_value: item.discount_value != null ? Number(item.discount_value) : undefined,
           }))
         : // Pedido sin ningún producto existente (todos los SKU faltaban).
           [{ ...EMPTY_ITEM, product_id: undefined as unknown as number }],
@@ -457,9 +478,22 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
     const technique = effectiveTechnique(product, companyTechniques.find((row) => row.id === item.technique_id));
     const agreedPrice = agreedUnitPrice(completeQuotation, item);
     if (agreedPrice != null && item.quantity) {
-      return { productPrice: agreedPrice, techniquePrice: 0, unitPrice: agreedPrice, total: roundMoney(agreedPrice * item.quantity) };
+      return withDiscount(
+        {
+          productPrice: agreedPrice,
+          techniquePrice: 0,
+          unitPrice: agreedPrice,
+          listUnitPrice: agreedPrice,
+          discountError: null,
+          total: roundMoney(agreedPrice * item.quantity),
+        },
+        item,
+      );
     }
-    return computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price);
+    return withDiscount(
+      computeItemPrice(product, technique, item.quantity, item.pricing_mode, item.custom_price, item.custom_technique_price),
+      item,
+    );
   });
   // Productos que el cliente no aceptó: siguen en la cotización pero no suman
   // (mismo cálculo que el backend al guardar).
@@ -518,6 +552,9 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
       quantity: item.quantity,
       custom_price: item.pricing_mode === 'custom' ? item.custom_price : undefined,
       custom_technique_price: item.pricing_mode === 'custom' ? item.custom_technique_price : undefined,
+      // Descuento opcional (21-nov): null = sin descuento (al editar, lo quita).
+      discount_type: item.discount_type ?? null,
+      discount_value: item.discount_type ? (item.discount_value ?? null) : null,
     }));
     const details = {
       notes: values.notes,
@@ -1024,6 +1061,55 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                         )}
                       </div>
                     )}
+                    {/* Descuento opcional por producto (pedido del usuario,
+                        21-nov): "20%" o "que quede en S/ X" por unidad. */}
+                    <div className="w-36 space-y-1">
+                      <Label className="text-xs">Descuento</Label>
+                      <Select
+                        value={item?.discount_type ?? 'none'}
+                        disabled={!product}
+                        onValueChange={(value) => {
+                          // Radix puede llamar con "" al montar la fila.
+                          if (!value) return;
+                          if (value === 'none') {
+                            setValue(`items.${index}.discount_type`, undefined);
+                            setValue(`items.${index}.discount_value`, undefined);
+                            return;
+                          }
+                          setValue(`items.${index}.discount_type`, value as QuotationItemDiscountType);
+                        }}
+                      >
+                        <SelectTrigger aria-label={`Descuento del ítem ${index + 1}`}>
+                          <SelectValue>
+                            {item?.discount_type ? QUOTATION_ITEM_DISCOUNT_LABEL[item.discount_type] : 'Sin descuento'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin descuento</SelectItem>
+                          <SelectItem value="percent">{QUOTATION_ITEM_DISCOUNT_LABEL.percent}</SelectItem>
+                          <SelectItem value="final_price">{QUOTATION_ITEM_DISCOUNT_LABEL.final_price}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {item?.discount_type && (
+                      <div className="w-32 space-y-1">
+                        <Label className="text-xs" htmlFor={`item-discount-${index}`}>
+                          {item.discount_type === 'percent' ? '% de descuento' : 'Queda en (S/ c/u)'}
+                        </Label>
+                        <Input
+                          id={`item-discount-${index}`}
+                          type="number"
+                          min={0}
+                          step={DECIMAL_INPUT_STEP}
+                          {...register(`items.${index}.discount_value`, { setValueAs: toOptionalNumber })}
+                        />
+                        {errors.items?.[index] && 'discount_value' in errors.items[index]! ? (
+                          <p className="text-[11px] text-destructive">{(errors.items[index] as any).discount_value?.message}</p>
+                        ) : (
+                          price?.discountError && <p className="text-[11px] text-destructive">{price.discountError}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {/* La nota con el desglose (de dónde sale el monto) queda
                       igual; debajo, los montos del ítem bien a la vista
@@ -1036,7 +1122,9 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                           ? `Precio pactado S/ ${agreedPrice.toFixed(2)} c/u`
                           : technique === null
                           ? `Producto S/ ${price.productPrice.toFixed(2)} c/u`
-                          : `Producto S/ ${price.productPrice.toFixed(2)} + técnica S/ ${price.techniquePrice.toFixed(2)} = S/ ${price.unitPrice.toFixed(2)} c/u`}{' '}
+                          : `Producto S/ ${price.productPrice.toFixed(2)} + técnica S/ ${price.techniquePrice.toFixed(2)} = S/ ${price.listUnitPrice.toFixed(2)} c/u`}
+                        {/* Con descuento: el precio que queda por unidad (21-nov). */}
+                        {price.unitPrice !== price.listUnitPrice && ` → con descuento S/ ${price.unitPrice.toFixed(2)} c/u`}{' '}
                         × {item?.quantity} = S/ {price.total.toFixed(2)}
                       </p>
                       <ItemAmounts amounts={amounts} igvRate={igvRate} includesIgv={Boolean(includesIgv)} index={index} />

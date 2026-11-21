@@ -10,6 +10,7 @@ import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/compone
 import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationItemsKanban';
 import { ExcludeItemButton, ExcludedItemsList, ExclusionUnavailableNotice } from '@/modules/quotations/components/QuotationItemExclusion';
 import { ForceStatusControl } from '@/modules/quotations/components/ForceStatusControl';
+import { describeItemDiscount } from '@/modules/quotations/utils/itemDiscount';
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { MinOrderNotice } from '@/modules/quotations/components/MinOrderNotice';
 import { QuotationPaymentsSection } from '@/modules/quotations/components/QuotationPaymentsSection';
@@ -78,6 +79,11 @@ function QuotationItemCards({
             <p className="mt-1 text-xs text-muted-foreground">
               Cant. <span className="font-mono-nums text-foreground">{item.quantity}</span> ·{' '}
               {QUOTATION_ITEM_PRICING_MODE_LABEL[item.pricing_mode]} · S/ {Number(item.unit_price).toFixed(2)} c/u
+              {describeItemDiscount(item) && (
+                <span className="ml-1 font-medium text-success">
+                  ({describeItemDiscount(item)}, antes S/ {Number(item.list_unit_price).toFixed(2)})
+                </span>
+              )}
             </p>
             <dl className="mt-2 space-y-0.5 rounded-md bg-muted/60 px-3 py-2 text-xs">
               {includesIgv && (
@@ -528,7 +534,18 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                           <td className="px-3 py-2 text-right text-xs whitespace-nowrap text-muted-foreground">
                             {QUOTATION_ITEM_PRICING_MODE_LABEL[item.pricing_mode]}
                           </td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap">S/ {Number(item.unit_price).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                            {/* Con descuento (21-nov): el precio de antes tachado y el descuento. */}
+                            {describeItemDiscount(item) && (
+                              <span className="block text-[11px] text-muted-foreground line-through">
+                                S/ {Number(item.list_unit_price).toFixed(2)}
+                              </span>
+                            )}
+                            S/ {Number(item.unit_price).toFixed(2)}
+                            {describeItemDiscount(item) && (
+                              <span className="block text-[11px] font-medium text-success">{describeItemDiscount(item)}</span>
+                            )}
+                          </td>
                           {quotation.includes_igv && (
                             <>
                               <td className="px-3 py-2 text-right whitespace-nowrap text-muted-foreground">
