@@ -381,7 +381,19 @@ export type QuotationEventAction =
   | 'dispatch_guide_voided'
   // Producto no aceptado por el cliente o reactivado.
   | 'item_excluded'
-  | 'item_included';
+  | 'item_included'
+  // Estado cambiado a mano por un administrador (21-nov).
+  | 'status_forced'
+  // Mockups (diseños) subidos o quitados (21-nov).
+  | 'mockup_added'
+  | 'mockup_removed';
+
+// Respuesta de PUT /quotation/force-status/:id: lo que el cambio NO deshace
+// solo y conviene revisar a mano (ej. la salida de almacén de una entrega).
+export interface ForceQuotationStatusResult {
+  status: QuotationStatus;
+  warnings: string[];
+}
 
 export interface QuotationEvent {
   id: number;

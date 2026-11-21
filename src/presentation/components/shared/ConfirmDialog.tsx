@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Check, Loader2, Trash2, X } from 'lucide-react';
 
 import { Button } from '@/presentation/components/shared/ui/button';
@@ -22,6 +22,9 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'default' | 'destructive';
   onConfirm: () => void | Promise<void>;
+  // Contenido extra entre el texto y los botones (ej. un motivo opcional).
+  // Opcional: las pantallas que ya lo usan no cambian (21-nov).
+  children?: ReactNode;
 }
 
 // Confirmación reutilizable para acciones destructivas reales (DELETE físico
@@ -36,6 +39,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   variant = 'destructive',
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   const [isConfirming, setIsConfirming] = useState(false);
 
@@ -56,6 +60,7 @@ export function ConfirmDialog({
           {/* min-w-0 + overflow-wrap: un motivo o nombre largo sin espacios no desborda el diálogo. */}
           <DialogDescription className="min-w-0 [overflow-wrap:anywhere]">{description}</DialogDescription>
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isConfirming}>
             <X className="size-4" />

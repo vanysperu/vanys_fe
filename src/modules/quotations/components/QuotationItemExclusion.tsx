@@ -12,11 +12,15 @@ import { Button } from '@/presentation/components/shared/ui/button';
 interface ExclusionButtonProps {
   quotationId: number;
   item: QuotationItem;
+  // Visible pero deshabilitado (ej. un solo producto o cotización cerrada):
+  // antes se ocultaba y el usuario creía que la acción no existía (21-nov).
+  // El motivo lo explica ExclusionUnavailableNotice debajo de la tabla.
+  disabled?: boolean;
 }
 
 // "No aceptado" en una fila de la cotización (pedido del usuario, 14-nov):
 // el cliente no aceptó ese producto. Pide confirmación porque cambia el total.
-export function ExcludeItemButton({ quotationId, item }: ExclusionButtonProps) {
+export function ExcludeItemButton({ quotationId, item, disabled = false }: ExclusionButtonProps) {
   const [confirming, setConfirming] = useState(false);
   const { mutate: setExcluded, isPending } = useSetQuotationItemExcluded(quotationId);
   return (
@@ -30,7 +34,7 @@ export function ExcludeItemButton({ quotationId, item }: ExclusionButtonProps) {
         className="h-7 gap-1 px-2 text-xs whitespace-nowrap text-destructive hover:text-destructive"
         title="El cliente no aceptó este producto: deja de salir en el PDF y no suma al total"
         aria-label={`Marcar ${item.product?.name ?? 'producto'} como no aceptado`}
-        disabled={isPending}
+        disabled={disabled || isPending}
         onClick={() => setConfirming(true)}
       >
         <Ban className="size-3.5" />
@@ -55,6 +59,17 @@ export function ExcludeItemButton({ quotationId, item }: ExclusionButtonProps) {
         }}
       />
     </>
+  );
+}
+
+// Por qué «No aceptado» está deshabilitado, en palabras (un botón
+// deshabilitado no muestra su title al pasar el mouse).
+export function ExclusionUnavailableNotice({ reason }: { reason: string | null }) {
+  if (!reason) return null;
+  return (
+    <p className="text-xs text-muted-foreground" data-testid="exclusion-unavailable">
+      «No aceptado» no está disponible: {reason}
+    </p>
   );
 }
 

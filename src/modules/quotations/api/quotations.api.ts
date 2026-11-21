@@ -9,6 +9,7 @@ import type {
   CreateQuotationExpenseDto,
   QuotationExpenseDetail,
   CreateQuotationPaymentDto,
+  ForceQuotationStatusResult,
   Quotation,
   QuotationDetail,
   QuotationProfit,
@@ -98,6 +99,14 @@ export async function changeQuotationStatus(
     advance_payment: advancePayment ?? null,
     ...(invoiceIssued !== undefined ? { invoice_issued: invoiceIssued } : {}),
   });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
+// Cambio de estado a mano por un administrador (21-nov): cualquier estado,
+// con motivo opcional. Devuelve avisos de lo que no se deshace solo.
+export async function forceQuotationStatus(id: number, status: QuotationStatus, note: string | null): Promise<ForceQuotationStatusResult> {
+  const response = await apiClient.put<ApiResponse<ForceQuotationStatusResult>>(`/quotation/force-status/${id}`, { status, note });
   if (!response.data.success) throw response.data;
   return response.data.data;
 }

@@ -18,6 +18,7 @@ import {
   changeQuotationItemStage,
   setQuotationItemExcluded,
   changeQuotationStatus,
+  forceQuotationStatus,
   completeQuotation,
   correctQuotationExpense,
   getQuotationExpense,
@@ -217,6 +218,21 @@ export function useChangeQuotationStatusAny() {
       queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: paymentsKeys.lists() });
+      invalidateCashViews(queryClient);
+    },
+  });
+}
+
+// Cambio de estado a mano (administradores, 21-nov). Mismas vistas que el
+// cambio normal: puede crear la salida de almacén de la entrega.
+export function useForceQuotationStatus(id: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ status, note }: { status: QuotationStatus; note: string | null }) => forceQuotationStatus(id, status, note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationsKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: quotationsKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: receivablesKeys.lists() });
       invalidateCashViews(queryClient);
     },
   });

@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Ban, CircleDollarSign, Eye, FilePlus, FileText, Link2, Mail, MessageCircle, Pencil, Receipt, RotateCcw, ShoppingCart, Truck, Undo2, Workflow } from 'lucide-react';
+import { ArrowRightLeft, Ban, CircleDollarSign, Eye, FilePlus, FileText, ImageMinus, ImagePlus, Link2, Mail, MessageCircle, Pencil, Receipt, RotateCcw, ShieldAlert, ShoppingCart, Truck, Undo2, Workflow } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import type { QuotationEvent, QuotationEventAction } from '@/modules/quotations/types/quotation.types';
@@ -33,6 +33,9 @@ const EVENT_STYLE: Record<QuotationEventAction, { icon: LucideIcon; tag: string;
   dispatch_guide_voided: { icon: Truck, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Guía anulada' },
   item_excluded: { icon: Ban, fg: '#B4231F', bg: '#FBE9E8', tag: 'No aceptado' },
   item_included: { icon: Undo2, fg: '#1F8A5F', bg: '#E6F5EE', tag: 'Reactivado' },
+  status_forced: { icon: ShieldAlert, fg: '#9C6511', bg: '#FDF3E2', tag: 'Estado (admin)' },
+  mockup_added: { icon: ImagePlus, fg: '#5B3FD6', bg: '#EFEBFF', tag: 'Diseño' },
+  mockup_removed: { icon: ImageMinus, fg: '#4B4D58', bg: '#EEEEF1', tag: 'Diseño quitado' },
 };
 
 // "expense_added" generado por una compra usa el mismo tag "Gasto" — si en

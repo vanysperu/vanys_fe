@@ -66,23 +66,24 @@ test('compartir: el cliente la ve sin sesión, por WhatsApp y por correo; apagad
   await share.getByRole('button', { name: 'Enviar correo' }).click();
   await expect(page.getByText(`Cotización enviada a cliente.${stamp}@acme.test`)).toBeVisible({ timeout: 10_000 });
 
-  // El cliente, sin sesión, la ve con el producto y el botón del PDF.
-  const visitor = await browser.newContext();
+  // El cliente, sin sesión, abre el enlace y le llega el PDF mismo (21-nov:
+  // el enlace ya no muestra una página con otro formato, abre el PDF).
+  const visitor = await browser.newContext({ acceptDownloads: true });
   const publicPage = await visitor.newPage();
   const publicPath = new URL(url).pathname;
+  const pdfResponse = publicPage.waitForResponse((response) => /\/public\/q\/[A-Za-z0-9_-]{22}\/pdf$/.test(response.url()));
   await publicPage.goto(publicPath);
-  await expect(publicPage.getByRole('heading', { name: `Cotización ${code}` })).toBeVisible({ timeout: 10_000 });
-  await expect(publicPage.locator('table').getByText(productName)).toBeVisible();
-  await expect(publicPage.getByRole('link', { name: 'Descargar PDF' })).toHaveAttribute('href', /\/public\/q\/[A-Za-z0-9_-]{22}\/pdf$/);
-  // Sin el aviso "Instala Vanys" (es para el equipo).
-  await expect(publicPage.getByText(/Instala Vanys/)).toHaveCount(0);
+  const pdf = await pdfResponse;
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()['content-type']).toContain('application/pdf');
 
   // Apagada, el mismo enlace dice que ya no está disponible.
   const off = await apiJson<ApiEnvelope<{ enabled: boolean }>>(request, 'put', `/quotation/${quotationId}/public-link`, token, {
     enabled: false,
   });
   expect(off.body.data.enabled).toBe(false);
-  await publicPage.reload();
-  await expect(publicPage.getByRole('heading', { name: 'Esta cotización ya no está disponible' })).toBeVisible({ timeout: 10_000 });
+  const closedPage = await visitor.newPage();
+  await closedPage.goto(publicPath);
+  await expect(closedPage.getByRole('heading', { name: 'Esta cotización ya no está disponible' })).toBeVisible({ timeout: 10_000 });
   await visitor.close();
 });

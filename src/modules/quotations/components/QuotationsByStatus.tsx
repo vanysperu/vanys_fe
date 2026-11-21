@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronRight, CircleDollarSign, Download, Eye, FileText, Receipt, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { downloadBlob } from '@/lib/downloadBlob';
 import { cn } from '@/lib/utils';
 import { QuotationStatusBadge } from '@/modules/quotations/components/QuotationStatusBadge';
 import { useDownloadQuotationPdf } from '@/modules/quotations/hooks/useQuotations';
@@ -63,12 +64,7 @@ export function QuotationsByStatus({ quotations, onSelect, onQuickAction, onPrev
   const handleDirectDownload = (quotation: Quotation) => {
     downloadPdf(quotation.id, {
       onSuccess: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `cotizacion-${String(quotation.id).padStart(4, '0')}.pdf`;
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, `cotizacion-${String(quotation.id).padStart(4, '0')}.pdf`);
       },
       onError: (error) => toast.error((error as ApiClientError).message),
     });

@@ -1,13 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
+import { downloadBlob } from '@/lib/downloadBlob';
 import { AcceptQuotationDialog, type AcceptQuotationTarget } from '@/modules/quotations/components/AcceptQuotationDialog';
 import { FinishQuotationDialog, type FinishQuotationTarget } from '@/modules/quotations/components/FinishQuotationDialog';
 import { shouldAskForAdvance } from '@/modules/quotations/utils/advancePayment';
 import { QuotationExpensesSection } from '@/modules/quotations/components/QuotationExpensesSection';
 import { QuotationPurchaseOrdersSection } from '@/modules/purchaseOrders/components/QuotationPurchaseOrdersSection';
 import { QuotationItemsKanban } from '@/modules/quotations/components/QuotationItemsKanban';
-import { ExcludeItemButton, ExcludedItemsList } from '@/modules/quotations/components/QuotationItemExclusion';
+import { ExcludeItemButton, ExcludedItemsList, ExclusionUnavailableNotice } from '@/modules/quotations/components/QuotationItemExclusion';
+import { ForceStatusControl } from '@/modules/quotations/components/ForceStatusControl';
 import { QuotationItemVariant } from '@/modules/quotations/components/QuotationItemVariant';
 import { MinOrderNotice } from '@/modules/quotations/components/MinOrderNotice';
 import { QuotationPaymentsSection } from '@/modules/quotations/components/QuotationPaymentsSection';
@@ -147,6 +149,8 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const [shareOpen, setShareOpen] = useState(false);
   // Producto no aceptado por el cliente (pedido del usuario, 14-nov).
   const canExcludeItems = usePermissionButton('cotizacion.item.exclude.button');
+  // Cambiar a cualquier estado: solo administradores y Super Admin (21-nov).
+  const canForceStatus = usePermissionButton('cotizacion.forceStatus.button');
   // Guía de remisión (Sprint 2, ítem 1): se arma desde una cotización Lista o Entregada.
   const canCreateGuide = usePermissionButton('dispatch_guide.create.button');
   const hasGuides = useCompanyFeature('dispatch_guide');
@@ -193,12 +197,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
       onSuccess: (blob) => {
         // Se descarga directo, nunca se guarda en el servidor — cada
         // click genera el PDF al vuelo (pedido explícito del usuario).
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `cotizacion-${String(quotationId).padStart(4, '0')}.pdf`;
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, `cotizacion-${String(quotationId).padStart(4, '0')}.pdf`);
       },
       onError: (error) => toast.error((error as ApiClientError).message),
     });
@@ -229,7 +228,15 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
   const acceptedItems = quotation ? quotation.items.filter((item) => !item.is_excluded) : [];
   const excludedItems = quotation ? quotation.items.filter((item) => item.is_excluded) : [];
   const canEditItems = Boolean(quotation && !['rejected', 'cancelled', 'expired', 'finished'].includes(quotation.status));
-  const showExcludeAction = canExcludeItems && canEditItems && acceptedItems.length > 1;
+  // «No aceptado» se muestra a quien tiene el permiso; si no se puede usar
+  // (cotización cerrada o un solo producto aceptado) queda deshabilitado con
+  // el motivo, en vez de desaparecer (pedido del usuario, 21-nov).
+  const showExcludeAction = canExcludeItems;
+  const excludeUnavailableReason = !canEditItems
+    ? 'la cotización está cerrada.'
+    : acceptedItems.length <= 1
+      ? 'debe quedar al menos un producto aceptado en la cotización.'
+      : null;
   const itemRows = quotation
     ? allocateIgvByLine(
         acceptedItems,
@@ -342,7 +349,10 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   </p>
                 )}
               </div>
-              <Badge>{QUOTATION_STATUS_LABEL[quotation.status]}</Badge>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Badge>{QUOTATION_STATUS_LABEL[quotation.status]}</Badge>
+                {canForceStatus && <ForceStatusControl quotationId={quotation.id} currentStatus={quotation.status} />}
+              </div>
             </div>
 
             <QuotationGuides quotationId={quotation.id} enabled={canCreateGuide && (hasGuides || Boolean(access?.isSystem))} />
@@ -475,7 +485,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   <QuotationItemCards
                     rows={itemRows}
                     includesIgv={Boolean(quotation.includes_igv)}
-                    action={showExcludeAction ? (item) => <ExcludeItemButton quotationId={quotation.id} item={item} /> : undefined}
+                    action={showExcludeAction ? (item) => <ExcludeItemButton quotationId={quotation.id} item={item} disabled={excludeUnavailableReason !== null} /> : undefined}
                   />
                 ) : (
                 /* overflow-x-auto: si la ventana es angosta, la tabla se
@@ -537,7 +547,7 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                           </td>
                           {showExcludeAction && (
                             <td className="px-2 py-2 text-right">
-                              <ExcludeItemButton quotationId={quotation.id} item={item} />
+                              <ExcludeItemButton quotationId={quotation.id} item={item} disabled={excludeUnavailableReason !== null} />
                             </td>
                           )}
                         </tr>
@@ -546,6 +556,8 @@ export function QuotationDetailDialog({ quotationId, onClose, initialTab = 'prod
                   </table>
                 </div>
                 )}
+
+                {showExcludeAction && <ExclusionUnavailableNotice reason={excludeUnavailableReason} />}
 
                 <ExcludedItemsList quotationId={quotation.id} items={excludedItems} canReactivate={canExcludeItems && canEditItems} />
 
