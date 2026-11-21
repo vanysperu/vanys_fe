@@ -1,4 +1,4 @@
-import { ShoppingCart } from 'lucide-react';
+import { FileText, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 
 import { usePurchaseOrders } from '@/modules/purchaseOrders/hooks/usePurchaseOrders';
@@ -18,9 +18,11 @@ import { usePermissionButton } from '@/presentation/hooks/shared/useAccess';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import { ExportExcelButton } from '@/presentation/components/shared/ExportExcelButton';
+import { Button } from '@/presentation/components/shared/ui/button';
 import { exportPurchaseOrders } from '@/modules/purchaseOrders/api/purchaseOrder.api';
 import { todayLocalDateString } from '@/lib/dateUtils';
 import type { PurchaseOrderListParams } from '@/modules/purchaseOrders/types/purchaseOrder.types';
+import { PurchaseOrderPdfDialog } from '@/modules/purchaseOrders/components/PurchaseOrderPdfDialog';
 
 const ALL_STATUS_VALUE = 'all';
 
@@ -64,6 +66,9 @@ export function PurchaseOrdersPage() {
   };
   const { data, isLoading } = usePurchaseOrders(listParams);
   const canExport = usePermissionButton('purchase_order.export.button');
+  // PDF de la orden con foto de cada producto (21-nov).
+  const canSeePdf = usePermissionButton('purchase_order.pdf.button');
+  const [pdfOrderId, setPdfOrderId] = useState<number | null>(null);
 
   return (
     <div className="space-y-6">
@@ -166,6 +171,28 @@ export function PurchaseOrdersPage() {
               </Badge>
             ),
           },
+          // Acciones, alineadas a la derecha (mismo patrón que los catálogos).
+          ...(canSeePdf
+            ? [
+                {
+                  header: '',
+                  align: 'right' as const,
+                  cell: (order: PurchaseOrder) => (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      title="PDF de la orden: qué comprar, con foto"
+                      aria-label={`PDF de la orden OC-${String(order.id).padStart(4, '0')}`}
+                      onClick={() => setPdfOrderId(order.id)}
+                    >
+                      <FileText className="size-4" />
+                    </Button>
+                  ),
+                },
+              ]
+            : []),
         ]}
         rows={data?.data ?? []}
         rowKey={(order) => order.id}
@@ -178,6 +205,8 @@ export function PurchaseOrdersPage() {
         columnFilters={columnFilters}
         onColumnFilterChange={handleColumnFilterChange}
       />
+
+      <PurchaseOrderPdfDialog purchaseOrderId={pdfOrderId} onClose={() => setPdfOrderId(null)} />
 
       {data && (
         <Pagination

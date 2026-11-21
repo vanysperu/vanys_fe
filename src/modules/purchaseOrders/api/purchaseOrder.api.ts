@@ -85,3 +85,9 @@ export async function exportPurchaseOrders(params: PurchaseOrderListParams): Pro
   const response = await apiClient.get<Blob>('/purchase-order/export', { params, responseType: 'blob' });
   return response.data;
 }
+
+// PDF de la orden (21-nov): qué comprar, con foto y datos de cada producto.
+export async function getPurchaseOrderPdf(id: number): Promise<Blob> {
+  const response = await apiClient.get<Blob>(`/purchase-order/${id}/pdf`, { responseType: 'blob' });
+  return response.data;
+}

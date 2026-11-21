@@ -8,4 +8,6 @@ export const purchaseOrderKeys = {
   purchase: (id: number) => [...purchaseOrderKeys.all, 'purchase', id] as const,
   // Almacenes a los que puede ingresar la compra de un item.
   warehouseOptions: (itemId: number) => [...purchaseOrderKeys.all, 'warehouse-options', itemId] as const,
+  // PDF de una orden (21-nov): cuelga de all, una compra nueva lo refresca.
+  pdf: (id: number) => [...purchaseOrderKeys.all, 'pdf', id] as const,
 };
