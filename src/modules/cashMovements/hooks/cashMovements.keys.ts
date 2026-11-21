@@ -6,4 +6,5 @@ export const cashMovementsKeys = {
   list: (params: CashMovementListParams) => [...cashMovementsKeys.lists(), params] as const,
   // Cuelga de all: todo lo que mueve dinero (y ya invalida all) lo refresca.
   monthSummary: (params: MonthSummaryParams) => [...cashMovementsKeys.all, 'month-summary', params] as const,
+  igvBreakdown: (params: MonthSummaryParams) => [...cashMovementsKeys.all, 'igv-breakdown', params] as const,
 };

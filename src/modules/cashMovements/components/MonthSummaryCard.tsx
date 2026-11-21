@@ -50,7 +50,7 @@ export function MonthSummaryCard({ companyId, enabled }: MonthSummaryCardProps) 
         </div>
       </div>
 
-      {isLoading || !summary ? <Skeleton className="h-20 w-full" /> : <PeriodFinanceTiles finance={summary} />}
+      {isLoading || !summary ? <Skeleton className="h-20 w-full" /> : <PeriodFinanceTiles finance={summary} breakdownParams={{ period, companyId }} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  getIgvBreakdown,
   getMonthSummary,
   createCashMovement,
   createCashTransfer,
@@ -97,6 +98,15 @@ export function useUpdateCashTransfer() {
 export function useToggleCashTransferStatus() {
   const invalidate = useInvalidateTransferViews();
   return useMutation({ mutationFn: toggleCashTransferStatus, onSuccess: invalidate });
+}
+
+// Detalle del IGV del mes: solo con el diálogo abierto (enabled).
+export function useIgvBreakdown(params: MonthSummaryParams, enabled: boolean) {
+  return useQuery({
+    queryKey: cashMovementsKeys.igvBreakdown(params),
+    queryFn: () => getIgvBreakdown(params),
+    enabled,
+  });
 }
 
 // Resumen del mes de Caja (resultado, IGV y neto).

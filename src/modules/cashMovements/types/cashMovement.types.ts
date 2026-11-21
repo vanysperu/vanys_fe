@@ -245,3 +245,38 @@ export interface MonthSummaryParams {
   period: string;
   companyId?: number;
 }
+
+// "¿Cómo se calculó el IGV del mes?" (21-nov): los cobros y las compras con
+// factura que lo forman. Los totales son los mismos del resumen del mes.
+export interface IgvSaleLine {
+  payment_id: number;
+  paid_at: string; // YYYY-MM-DD
+  quotation_id: number;
+  client_name: string;
+  amount: number; // cobrado (con IGV)
+  base: number;
+  igv: number;
+  invoice_issued: boolean;
+}
+
+export interface IgvPurchaseLine {
+  invoice_id: number;
+  series_number: string | null;
+  issue_date: string | null; // YYYY-MM-DD
+  supplier_name: string | null;
+  first_spent_at: string; // YYYY-MM-DD
+  products: string[];
+  quotation_ids: number[];
+  amount: number; // pagado (con IGV)
+  base: number;
+  igv: number;
+}
+
+export interface IgvBreakdown {
+  period: string;
+  igv_rate: number | null;
+  sales: { lines: IgvSaleLine[]; total_amount: number; total_igv: number; truncated: boolean };
+  purchases: { lines: IgvPurchaseLine[]; total_amount: number; total_igv: number; truncated: boolean };
+  igv_balance: number;
+  igv_payable: number;
+}

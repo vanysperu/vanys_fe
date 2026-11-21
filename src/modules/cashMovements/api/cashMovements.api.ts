@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import type { ApiResponse } from '@/config/api.types';
 import type {
+  IgvBreakdown,
   MonthSummary,
   MonthSummaryParams,
   CashMovementListParams,
@@ -13,6 +14,13 @@ import type {
 } from '@/modules/cashMovements/types/cashMovement.types';
 
 // Resultado del mes, IGV estimado y neto después del IGV.
+// Detalle del IGV del mes (21-nov): mismos parámetros que el resumen.
+export async function getIgvBreakdown(params: MonthSummaryParams): Promise<IgvBreakdown> {
+  const response = await apiClient.get<ApiResponse<IgvBreakdown>>('/cash-movement/igv-breakdown', { params });
+  if (!response.data.success) throw response.data;
+  return response.data.data;
+}
+
 export async function getMonthSummary(params: MonthSummaryParams): Promise<MonthSummary> {
   const response = await apiClient.get<ApiResponse<MonthSummary>>('/cash-movement/month-summary', { params });
   if (!response.data.success) throw response.data;
