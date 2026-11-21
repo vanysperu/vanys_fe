@@ -64,8 +64,11 @@ test.describe('Cotización: productos no aceptados', () => {
 
     const excluded = detail.getByTestId('excluded-items');
     await expect(excluded).toContainText(droppedName);
-    // Con un solo producto aceptado ya no se ofrece desactivar el último.
-    await expect(detail.getByRole('button', { name: `Marcar ${keptName} como no aceptado` })).toHaveCount(0);
+    // Con un solo producto aceptado no se puede desactivar el último: desde el
+    // 21-nov el botón se ve deshabilitado con el motivo (antes desaparecía y
+    // el usuario creía que la acción no existía).
+    await expect(detail.getByRole('button', { name: `Marcar ${keptName} como no aceptado` })).toBeDisabled();
+    await expect(detail.getByTestId('exclusion-unavailable')).toContainText('debe quedar al menos un producto aceptado');
 
     await excluded.getByRole('button', { name: 'Reactivar' }).click();
     await expect(gestor.getByText('Producto reactivado. Nuevo total: S/ 300.00')).toBeVisible({ timeout: 10_000 });
