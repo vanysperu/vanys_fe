@@ -10,6 +10,8 @@ import { digitsFilter, withInputFilter } from '@/lib/inputRestrictions';
 import { buildAssetUrl } from '@/lib/utils';
 import { useUpdatePaymentAccount, useUploadCompanyAsset } from '@/modules/documentSettings/hooks/useDocumentSettings';
 import {
+  cciDigitsOf,
+  CCI_DIGITS,
   createPaymentAccountSchema,
   isMobileWallet,
   MOBILE_WALLET_DIGITS,
@@ -61,6 +63,7 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
       prefix_id: isAccountType(account?.prefix_id) ? account?.prefix_id : undefined,
       name: account?.name ?? '',
       ref1: account?.ref1 ?? '',
+      ref3: account?.ref3 ?? '',
       show_in_quotation: account?.show_in_quotation ?? true,
     },
   });
@@ -77,7 +80,15 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
     : register('ref1');
 
   const onSubmit = (values: CreatePaymentAccountFormValues) => {
-    const fields = { prefix_id: values.prefix_id, name: values.name, ref1: values.ref1, show_in_quotation: values.show_in_quotation };
+    // CCI solo en cuentas bancarias; vacío = sin CCI (null, también al editar para quitarlo).
+    const cci = values.prefix_id === 'bank' ? cciDigitsOf(values.ref3) : '';
+    const fields = {
+      prefix_id: values.prefix_id,
+      name: values.name,
+      ref1: values.ref1,
+      ref3: cci === '' ? null : cci,
+      show_in_quotation: values.show_in_quotation,
+    };
     const callbacks = {
       onSuccess: () => {
         toast.success(account ? 'Cuenta actualizada' : 'Cuenta agregada');
@@ -145,10 +156,19 @@ export function PaymentAccountForm({ account, companyId, onDone }: PaymentAccoun
         </div>
       </div>
       <div className="space-y-1">
-        <Label htmlFor={fieldId('ref1')}>Número de cuenta / teléfono</Label>
+        <Label htmlFor={fieldId('ref1')}>{watch('prefix_id') === 'bank' ? 'Número de cuenta' : 'Número de cuenta / teléfono'}</Label>
         <Input id={fieldId('ref1')} {...walletNumberProps} />
         {errors.ref1 && <p className="text-xs text-destructive">{errors.ref1.message}</p>}
       </div>
+      {/* Cuenta bancaria: también el CCI (pedido del usuario, 21-nov: "en Perú
+          tienes dos números de cuenta"). Sale en la cotización. */}
+      {watch('prefix_id') === 'bank' && (
+        <div className="space-y-1">
+          <Label htmlFor={fieldId('ref3')}>CCI – código interbancario (opcional)</Label>
+          <Input id={fieldId('ref3')} inputMode="numeric" placeholder={`${CCI_DIGITS} dígitos`} {...register('ref3')} />
+          {errors.ref3 && <p className="text-xs text-destructive">{errors.ref3.message}</p>}
+        </div>
+      )}
       <div className="space-y-1">
         <Label htmlFor={fieldId('qr')}>Imagen QR (opcional)</Label>
         {qrPreview && (

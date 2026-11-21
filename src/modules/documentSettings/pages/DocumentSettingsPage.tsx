@@ -299,6 +299,7 @@ function PaymentAccountsCard({ companyId }: { companyId?: number }) {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {TYPE_LABEL[account.prefix_id] ?? account.prefix_id} · {account.ref1}
+                      {account.prefix_id === 'bank' && account.ref3 ? ` · CCI ${account.ref3}` : ''}
                     </p>
                   </div>
                 </div>

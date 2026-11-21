@@ -12,6 +12,12 @@ const MOBILE_WALLET_LABEL: Record<string, string> = { yape: 'Yape', plin: 'Plin'
 
 export const isMobileWallet = (type: string | undefined): boolean => Boolean(type && MOBILE_WALLET_LABEL[type]);
 
+// CCI (código de cuenta interbancario): 20 dígitos (mismo criterio que el
+// backend, payment_account.service.ts). Se acepta con espacios o guiones.
+export const CCI_DIGITS = 20;
+const CCI_REGEX = /^\d{20}$/;
+export const cciDigitsOf = (value: string | undefined): string => (value ?? '').replace(/[\s-]/g, '');
+
 export const updateDocumentSettingsSchema = z.object({
   business_name: z.string().min(1, 'La razón social es obligatoria').max(255, 'Máximo 255 caracteres'),
   address: z.string().max(255, 'Máximo 255 caracteres').optional(),
@@ -30,9 +36,15 @@ export const createPaymentAccountSchema = z
     prefix_id: z.enum(['bank', 'yape', 'plin'], { error: 'Selecciona un tipo' }),
     name: z.string().min(1, 'El nombre es obligatorio').max(255, 'Máximo 255 caracteres'),
     ref1: z.string().min(1, 'El número de cuenta/teléfono es obligatorio').max(50, 'Máximo 50 caracteres'),
+    // Solo cuentas bancarias: en Perú cada cuenta tiene su número y su CCI.
+    ref3: z.string().max(40, 'Máximo 40 caracteres').optional(),
     show_in_quotation: z.boolean(),
   })
   .superRefine((values, ctx) => {
+    const cci = cciDigitsOf(values.ref3);
+    if (values.prefix_id === 'bank' && cci !== '' && !CCI_REGEX.test(cci)) {
+      ctx.addIssue({ code: 'custom', path: ['ref3'], message: `El CCI debe tener ${CCI_DIGITS} dígitos` });
+    }
     if (!isMobileWallet(values.prefix_id) || MOBILE_WALLET_REGEX.test(values.ref1)) return;
     ctx.addIssue({
       code: 'custom',
