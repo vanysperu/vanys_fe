@@ -97,7 +97,16 @@ export function TechniqueFormDialog({
 
   const onSubmit = (values: CreateTechniqueFormValues) => {
     if (isEditing && technique) {
-      const { company_id: _companyId, ...dto } = values;
+      const { company_id: _companyId, ...rest } = values;
+      // Un precio vaciado se manda como null para borrarlo; undefined el JSON
+      // lo omite y el backend conservaba el anterior (pedido del usuario, 21-nov).
+      const dto = {
+        ...rest,
+        price_unit: values.price_unit ?? null,
+        price_hundred: values.price_hundred ?? null,
+        price_half_thousand: values.price_half_thousand ?? null,
+        price_thousand: values.price_thousand ?? null,
+      };
       update(
         { id: technique.id, dto },
         {

@@ -525,7 +525,9 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
       // (null); al crear, simplemente no se manda.
       billing_name: values.billing_enabled ? values.billing_name : isCompleting ? null : undefined,
       billing_document_number: values.billing_enabled ? values.billing_document_number : isCompleting ? null : undefined,
-      production_days: values.production_days,
+      // Igual que la facturación: al editar/completar, vaciar los días debe
+      // borrarlos (null); undefined el JSON lo omite y quedaba el valor viejo.
+      production_days: values.production_days ?? (isCompleting ? null : undefined),
       includes_delivery: values.includes_delivery,
       includes_design: values.includes_design,
       includes_igv: values.includes_igv,

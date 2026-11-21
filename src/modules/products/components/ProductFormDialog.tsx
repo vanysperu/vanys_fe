@@ -126,9 +126,15 @@ export function ProductFormDialog({ product, onClose, fixedCompanyId, onCreated,
     };
     if (isEditing && product) {
       const { company_id: _companyId, ...rest } = values;
-      // Al editar, lo que se vació se manda como null para limpiarlo.
+      // Al editar, lo que se vació se manda como null para limpiarlo. Los
+      // precios también: un campo vacío queda undefined, el JSON lo omite y el
+      // backend conservaba el precio anterior (pedido del usuario, 21-nov).
       const dto = {
         ...rest,
+        price_unit: values.price_unit ?? null,
+        price_hundred: values.price_hundred ?? null,
+        price_half_thousand: values.price_half_thousand ?? null,
+        price_thousand: values.price_thousand ?? null,
         min_order_quantity: values.min_order_quantity ?? null,
         category_id: values.category_id ?? null,
         subcategory_id: values.subcategory_id ?? null,
