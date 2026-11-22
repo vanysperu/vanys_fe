@@ -28,6 +28,8 @@ const POLL_MS = 150;
 // la lección vuelve al último paso que sí está en pantalla.
 const MISSING_REWIND_MS = 2000;
 const CARD_WIDTH = 360;
+// Ancho mínimo de la tarjeta al costado de una ventana grande.
+const MIN_SIDE_WIDTH = 240;
 const CARD_GAP = 14;
 const EDGE = 8;
 
@@ -71,6 +73,14 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
   const seenToasts = useRef<WeakSet<Element>>(new WeakSet());
   const missingSince = useRef<number | null>(null);
   const advancing = useRef(false);
+  // El elemento del paso ya se llevó a la vista (una vez por paso, cuando aparece).
+  const scrolledStep = useRef<string | null>(null);
+  // Para los pasos "cerrar": cuándo empezó el paso y si la ventana ya se vio.
+  // (Se fija en el efecto de cada paso.)
+  const stepStartedAt = useRef(0);
+  const disappearSeen = useRef(false);
+  // Paso cuyo elemento quedó fuera de la pantalla (la persona se desplazó).
+  const [offscreenStepId, setOffscreenStepId] = useState<string | null>(null);
 
   // Paso terminado: guarda el avance en los checkpoints y al final.
   const advance = useCallback(() => {
@@ -99,13 +109,13 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
     return false;
   }, [active.floor, active.stepIndex, goTo, steps]);
 
-  // Al entrar a un paso: los avisos que ya estaban no cuentan, y se lleva la
-  // vista hasta el elemento.
+  // Al entrar a un paso: los avisos que ya estaban no cuentan.
   useEffect(() => {
     advancing.current = false;
     missingSince.current = null;
+    stepStartedAt.current = Date.now();
+    disappearSeen.current = false;
     seenToasts.current = new WeakSet(currentToasts());
-    findFirstTarget(step?.target)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [step]);
 
   // Bucle del paso: ubica la zona iluminada, la mano, y revisa si el paso terminó.
@@ -113,6 +123,12 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
     if (!step) return undefined;
     const tick = () => {
       const target = findFirstTarget(step.target);
+      // Se lleva la vista hasta el elemento cuando aparece (no al empezar el
+      // paso: la pantalla puede estar cargando o venir desplazada de otra).
+      if (target && scrolledStep.current !== step.id) {
+        scrolledStep.current = step.id;
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
       const allowed = (step.allow ?? []).map(findTarget).filter((element): element is HTMLElement => element !== null);
       const holes = [target, ...allowed, ...openPoppers()]
         .filter((element): element is HTMLElement => element !== null)
@@ -126,7 +142,9 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
           : { holes, pointer },
       );
 
-      if (isStepDone(step.done, pathname, seenToasts.current)) {
+      if (step.done.kind === 'disappear' && findTarget(step.done.target)) disappearSeen.current = true;
+      const waited = { seen: disappearSeen.current, elapsedMs: Date.now() - stepStartedAt.current };
+      if (isStepDone(step.done, pathname, seenToasts.current, waited)) {
         advance();
         return;
       }
@@ -134,6 +152,7 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
       if (!step.target || target) {
         missingSince.current = null;
         setMissingStepId(null);
+        setOffscreenStepId(target && !onScreen(target) ? step.id : null);
         return;
       }
       missingSince.current ??= Date.now();
@@ -206,6 +225,8 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
         total={steps.length}
         obstacles={hand ? [...boxes.holes, hand.area] : boxes.holes}
         missing={missingStepId === step.id}
+        offscreen={offscreenStepId === step.id}
+        onShowTarget={() => findFirstTarget(step.target)?.scrollIntoView({ block: 'center', behavior: 'smooth' })}
         blockedTouches={blockedTouches}
         onAck={advance}
         onSkip={advance}
@@ -217,14 +238,20 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
   );
 }
 
-function isStepDone(done: StepDone, pathname: string, seenToasts: WeakSet<Element>): boolean {
+function isStepDone(
+  done: StepDone,
+  pathname: string,
+  seenToasts: WeakSet<Element>,
+  waited: { seen: boolean; elapsedMs: number },
+): boolean {
   switch (done.kind) {
     case 'route':
       return pathname === done.path;
     case 'appear':
       return findTarget(done.target) !== null;
     case 'disappear':
-      return findTarget(done.target) === null;
+      if (findTarget(done.target) !== null) return false;
+      return !done.waitForAppearMs || waited.seen || waited.elapsedMs >= done.waitForAppearMs;
     case 'toast':
       return currentToasts().some(
         (toast) =>
@@ -322,6 +349,12 @@ interface CardPosition {
 // Tarjeta del paso: nunca encima de lo que hay que tocar (el elemento y las
 // listas abiertas, ej. las opciones de un buscador). Va debajo de todo eso, si
 // no arriba, si no al costado; si nada cabe, en la primera esquina libre.
+// ¿Se ve algo del elemento en la pantalla?
+const onScreen = (element: HTMLElement): boolean => {
+  const rect = element.getBoundingClientRect();
+  return rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth;
+};
+
 const intersects = (a: Box, b: Box): boolean =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
@@ -355,21 +388,33 @@ function computeCardPosition(holes: Box[], cardHeight: number, isMobile: boolean
   const centeredLeft = clampLeft(anchor.x + anchor.width / 2 - width / 2);
 
   const candidates: CardPosition[] = [];
-  if (anchor.y + anchor.height + CARD_GAP + cardHeight <= viewportHeight - EDGE) {
-    candidates.push({ left: centeredLeft, top: anchor.y + anchor.height + CARD_GAP, width });
+  const belowTop = anchor.y + anchor.height + CARD_GAP;
+  if (belowTop >= EDGE && belowTop + cardHeight <= viewportHeight - EDGE) {
+    candidates.push({ left: centeredLeft, top: belowTop, width });
   }
-  if (anchor.y - CARD_GAP - cardHeight >= EDGE) candidates.push({ left: centeredLeft, top: anchor.y - CARD_GAP - cardHeight, width });
-  if (anchor.x + anchor.width + CARD_GAP + width <= viewportWidth - EDGE) {
-    candidates.push({ left: anchor.x + anchor.width + CARD_GAP, top: clampTop(anchor.y), width });
+  const aboveTop = anchor.y - CARD_GAP - cardHeight;
+  if (aboveTop >= EDGE && aboveTop + cardHeight <= viewportHeight - EDGE) candidates.push({ left: centeredLeft, top: aboveTop, width });
+  // Al costado: si no entra el ancho completo, la tarjeta se angosta (así cabe
+  // junto a una ventana grande sin taparla).
+  const rightSpace = viewportWidth - (anchor.x + anchor.width) - CARD_GAP - EDGE;
+  if (rightSpace >= MIN_SIDE_WIDTH) {
+    candidates.push({ left: anchor.x + anchor.width + CARD_GAP, top: clampTop(anchor.y), width: Math.min(width, rightSpace) });
   }
-  if (anchor.x - CARD_GAP - width >= EDGE) candidates.push({ left: anchor.x - CARD_GAP - width, top: clampTop(anchor.y), width });
+  const leftSpace = anchor.x - CARD_GAP - EDGE;
+  if (leftSpace >= MIN_SIDE_WIDTH) {
+    const sideWidth = Math.min(width, leftSpace);
+    candidates.push({ left: anchor.x - CARD_GAP - sideWidth, top: clampTop(anchor.y), width: sideWidth });
+  }
+  // Esquinas: primero las de arriba. Si no queda otra que tapar algo, mejor el
+  // título de una ventana que sus botones de abajo ("Guardar", "Crear"...).
+  const topRight = { left: viewportWidth - width - EDGE * 2, top: EDGE * 2, width };
   const corners: CardPosition[] = [
+    topRight,
+    { left: EDGE * 2, top: EDGE * 2, width },
     { left: viewportWidth - width - EDGE * 2, top: viewportHeight - cardHeight - EDGE * 2, width },
     { left: EDGE * 2, top: viewportHeight - cardHeight - EDGE * 2, width },
-    { left: viewportWidth - width - EDGE * 2, top: EDGE * 2, width },
-    { left: EDGE * 2, top: EDGE * 2, width },
   ];
-  return [...candidates, ...corners].find(free) ?? candidates[0] ?? corners[0]!;
+  return [...candidates, ...corners].find(free) ?? topRight;
 }
 
 interface StepCardProps {
@@ -384,11 +429,14 @@ interface StepCardProps {
   onAck: () => void;
   onSkip: () => void;
   onRestartSection: () => void;
+  // El elemento del paso quedó fuera de la pantalla: botón para volver a él.
+  offscreen: boolean;
+  onShowTarget: () => void;
   onExit: () => void;
 }
 
 const StepCard = forwardRef<HTMLDivElement, StepCardProps>(function StepCard(
-  { lesson, step, index, total, obstacles, missing, blockedTouches, onAck, onSkip, onRestartSection, onExit },
+  { lesson, step, index, total, obstacles, missing, offscreen, blockedTouches, onAck, onSkip, onRestartSection, onShowTarget, onExit },
   ref,
 ) {
   const isMobile = useIsMobile();
@@ -462,6 +510,11 @@ const StepCard = forwardRef<HTMLDivElement, StepCardProps>(function StepCard(
       </h3>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
       {step.hint && <p className="mt-2 rounded-md bg-muted px-2.5 py-1.5 text-xs">{step.hint}</p>}
+      {offscreen && !missing && (
+        <Button type="button" size="sm" variant="outline" className="mt-2" onClick={onShowTarget}>
+          Muéstrame dónde
+        </Button>
+      )}
       {showNudge && !missing && (
         <p className="mt-2 text-xs font-medium text-brand-orange-deep">Primero haz lo que está iluminado.</p>
       )}

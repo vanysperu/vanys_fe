@@ -7,6 +7,7 @@ const IGV = dialogWith('¿Cómo se calculó el IGV');
 
 export const cashLesson: TutorialLesson = {
   code: 'cash',
+  section: 'finance',
   title: 'Caja e IGV del mes',
   summary: 'Lee el resumen del mes, entiende el IGV, registra un gasto y descarga el Excel.',
   minutes: 4,

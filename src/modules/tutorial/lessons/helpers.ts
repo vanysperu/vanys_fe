@@ -36,6 +36,8 @@ export function navigateStep(options: {
     // Si el grupo está cerrado, lo iluminado es el grupo: el texto dice dónde buscar.
     body: options.group ? `${options.body} Está en el menú, dentro de "${options.group}".` : options.body,
     target: [
+      // Primero el enlace con su nombre (para "/" no es el logo, que no tiene texto).
+      { css: `${SIDEBAR} a[href="${options.path}"]`, text: options.label },
       { css: `${SIDEBAR} a[href="${options.path}"]` },
       ...(options.group ? [{ css: `${SIDEBAR} button[aria-expanded]`, text: options.group, exact: true }] : []),
       { css: 'button[aria-label="Abrir menú"]' },

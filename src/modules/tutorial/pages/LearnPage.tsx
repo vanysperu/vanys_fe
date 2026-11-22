@@ -9,7 +9,7 @@ import { enterPracticeSession } from '@/modules/tutorial/engine/practiceSession'
 import { useLessonProgress, useStartPractice, useTeamProgress } from '@/modules/tutorial/hooks/useTutorial';
 import { useStartLesson } from '@/modules/tutorial/hooks/useStartLesson';
 import { pendingLesson, useTutorialStore } from '@/modules/tutorial/hooks/useTutorialStore';
-import { LESSONS, lessonsFor } from '@/modules/tutorial/lessons';
+import { LESSON_SECTIONS, LESSONS, lessonsFor } from '@/modules/tutorial/lessons';
 import type { TeamMemberProgress, TutorialLesson } from '@/modules/tutorial/types/tutorial.types';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { EmptyState } from '@/presentation/components/shared/EmptyState';
@@ -142,9 +142,23 @@ function LessonGrid({ lessons, completed, isPractice }: { lessons: TutorialLesso
     });
   };
 
+  // Número de lección continuo en todo el curso; las tarjetas van agrupadas por sección.
+  const numberOf = new Map(lessons.map((lesson, index) => [lesson.code, index + 1]));
+  const sections = LESSON_SECTIONS.map((section) => ({
+    ...section,
+    lessons: lessons.filter((lesson) => lesson.section === section.key),
+  })).filter((section) => section.lessons.length > 0);
+
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {lessons.map((lesson, index) => {
+    <div className="space-y-6">
+      {sections.map((section) => (
+        <section key={section.key} className="space-y-3" data-testid={`lesson-section-${section.key}`}>
+          <div>
+            <h2 className="font-semibold">{section.title}</h2>
+            <p className="text-sm text-muted-foreground">{section.description}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {section.lessons.map((lesson) => {
         const isDone = completed.has(lesson.code);
         const Icon = lesson.icon;
         const busy = isPreparing || isEntering || activeCode !== null;
@@ -159,7 +173,7 @@ function LessonGrid({ lessons, completed, isPractice }: { lessons: TutorialLesso
                 <Icon className="size-5 text-muted-foreground" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lección {index + 1}</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lección {numberOf.get(lesson.code)}</p>
                 <h3 className="font-semibold leading-snug">{lesson.title}</h3>
               </div>
               {isDone && (
@@ -188,6 +202,9 @@ function LessonGrid({ lessons, completed, isPractice }: { lessons: TutorialLesso
           </div>
         );
       })}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

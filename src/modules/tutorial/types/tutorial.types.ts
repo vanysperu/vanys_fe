@@ -33,8 +33,10 @@ export type StepDone =
   | { kind: 'route'; path: string }
   // Apareció este elemento (ej. se abrió una ventana).
   | { kind: 'appear'; target: TargetSpec }
-  // Desapareció este elemento (ej. se cerró una ventana).
-  | { kind: 'disappear'; target: TargetSpec }
+  // Desapareció este elemento (ej. se cerró una ventana). Con `waitForAppearMs`,
+  // primero espera a que aparezca (la ventana puede abrirse un instante después
+  // del aviso); si no aparece en ese tiempo, el paso pasa igual.
+  | { kind: 'disappear'; target: TargetSpec; waitForAppearMs?: number }
   // Salió un aviso de éxito con alguno de estos textos (solo avisos nuevos del paso).
   | { kind: 'toast'; texts: string[] }
   // Condición propia de la lección (se evalúa varias veces por segundo).
@@ -64,10 +66,22 @@ export interface LessonContext {
   quotationId: number | null;
 }
 
-export type LessonPreparation = 'pending_quotation' | 'accepted_quotation';
+// Datos que el backend prepara antes de la lección (espejo de LESSON_PREPARATIONS).
+export type LessonPreparation =
+  | 'pending_quotation'
+  | 'accepted_quotation'
+  | 'ready_quotation'
+  | 'purchase_order'
+  | 'pending_invoice_purchase'
+  | 'employee_debt'
+  | 'warehouse';
+
+// Secciones de "Aprender" (para ordenar tantas lecciones).
+export type LessonSection = 'start' | 'sales' | 'finance' | 'settings' | 'operations';
 
 export interface TutorialLesson {
   code: string;
+  section: LessonSection;
   title: string;
   summary: string;
   minutes: number;

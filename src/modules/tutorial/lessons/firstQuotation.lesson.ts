@@ -9,6 +9,7 @@ const TECHNIQUE = '[data-tour="quotation-item-0-technique"]';
 
 export const firstQuotationLesson: TutorialLesson = {
   code: 'first-quotation',
+  section: 'start',
   title: 'Tu primera cotización',
   summary: 'Arma una cotización con cliente, producto y técnica, y mira cómo se calcula el total.',
   minutes: 4,

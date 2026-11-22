@@ -5,6 +5,7 @@ import type { TutorialLesson } from '@/modules/tutorial/types/tutorial.types';
 
 export const purchasesLesson: TutorialLesson = {
   code: 'purchases',
+  section: 'sales',
   title: 'Compras del pedido',
   summary: 'Crea la orden de compra de un pedido y registra lo que compraste.',
   minutes: 4,

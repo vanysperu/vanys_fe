@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 import {
   apiJson,
@@ -11,6 +11,21 @@ import {
   waitForToastsToClear,
   type DisposableCashCompany,
 } from '../helpers';
+import {
+  ack,
+  detail,
+  expectHandClear,
+  expectStep,
+  finishLesson,
+  lessonsTotal,
+  markStatus,
+  newWatchedPage,
+  openFromMenu,
+  openPreparedQuotation,
+  openTab,
+  PNG_1X1,
+  startLesson,
+} from './tutorialHelpers';
 
 // Modo enseñanza (pedido del usuario, 21-nov): un administrador entra a su
 // empresa de práctica y completa TODAS las lecciones siguiendo la luz, como lo
@@ -20,11 +35,8 @@ import {
 // Corre con el E2E completo (npm run test:e2e:full, base grulla_e2e_local).
 
 const SUPERADMIN = { email: 'admin@acme.test', password: 'Test1234' };
-const PNG_1X1 = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-  'base64',
-);
-const TOTAL_LESSONS = 10;
+// Lecciones que completa esta prueba (las del camino del pedido y la gestión).
+const LESSONS_DONE_HERE = 10;
 
 interface Envelope<T> {
   success: boolean;
@@ -37,80 +49,8 @@ let company: DisposableCashCompany;
 let superToken = '';
 let adminContext: BrowserContext;
 let admin: Page;
-
-const newWatchedPage = async (browser: Browser, label: string): Promise<[BrowserContext, Page]> => {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  page.on('crash', () => console.log(`[${label}] la pestaña se cayó (crash) en ${page.url()}`));
-  page.on('pageerror', (error) => console.log(`[${label}] error de la página en ${page.url()}: ${error.message}`));
-  return [context, page];
-};
-
-// ---- Cómo sigue una persona la lección ----
-
-const stepTitle = (page: Page) => page.getByTestId('tutorial-step-title');
-const expectStep = (page: Page, title: string | RegExp) => expect(stepTitle(page)).toHaveText(title, { timeout: 15_000 });
-const ack = async (page: Page, title: string | RegExp) => {
-  await expectStep(page, title);
-  await page.getByTestId('tutorial-ack').click();
-};
-const detail = (page: Page) => page.getByRole('dialog', { name: /^Cotización #\d+$/ });
-
-// La mano nunca queda debajo del cuadro del paso ni encima de lo iluminado
-// (pedido del usuario: "la mano no debe ser tapada por el cuadro ni tapar las letras").
-const expectHandClear = async (page: Page) => {
-  const hand = await page.getByTestId('tutorial-hand').boundingBox();
-  const card = await page.locator('[data-tutorial-card]').boundingBox();
-  const ring = await page.getByTestId('tutorial-ring').boundingBox();
-  expect(hand, 'la mano está en pantalla').not.toBeNull();
-  const overlaps = (a: typeof hand, b: typeof hand) =>
-    a !== null && b !== null && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-  expect(overlaps(hand, card), 'el cuadro tapa la mano').toBe(false);
-  expect(overlaps(hand, ring), 'la mano tapa lo iluminado').toBe(false);
-};
-
-// Paso "Abre ...": por el menú, abriendo el grupo si está cerrado.
-const openFromMenu = async (page: Page, label: string, path: string, group: string) => {
-  await expectStep(page, `Abre "${label}"`);
-  const link = page.locator(`[data-slot="sidebar"] a[href="${path}"]`);
-  if (!(await link.isVisible())) {
-    await page.locator('[data-slot="sidebar"]').getByRole('button', { name: group, exact: true }).click();
-  }
-  await link.click();
-  await expect(page).toHaveURL(new RegExp(`${path}$`));
-};
-
-// Paso "Abre COT-0001": el número sale del título del paso.
-const openPreparedQuotation = async (page: Page) => {
-  await expectStep(page, /^Abre COT-\d{4}$/);
-  const id = Number(((await stepTitle(page).textContent()) ?? '').replace(/\D/g, ''));
-  await page.locator(`[data-testid="quotations-board"] [data-quotation-id="${id}"]`).click();
-  await expect(detail(page)).toBeVisible();
-};
-
-const openTab = async (page: Page, tab: string) => {
-  await expectStep(page, `Entra a la pestaña "${tab}"`);
-  await detail(page).getByRole('tab', { name: tab }).click();
-};
-
-const markStatus = async (page: Page, label: string) => {
-  await expectStep(page, `Marca "${label}"`);
-  await detail(page).getByRole('button', { name: label, exact: true }).click();
-};
-
-const finishLesson = async (page: Page) => {
-  const finished = page.getByTestId('tutorial-finished');
-  await expect(finished).toBeVisible({ timeout: 15_000 });
-  await finished.getByRole('button', { name: 'Ver todas las lecciones' }).click();
-  await expect(page).toHaveURL(/\/aprender$/);
-};
-
-const startLesson = async (page: Page, code: string) => {
-  await expect(page).toHaveURL(/\/aprender$/);
-  await waitForToastsToClear(page);
-  await page.getByTestId(`lesson-${code}`).getByRole('button').click();
-  await expect(page.locator('[data-tutorial-card]')).toBeVisible({ timeout: 15_000 });
-};
+// Cuántas lecciones le tocan al admin (sin las de módulos no contratados).
+let totalLessons = 0;
 
 test.beforeAll(async ({ browser, request }) => {
   const login = await apiJson<Envelope<{ Jwt: string }>>(request, 'post', '/signin', null, SUPERADMIN);
@@ -136,7 +76,9 @@ test.describe('Modo enseñanza', () => {
     await expect(admin.getByTestId('lesson-tour')).toBeVisible();
     await admin.getByRole('button', { name: 'Entrar a la práctica' }).click();
     await expect(admin.getByTestId('practice-mode-banner')).toBeVisible({ timeout: 20_000 });
-    await expect(admin.getByTestId('course-progress')).toContainText(`0 de ${TOTAL_LESSONS} lecciones`);
+    totalLessons = await lessonsTotal(admin);
+    expect(totalLessons).toBeGreaterThan(LESSONS_DONE_HERE);
+    await expect(admin.getByTestId('course-progress')).toContainText(`0 de ${totalLessons} lecciones`);
   });
 
   test('02. lección "Conoce el sistema"', async () => {
@@ -153,8 +95,10 @@ test.describe('Modo enseñanza', () => {
     await startLesson(admin, 'first-quotation');
     await expectStep(admin, 'Abre "Cotizaciones"');
     // Tocar fuera de lo iluminado no hace nada: la tarjeta avisa.
-    await admin.getByTestId('lesson-catalog').getByRole('button').click({ force: true });
+    // ("Reiniciar práctica", arriba a la derecha: si no estuviera bloqueado, abriría su confirmación.)
+    await admin.getByTestId('practice-mode-banner').getByRole('button', { name: 'Reiniciar práctica' }).click({ force: true });
     await expect(admin.locator('[data-tutorial-card]')).toContainText('Primero haz lo que está iluminado.');
+    await expect(admin.getByRole('dialog', { name: '¿Reiniciar la práctica?' })).toHaveCount(0);
     await expect(admin).toHaveURL(/\/aprender$/);
     await expectStep(admin, 'Abre "Cotizaciones"');
 
@@ -330,7 +274,7 @@ test.describe('Modo enseñanza', () => {
     await form.getByRole('button', { name: 'Guardar' }).click();
     await ack(admin, '¡Cuenta lista!');
     await finishLesson(admin);
-    await expect(admin.getByTestId('course-progress')).toContainText(`${TOTAL_LESSONS} de ${TOTAL_LESSONS} lecciones`);
+    await expect(admin.getByTestId('course-progress')).toContainText(`${LESSONS_DONE_HERE} de ${totalLessons} lecciones`);
   });
 
   test('12. "Reiniciar práctica" deja la empresa como nueva y conserva el avance', async () => {
@@ -346,7 +290,7 @@ test.describe('Modo enseñanza', () => {
     expect((await reset).status()).toBe(200);
     await reload;
     await expect(admin.getByTestId('practice-mode-banner')).toBeVisible({ timeout: 20_000 });
-    await expect(admin.getByTestId('course-progress')).toContainText(`${TOTAL_LESSONS} de ${TOTAL_LESSONS} lecciones`);
+    await expect(admin.getByTestId('course-progress')).toContainText(`${LESSONS_DONE_HERE} de ${totalLessons} lecciones`);
 
     const after = await apiJson<Envelope<{ data: unknown[] }>>(admin.request, 'get', '/client/list?page=1&limit=100', await pageAuthToken(admin));
     expect(after.body.data.data.length).toBe(3);
@@ -358,7 +302,7 @@ test.describe('Modo enseñanza', () => {
     await expect(admin.getByRole('button', { name: 'Entrar a la práctica' })).toBeVisible({ timeout: 20_000 });
     await expect(admin.getByTestId('practice-mode-banner')).toHaveCount(0);
     const team = admin.getByTestId('team-progress');
-    await expect(team.locator('tr', { hasText: company.adminEmail })).toContainText(`${TOTAL_LESSONS} de ${TOTAL_LESSONS}`);
+    await expect(team.locator('tr', { hasText: company.adminEmail })).toContainText(`${LESSONS_DONE_HERE} de ${totalLessons}`);
 
     // La empresa real no tiene ni una cotización ni un cliente de la práctica.
     const realToken = await pageAuthToken(admin);

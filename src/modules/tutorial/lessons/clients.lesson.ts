@@ -7,6 +7,7 @@ const FORM = dialogWith('Nuevo cliente');
 
 export const clientsLesson: TutorialLesson = {
   code: 'clients',
+  section: 'sales',
   title: 'Tus clientes',
   summary: 'Registra un cliente con sus datos para cotizarle más rápido.',
   minutes: 2,

@@ -7,6 +7,7 @@ const ADVANCE = dialogWith('¿El cliente pagó adelanto?');
 
 export const acceptAndCollectLesson: TutorialLesson = {
   code: 'accept-and-collect',
+  section: 'sales',
   title: 'El cliente aceptó: adelanto y pagos',
   summary: 'Marca la cotización como aceptada, registra el adelanto y los pagos que vengan.',
   minutes: 4,

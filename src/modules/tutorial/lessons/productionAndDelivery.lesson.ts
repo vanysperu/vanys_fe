@@ -7,6 +7,7 @@ const FINISH = dialogWith('Finalizar COT-');
 
 export const productionAndDeliveryLesson: TutorialLesson = {
   code: 'production-and-delivery',
+  section: 'sales',
   title: 'Diseño, producción y entrega',
   summary: 'Sube el diseño, avanza la cotización paso a paso hasta entregarla y ciérrala.',
   minutes: 5,

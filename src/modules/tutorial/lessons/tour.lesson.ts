@@ -6,6 +6,7 @@ import type { TutorialLesson } from '@/modules/tutorial/types/tutorial.types';
 // Lección 1: un paseo por la pantalla (solo mirar, sin guardar nada).
 export const tourLesson: TutorialLesson = {
   code: 'tour',
+  section: 'start',
   title: 'Conoce el sistema',
   summary: 'Dónde está cada cosa: el menú, el botón de cotizar, los avisos y tu perfil.',
   minutes: 2,

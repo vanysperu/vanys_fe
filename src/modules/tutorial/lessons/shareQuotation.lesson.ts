@@ -8,6 +8,7 @@ const SHARE = dialogWith('Compartir COT-');
 
 export const shareQuotationLesson: TutorialLesson = {
   code: 'share-quotation',
+  section: 'sales',
   title: 'Envíala a tu cliente',
   summary: 'Mira el PDF y compártelo por enlace, WhatsApp o correo.',
   minutes: 3,

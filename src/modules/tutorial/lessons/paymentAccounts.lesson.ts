@@ -7,6 +7,7 @@ const FORM = '[data-testid="payment-account-form"]';
 
 export const paymentAccountsLesson: TutorialLesson = {
   code: 'payment-accounts',
+  section: 'settings',
   title: 'Tus cuentas para cobrar',
   summary: 'Agrega una cuenta bancaria con su CCI (o Yape/Plin) para que salga en tus cotizaciones.',
   minutes: 2,

@@ -8,6 +8,7 @@ const TECHNIQUE_FORM = dialogWith('Nueva técnica');
 
 export const catalogLesson: TutorialLesson = {
   code: 'catalog',
+  section: 'sales',
   title: 'Productos y técnicas',
   summary: 'Agrega un producto con sus precios y una técnica de personalización.',
   minutes: 4,
