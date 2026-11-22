@@ -56,6 +56,19 @@ const ack = async (page: Page, title: string | RegExp) => {
 };
 const detail = (page: Page) => page.getByRole('dialog', { name: /^Cotización #\d+$/ });
 
+// La mano nunca queda debajo del cuadro del paso ni encima de lo iluminado
+// (pedido del usuario: "la mano no debe ser tapada por el cuadro ni tapar las letras").
+const expectHandClear = async (page: Page) => {
+  const hand = await page.getByTestId('tutorial-hand').boundingBox();
+  const card = await page.locator('[data-tutorial-card]').boundingBox();
+  const ring = await page.getByTestId('tutorial-ring').boundingBox();
+  expect(hand, 'la mano está en pantalla').not.toBeNull();
+  const overlaps = (a: typeof hand, b: typeof hand) =>
+    a !== null && b !== null && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  expect(overlaps(hand, card), 'el cuadro tapa la mano').toBe(false);
+  expect(overlaps(hand, ring), 'la mano tapa lo iluminado').toBe(false);
+};
+
 // Paso "Abre ...": por el menú, abriendo el grupo si está cerrado.
 const openFromMenu = async (page: Page, label: string, path: string, group: string) => {
   await expectStep(page, `Abre "${label}"`);
@@ -145,10 +158,13 @@ test.describe('Modo enseñanza', () => {
     await expect(admin).toHaveURL(/\/aprender$/);
     await expectStep(admin, 'Abre "Cotizaciones"');
 
+    await expectHandClear(admin);
     await openFromMenu(admin, 'Cotizaciones', '/cotizaciones', 'Ventas');
     await expectStep(admin, 'Crea una cotización nueva');
+    await expectHandClear(admin);
     await admin.locator('main button', { hasText: 'Nueva cotización' }).click();
     await expectStep(admin, 'Elige el cliente');
+    await expectHandClear(admin);
     await chooseSearchableSelect(admin, 'Cliente', 'Comercial Los Andes SAC');
     await expectStep(admin, 'Elige el producto');
     await chooseSearchableSelect(admin, 'Producto', 'Polo de algodón');

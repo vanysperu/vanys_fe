@@ -118,7 +118,8 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
         .filter((element): element is HTMLElement => element !== null)
         .map((element) => boxOf(element));
       const pointerElement = step.pointer === null ? null : findFirstTarget(step.pointer ?? step.target);
-      const pointer = pointerElement ? boxOf(pointerElement, 0) : null;
+      // Mismo margen que el borde naranja: la mano se ubica fuera de él.
+      const pointer = pointerElement ? boxOf(pointerElement) : null;
       setBoxes((previous) =>
         sameBoxes(previous.holes, holes) && sameBoxes(previous.pointer ? [previous.pointer] : [], pointer ? [pointer] : [])
           ? previous
@@ -189,20 +190,21 @@ function LessonRunner({ lesson, active }: { lesson: TutorialLesson; active: Acti
 
   if (!step) return null;
 
+  const hand = boxes.pointer ? handPlacement(boxes.pointer) : null;
   const restartSection = () => goTo(active.floor);
 
   return createPortal(
     <>
       <Spotlight holes={boxes.holes} />
       {boxes.holes[0] && <PulseRing box={boxes.holes[0]} />}
-      {boxes.pointer && <PointerHand box={boxes.pointer} />}
+      {hand && <PointerHand placement={hand} />}
       <StepCard
         ref={cardRef}
         lesson={lesson}
         step={step}
         index={active.stepIndex}
         total={steps.length}
-        holes={boxes.holes}
+        obstacles={hand ? [...boxes.holes, hand.area] : boxes.holes}
         missing={missingStepId === step.id}
         blockedTouches={blockedTouches}
         onAck={advance}
@@ -259,6 +261,7 @@ function PulseRing({ box }: { box: Box }) {
   return (
     <motion.div
       aria-hidden
+      data-testid="tutorial-ring"
       className="pointer-events-none fixed z-[61] rounded-[10px] ring-[3px] ring-brand-orange"
       style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
       animate={{ opacity: [1, 0.35, 1], scale: [1, 1.015, 1] }}
@@ -268,19 +271,44 @@ function PulseRing({ box }: { box: Box }) {
 }
 
 // Mano que apunta al elemento (debajo; arriba si no hay espacio).
-function PointerHand({ box }: { box: Box }) {
-  const below = box.y + box.height + 44 < window.innerHeight;
-  const left = box.x + box.width / 2 - 16;
-  const top = below ? box.y + box.height + 2 : box.y - 38;
+// Mano que apunta al elemento: debajo del borde naranja (arriba si no hay
+// espacio), SIEMPRE fuera de él. El rebote la aleja y la acerca sin entrar
+// nunca al elemento, así no tapa sus letras (pedido del usuario).
+const HAND_SIZE = 36;
+const HAND_GAP = 4;
+const HAND_BOUNCE = 8;
+
+interface HandPlacement {
+  left: number;
+  top: number;
+  below: boolean;
+  // Todo lo que ocupa la mano con su rebote: la tarjeta no se pone encima.
+  area: Box;
+}
+
+function handPlacement(box: Box): HandPlacement {
+  const below = box.y + box.height + HAND_GAP + HAND_SIZE + HAND_BOUNCE <= window.innerHeight;
+  const left = Math.min(Math.max(EDGE, box.x + box.width / 2 - HAND_SIZE / 2), window.innerWidth - HAND_SIZE - EDGE);
+  const top = below ? box.y + box.height + HAND_GAP : box.y - HAND_GAP - HAND_SIZE;
+  const area = { x: left, y: below ? top : top - HAND_BOUNCE, width: HAND_SIZE, height: HAND_SIZE + HAND_BOUNCE };
+  return { left, top, below, area };
+}
+
+function PointerHand({ placement }: { placement: HandPlacement }) {
+  const away = placement.below ? HAND_BOUNCE : -HAND_BOUNCE;
   return (
     <motion.div
       aria-hidden
-      className="pointer-events-none fixed z-[62]"
-      style={{ left, top }}
-      animate={{ y: below ? [0, -8, 0] : [0, 8, 0] }}
+      data-testid="tutorial-hand"
+      className="pointer-events-none fixed z-[64]"
+      style={{ left: placement.left, top: placement.top }}
+      animate={{ y: [away, 0, away] }}
       transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
     >
-      <Pointer className={`size-9 fill-white text-brand-orange-deep drop-shadow-lg ${below ? '' : 'rotate-180'}`} strokeWidth={1.75} />
+      <Pointer
+        className={`size-9 fill-white text-brand-orange-deep drop-shadow-lg ${placement.below ? '' : 'rotate-180'}`}
+        strokeWidth={1.75}
+      />
     </motion.div>
   );
 }
@@ -349,7 +377,8 @@ interface StepCardProps {
   step: TutorialStep;
   index: number;
   total: number;
-  holes: Box[];
+  // Lo que la tarjeta no debe tapar: zonas iluminadas, listas abiertas y la mano.
+  obstacles: Box[];
   missing: boolean;
   blockedTouches: number;
   onAck: () => void;
@@ -359,7 +388,7 @@ interface StepCardProps {
 }
 
 const StepCard = forwardRef<HTMLDivElement, StepCardProps>(function StepCard(
-  { lesson, step, index, total, holes, missing, blockedTouches, onAck, onSkip, onRestartSection, onExit },
+  { lesson, step, index, total, obstacles, missing, blockedTouches, onAck, onSkip, onRestartSection, onExit },
   ref,
 ) {
   const isMobile = useIsMobile();
@@ -388,7 +417,7 @@ const StepCard = forwardRef<HTMLDivElement, StepCardProps>(function StepCard(
     void controls.start({ x: [0, -10, 10, -7, 7, -3, 0], transition: { duration: 0.45 } });
   }, [blockedTouches, controls]);
 
-  const position = computeCardPosition(holes, cardHeight, isMobile);
+  const position = computeCardPosition(obstacles, cardHeight, isMobile);
   const progress = Math.round(((index + 1) / total) * 100);
   const showNudge = blockedTouches > 0 && step.done.kind !== 'ack';
 
