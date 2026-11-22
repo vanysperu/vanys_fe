@@ -5,6 +5,8 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AppSidebar } from '@/app/layout/AppSidebar';
 import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuotationDialog';
 import { ReminderBell } from '@/modules/reminders/components/ReminderBell';
+import { PracticeModeBanner } from '@/modules/tutorial/components/PracticeModeBanner';
+import { TutorialOverlay } from '@/modules/tutorial/components/TutorialOverlay';
 import { ThemeToggle } from '@/presentation/components/shared/ThemeToggle';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { SidebarProvider, SidebarTrigger } from '@/presentation/components/shared/ui/sidebar';
@@ -35,6 +37,8 @@ export function Shell() {
     <SidebarProvider className="h-svh bg-muted/30">
       <AppSidebar />
       <main className="scrollbar-thin min-w-0 flex-1 overflow-y-auto">
+        {/* Modo enseñanza (21-nov): solo en la empresa de práctica. */}
+        {access?.isPractice && <PracticeModeBanner />}
         <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/80 px-4 py-2 backdrop-blur">
           {/* Celular: el menú lateral vive escondido en un panel deslizable y
               su propio botón está adentro de él, así que sin este botón no
@@ -80,6 +84,8 @@ export function Shell() {
           }
         />
       )}
+      {/* Capa del modo enseñanza: solo dibuja algo con una lección en curso. */}
+      {access?.isPractice && <TutorialOverlay />}
     </SidebarProvider>
   );
 }

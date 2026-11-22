@@ -78,6 +78,8 @@ const InvoicesPage = lazy(() =>
 );
 // Préstamos a personas (21-nov).
 const LoansPage = lazy(() => import('@/modules/loans/pages/LoansPage').then((m) => ({ default: m.LoansPage })));
+// Aprender: modo enseñanza (21-nov).
+const LearnPage = lazy(() => import('@/modules/tutorial/pages/LearnPage').then((m) => ({ default: m.LearnPage })));
 const EmployeeDebtsPage = lazy(() =>
   import('@/modules/employeeDebts/pages/EmployeeDebtsPage').then((m) => ({ default: m.EmployeeDebtsPage })),
 );
@@ -158,6 +160,7 @@ export default function PrivateRoutes() {
           <Route path="/por-cobrar" element={<ReceivablesPage />} />
           <Route path="/recordatorios" element={<RemindersPage />} />
           <Route path="/estadisticas" element={<StatisticsPage />} />
+          <Route path="/aprender" element={<LearnPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

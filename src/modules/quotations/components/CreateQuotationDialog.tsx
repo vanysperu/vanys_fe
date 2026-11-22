@@ -648,7 +648,8 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
 
           {!isCompleting && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+            {/* data-tour: marcas para el modo enseñanza (lección "Tu primera cotización"). */}
+            <div className="space-y-2" data-tour="quotation-client">
               <Label>Cliente</Label>
               <div className="flex items-center gap-1">
                 <SearchableSelect
@@ -829,7 +830,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                     </Button>
                   </div>
                   <div className="grid grid-cols-12 items-start gap-2">
-                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-6">
+                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-6" data-tour={`quotation-item-${index}-product`}>
                       <Label className="text-xs">Producto</Label>
                       <div className="flex items-center gap-1">
                         <SearchableSelect
@@ -890,7 +891,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                       </div>
                     </div>
 
-                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-6">
+                    <div className="col-span-12 min-w-0 space-y-1 sm:col-span-6" data-tour={`quotation-item-${index}-technique`}>
                       <Label className="text-xs">Técnica</Label>
                       {!usesTechnique && (
                         <p className="flex h-9 items-center text-xs text-muted-foreground" data-testid={`item-no-customization-${index}`}>
@@ -1014,7 +1015,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="w-28 space-y-1">
+                    <div className="w-28 space-y-1" data-tour={`quotation-item-${index}-quantity`}>
                       <Label className="text-xs">Cantidad</Label>
                       <Input
                         type="number"
@@ -1218,7 +1219,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
           {apiError && <p className="text-sm text-destructive">{apiError.message}</p>}
 
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} data-tour="quotation-submit">
               <Check className="size-4" />
               {isCompleting
                 ? isPending

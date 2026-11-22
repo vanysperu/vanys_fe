@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bell, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, ChevronDown, GraduationCap, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { logout } from '@/modules/auth/api/auth.api';
 import { useAuthStore } from '@/modules/auth/hooks/useAuthStore';
 import { disablePushOnThisDevice } from '@/modules/pushNotifications/hooks/usePushNotifications';
 import { PushNotificationsDialog } from '@/modules/pushNotifications/components/PushNotificationsDialog';
+import { forgetPracticeReturn } from '@/modules/tutorial/engine/practiceSession';
 import { Avatar, AvatarFallback } from '@/presentation/components/shared/ui/avatar';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/components/shared/ui/popover';
@@ -88,6 +89,8 @@ export function AppSidebar() {
       // datos/permisos de esta sesión todavía en memoria.
       queryClient.clear();
       clearToken();
+      // Modo enseñanza: que la próxima persona en este equipo no pueda "volver" a esta cuenta.
+      forgetPracticeReturn();
       navigate('/login', { replace: true });
     },
   });
@@ -232,6 +235,17 @@ export function AppSidebar() {
               <Bell className="size-4" />
               Notificaciones
             </button>
+            {/* Modo enseñanza (21-nov): lecciones guiadas en una empresa de práctica. */}
+            {access && !access.isSystem && (
+              <button
+                type="button"
+                onClick={() => navigate('/aprender')}
+                className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+              >
+                <GraduationCap className="size-4" />
+                Aprender a usar el sistema
+              </button>
+            )}
             <button
               type="button"
               disabled={isPending}

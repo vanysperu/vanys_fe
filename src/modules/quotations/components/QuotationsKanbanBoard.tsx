@@ -286,6 +286,8 @@ function QuotationCard({
   return (
     <div
       onClick={onClick}
+      // Marca para el modo enseñanza: la lección señala la cotización de práctica.
+      data-quotation-id={quotation.id}
       className={cn(
         'cursor-grab space-y-2 rounded-lg border bg-card p-3 shadow-sm select-none active:cursor-grabbing',
         dragging && 'shadow-lg ring-2 ring-primary',

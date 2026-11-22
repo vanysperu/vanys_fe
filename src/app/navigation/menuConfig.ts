@@ -63,6 +63,8 @@ export const MENU_LAYOUT: readonly MenuLayoutEntry[] = [
     },
   },
   { kind: 'module', moduleCode: 'reminder' },
+  // Modo enseñanza (21-nov): "Aprender", para todos los roles de empresa.
+  { kind: 'module', moduleCode: 'tutorial' },
   {
     kind: 'group',
     group: {

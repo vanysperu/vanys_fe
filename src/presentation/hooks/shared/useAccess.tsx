@@ -57,6 +57,9 @@ export interface MyAccess {
   // Funcionalidades contratadas por la empresa (Sprint 2, company_feature).
   // Vacío para el Super Administrador (sin empresa).
   features: string[];
+  // Modo enseñanza (21-nov): la sesión es la de un usuario de práctica (su
+  // empresa es una empresa de práctica). Muestra la franja y las lecciones.
+  isPractice: boolean;
 }
 
 // "Tienda o empresa": la etiqueta a mostrar en el bloque de usuario del

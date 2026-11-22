@@ -11,7 +11,11 @@ import { defineConfig, devices } from '@playwright/test';
 // Levanta SU PROPIO backend y frontend (no reutiliza los de desarrollo):
 //   - backend: grulla_be/scripts/e2e-full-server.js, que crea/migra/resetea la
 //     base E2E_PROY_BD (grulla_e2e_local) y escucha en E2E_PROY_APP_PORT;
-//   - frontend: Vite en E2E_FRONT_PORT apuntando a ese backend.
+//   - frontend: el BUILD de producción (vite build + vite preview) en
+//     E2E_FRONT_PORT apuntando a ese backend. No el servidor de desarrollo:
+//     ese sirve cientos de archivos sueltos y Chromium a veces se quedaba sin
+//     recursos (ERR_INSUFFICIENT_RESOURCES) y una pantalla quedaba en blanco.
+//     Además el build es lo que de verdad usa el cliente.
 // Los puertos y la base salen del .env del backend (bloque E2E_*), una sola
 // fuente para los dos repos.
 
@@ -71,11 +75,13 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
-      command: `npm run dev -- --port ${FRONT_PORT}`,
+      // Build en su propia carpeta (dist-e2e) para no pisar el dist del release.
+      command: `npx vite build --outDir dist-e2e --emptyOutDir && npx vite preview --outDir dist-e2e --port ${FRONT_PORT} --strictPort`,
       url: `http://localhost:${FRONT_PORT}`,
+      // VITE_API_URL del entorno manda sobre .env.production (se fija al compilar).
       env: { VITE_API_URL: API_URL },
       reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: 300_000,
     },
   ],
 });

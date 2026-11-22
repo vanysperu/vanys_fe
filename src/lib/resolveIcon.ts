@@ -1,5 +1,6 @@
 import {
   Banknote,
+  GraduationCap,
   BarChart3,
   Bell,
   Boxes,
@@ -69,6 +70,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'hand-coins': HandCoins,
   // Préstamos (21-nov).
   banknote: Banknote,
+  // Aprender (modo enseñanza, 21-nov).
+  'graduation-cap': GraduationCap,
   receipt: Receipt,
   bell: Bell,
   chart: BarChart3,
