@@ -342,7 +342,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   // y nunca la elige acá, así que pedirla igual solo generaba un 403 de fondo
   // cada vez que se abría este diálogo (es global: botón flotante siempre visible).
   const canPickBusinessUnit = !isSystem && Boolean(access?.modules.includes('platform'));
-  const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: canPickBusinessUnit });
+  const { data: businessUnits } = useBusinessUnits({ page: 1, limit: 100 }, { enabled: canPickBusinessUnit && open });
   // Tienda: si el usuario tiene tienda propia y no puede ver las demás, el
   // backend fuerza esa tienda aunque se elija otra (resolveBusinessUnitFilter).
   // Antes salía un selector vacío que se ignoraba; ahora se muestra fija. Si
@@ -408,9 +408,13 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   // contra uno deshabilitado no tiene sentido.
   const listCompanyId = isSystem ? resolvedCompanyId : undefined;
   const listsEnabled = !isSystem || Boolean(resolvedCompanyId);
+  // Velocidad (27-nov): las listas se piden al abrir la ventana, no al cargar
+  // la app. El botón flotante monta este diálogo en TODAS las pantallas y antes
+  // eran 4 pedidos de 100 filas en cada carga aunque nadie cotizara.
+  const listsWanted = listsEnabled && open;
   const { data: clients } = useClients(
     { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
-    { enabled: listsEnabled },
+    { enabled: listsWanted },
   );
   // Buscador de productos en el SERVIDOR (pedido explícito del usuario: buscar
   // también por código o SKU). Antes se cargaban los primeros 100 y se
@@ -419,7 +423,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   const debouncedProductSearch = useDebouncedValue(productSearch.trim(), 300);
   const { data: products, isFetching: isSearchingProducts } = useProducts(
     { page: 1, limit: 100, status: 'active', companyId: listCompanyId, searchTerm: debouncedProductSearch || undefined },
-    { enabled: listsEnabled },
+    { enabled: listsWanted },
   );
   // Todo producto que ya trajo alguna búsqueda queda guardado: uno ya elegido
   // (o recién creado con "+") sigue disponible para calcular su precio aunque
@@ -427,7 +431,7 @@ export function CreateQuotationDialog({ trigger, completeQuotation }: CreateQuot
   const seenProducts = useRef(new Map<number, Product>());
   const { data: techniques } = useTechniques(
     { page: 1, limit: 100, status: 'active', companyId: listCompanyId },
-    { enabled: listsEnabled },
+    { enabled: listsWanted },
   );
   // keepPreviousData: al cambiar de empresa, que no asome ni un instante lo
   // de la empresa anterior.

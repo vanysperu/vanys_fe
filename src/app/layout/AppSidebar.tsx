@@ -8,8 +8,10 @@ import { NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { buildMenu } from '@/app/navigation/menuConfig';
 import type { MenuNode } from '@/app/navigation/menuConfig';
 import vanysIcon from '@/assets/branding/vanys-icon.webp';
-import vanysLogoInverse from '@/assets/branding/vanys-logo-inverse.png';
+// WebP de 396x72 (9,5 KB; el PNG pesaba 47 KB): se ve a 24 px de alto, nítido en pantallas 3x.
+import vanysLogoInverse from '@/assets/branding/vanys-logo-inverse.webp';
 import { resolveIcon } from '@/lib/resolveIcon';
+import { TONE_ON_DARK, type Tone } from '@/lib/tones';
 import { cn } from '@/lib/utils';
 import { logout } from '@/modules/auth/api/auth.api';
 import { useAuthStore } from '@/modules/auth/hooks/useAuthStore';
@@ -154,6 +156,7 @@ export function AppSidebar() {
               <RootViewItem
                 key={node.key}
                 view={node.view}
+                tone={node.tone}
                 index={index}
                 isCollapsed={isCollapsed}
                 dividerBefore={dividerBefore}
@@ -342,7 +345,7 @@ function MenuGroupItem({
       {isCollapsed ? (
         <div role="group" aria-label={group.label} className="flex flex-col gap-0.5">
           {group.items.map((item) => (
-            <ViewLink key={item.id} view={item} isCollapsed />
+            <ViewLink key={item.id} view={item} tone={group.tone} isCollapsed />
           ))}
         </div>
       ) : (
@@ -356,7 +359,7 @@ function MenuGroupItem({
               containsActive ? 'text-white' : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
             )}
           >
-            <MenuIcon icon={group.icon} className="size-4 shrink-0" />
+            <MenuIcon icon={group.icon} className={cn('size-4 shrink-0', TONE_ON_DARK[group.tone])} />
             <span className="flex-1 truncate text-left">{group.label}</span>
             <ChevronDown className={cn('size-3.5 shrink-0 transition-transform', isOpen && 'rotate-180')} />
           </button>
@@ -372,7 +375,7 @@ function MenuGroupItem({
                 {/* Línea conectora: marca que estos ítems son del grupo de arriba. */}
                 <div className="relative ml-4 border-l border-white/10 pl-2">
                   {group.items.map((item) => (
-                    <ViewLink key={item.id} view={item} isCollapsed={false} />
+                    <ViewLink key={item.id} view={item} tone={group.tone} isCollapsed={false} />
                   ))}
                 </div>
               </motion.div>
@@ -386,11 +389,13 @@ function MenuGroupItem({
 
 function RootViewItem({
   view,
+  tone,
   index,
   isCollapsed,
   dividerBefore,
 }: {
   view: MyAccessViewItem;
+  tone: Tone;
   index: number;
   isCollapsed: boolean;
   dividerBefore: boolean;
@@ -408,9 +413,9 @@ function RootViewItem({
     >
       {dividerBefore && <CollapsedDivider />}
       {isGroup ? (
-        <GroupHeader view={view} isOpen={isOpen} onToggle={() => setIsOpen((open) => !open)} isCollapsed={isCollapsed} />
+        <GroupHeader view={view} tone={tone} isOpen={isOpen} onToggle={() => setIsOpen((open) => !open)} isCollapsed={isCollapsed} />
       ) : (
-        <ViewLink view={view} isCollapsed={isCollapsed} />
+        <ViewLink view={view} tone={tone} isCollapsed={isCollapsed} />
       )}
       {isGroup && !isCollapsed && (
         <AnimatePresence initial={false}>
@@ -425,7 +430,7 @@ function RootViewItem({
               {/* Línea conectora: marca visualmente que estos items pertenecen al grupo de arriba. */}
               <div className="relative ml-4 border-l border-white/10 pl-2">
                 {menuChildren.map((child) => (
-                  <ViewLink key={child.id} view={child} isCollapsed={isCollapsed} />
+                  <ViewLink key={child.id} view={child} tone={tone} isCollapsed={isCollapsed} />
                 ))}
               </div>
             </motion.div>
@@ -438,11 +443,13 @@ function RootViewItem({
 
 function GroupHeader({
   view,
+  tone,
   isOpen,
   onToggle,
   isCollapsed,
 }: {
   view: MyAccessViewItem;
+  tone: Tone;
   isOpen: boolean;
   onToggle: () => void;
   isCollapsed: boolean;
@@ -460,7 +467,7 @@ function GroupHeader({
         isActiveGroup ? 'text-white' : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
       )}
     >
-      <MenuIcon icon={resolveIcon(view.icon)} className="size-4 shrink-0" />
+      <MenuIcon icon={resolveIcon(view.icon)} className={cn('size-4 shrink-0', TONE_ON_DARK[tone])} />
       {!isCollapsed && (
         <>
           <span className="flex-1 truncate text-left">{view.name}</span>
@@ -491,12 +498,14 @@ function useRefreshModuleData() {
   const queryClient = useQueryClient();
   return (isCurrentRoute: boolean) =>
     queryClient.invalidateQueries({
-      predicate: (query) => query.queryKey[0] !== accessKeys.all[0],
+      // Los catálogos fijos (paletas, ubigeo, archivos de diseños) se marcan con
+      // meta.keepOnNavigate y no se vuelven a pedir (27-nov, velocidad).
+      predicate: (query) => query.queryKey[0] !== accessKeys.all[0] && query.meta?.keepOnNavigate !== true,
       refetchType: isCurrentRoute ? 'active' : 'none',
     });
 }
 
-function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: boolean }) {
+function ViewLink({ view, tone, isCollapsed }: { view: MyAccessViewItem; tone: Tone; isCollapsed: boolean }) {
   // Coincidencia exacta: cada ítem es una pantalla (no hay rutas de detalle
   // anidadas). Por prefijo, "Productos" (/productos) quedaba marcada
   // también en /productos/tecnicas, que dentro del grupo es su ítem hermano.
@@ -521,7 +530,10 @@ function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: 
       className={cn(
         'relative flex items-center gap-2.5 rounded-lg py-2 text-sm font-medium transition-colors',
         isCollapsed ? 'justify-center px-0' : 'pr-3 pl-2.5',
-        isActive ? 'bg-white/10 font-semibold text-white' : 'text-sidebar-muted hover:bg-white/5 hover:text-sidebar-foreground',
+        // Activo: fondo más marcado (27-nov, colores vivos).
+        isActive
+          ? 'bg-white/[0.13] font-semibold text-white shadow-sm ring-1 ring-white/10'
+          : 'text-sidebar-muted hover:bg-white/[0.07] hover:text-sidebar-foreground',
       )}
     >
       {isActive && !isCollapsed && (
@@ -531,7 +543,8 @@ function ViewLink({ view, isCollapsed }: { view: MyAccessViewItem; isCollapsed: 
           transition={{ type: 'spring', stiffness: 400, damping: 35 }}
         />
       )}
-      <MenuIcon icon={resolveIcon(view.icon)} className={cn('size-4 shrink-0', isActive && 'text-sidebar-accent')} />
+      {/* Ícono con el color de su sección; el activo, naranja de marca. */}
+      <MenuIcon icon={resolveIcon(view.icon)} className={cn('size-4 shrink-0', isActive ? 'text-sidebar-accent' : TONE_ON_DARK[tone])} />
       {/* Sin recortar: dentro de un grupo hay menos ancho y "Técnicas de
           personalización"/"Documentos de la empresa" se cortaban; pasan a
           una segunda línea. */}

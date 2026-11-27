@@ -14,6 +14,8 @@ export function useUbigeoTable() {
     queryKey: ubigeoKeys.table(),
     queryFn: loadUbigeoTable,
     staleTime: Infinity,
+    // Fijo: no se vuelve a pedir al navegar por el menú (AppSidebar, 27-nov).
+    meta: { keepOnNavigate: true },
     gcTime: Infinity,
   });
 }

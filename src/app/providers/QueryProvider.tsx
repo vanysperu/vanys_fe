@@ -9,6 +9,9 @@ export function QueryProvider({ children }: { children: ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30 * 1000,
+            // Velocidad (27-nov): lo ya cargado se guarda 30 min (antes 5). Volver
+            // a una pantalla muestra al instante lo de antes mientras se refresca.
+            gcTime: 30 * 60 * 1000,
             retry: 1,
             refetchOnWindowFocus: false,
           },

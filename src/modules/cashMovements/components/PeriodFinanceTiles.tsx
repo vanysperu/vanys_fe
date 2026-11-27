@@ -1,6 +1,7 @@
-import { Calculator, Info } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Calculator, Info, Landmark, PiggyBank, Scale, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
+import { TONE_BAR, TONE_CHIP, type Tone } from '@/lib/tones';
 import { cn } from '@/lib/utils';
 import { exportIgvBreakdown } from '@/modules/cashMovements/api/cashMovements.api';
 import { IgvBreakdownDialog } from '@/modules/cashMovements/components/IgvBreakdownDialog';
@@ -17,15 +18,29 @@ interface TileProps {
   value: number;
   hint?: string;
   tone?: 'default' | 'negative' | 'strong';
+  // Color e ícono de la tarjeta (27-nov, "colores vivos").
+  color: Tone;
+  icon: LucideIcon;
   testId: string;
   action?: ReactNode;
 }
 
-function Tile({ label, value, hint, tone = 'default', testId, action }: TileProps) {
+function Tile({ label, value, hint, tone = 'default', color, icon: Icon, testId, action }: TileProps) {
   return (
-    <div className={cn('rounded-lg border bg-background p-3', tone === 'strong' && 'border-primary/40 bg-primary/5')}>
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className={cn('font-mono-nums text-base font-semibold', tone === 'negative' && 'text-destructive')} data-testid={testId}>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-lg border bg-card p-3 shadow-xs before:absolute before:inset-x-0 before:top-0 before:h-1 before:content-['']",
+        TONE_BAR[color],
+        tone === 'strong' && 'border-primary/40 bg-primary/5',
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+        <span aria-hidden className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', TONE_CHIP[color])}>
+          <Icon className="size-3.5" />
+        </span>
+      </div>
+      <p className={cn('font-mono-nums text-lg font-semibold', tone === 'negative' && 'text-destructive')} data-testid={testId}>
         {money(value)}
       </p>
       {hint && <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{hint}</p>}
@@ -57,11 +72,13 @@ export function PeriodFinanceTiles({ finance, wideColumns = 5, breakdownParams }
 
   return (
     <div className="space-y-2">
-      <div className={cn('grid grid-cols-2 gap-2', wideColumns === 5 ? 'md:grid-cols-5' : 'md:grid-cols-3')}>
-        <Tile label="Ingresos" value={finance.income} testId="month-income" />
-        <Tile label="Egresos" value={finance.expenses} testId="month-expenses" />
+      <div className={cn('stagger-children grid grid-cols-2 gap-2', wideColumns === 5 ? 'md:grid-cols-5' : 'md:grid-cols-3')}>
+        <Tile label="Ingresos" value={finance.income} color="green" icon={ArrowDownToLine} testId="month-income" />
+        <Tile label="Egresos" value={finance.expenses} color="red" icon={ArrowUpFromLine} testId="month-expenses" />
         <Tile
           label="Resultado (ingresos − egresos)"
+          color="blue"
+          icon={Scale}
           value={finance.result}
           hint={finance.adjustments !== 0 ? `Incluye ajustes de meses cerrados por ${money(finance.adjustments)}` : undefined}
           tone={finance.result < 0 ? 'negative' : 'default'}
@@ -70,6 +87,8 @@ export function PeriodFinanceTiles({ finance, wideColumns = 5, breakdownParams }
         <Tile
           label={igvInFavor ? 'IGV: saldo a favor' : 'IGV a pagar a SUNAT (estimado)'}
           value={igvInFavor ? -finance.igv_balance : finance.igv_payable}
+          color="amber"
+          icon={Landmark}
           hint={igvHint}
           testId="month-igv"
           action={
@@ -90,6 +109,8 @@ export function PeriodFinanceTiles({ finance, wideColumns = 5, breakdownParams }
         <Tile
           label="Neto después del IGV"
           value={finance.net_after_igv}
+          color="purple"
+          icon={PiggyBank}
           tone={finance.net_after_igv < 0 ? 'negative' : 'strong'}
           testId="month-net"
         />

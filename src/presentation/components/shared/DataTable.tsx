@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -268,14 +267,10 @@ function MobileCardList<T>({
 
   return (
     <div className="space-y-2">
-      {rows.map((row, index) => (
-        <motion.div
-          key={rowKey(row)}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
-          className="rounded-xl border bg-card p-4 text-sm shadow-sm"
-        >
+      {/* Sin animación por fila (27-nov, velocidad): con 100 filas la última
+          aparecía medio segundo después de llegar los datos. */}
+      {rows.map((row) => (
+        <div key={rowKey(row)} className="rounded-xl border bg-card p-4 text-sm shadow-sm">
           {titleColumn && <div className="min-w-0 font-medium break-words">{titleColumn.cell(row)}</div>}
 
           {fieldColumns.length > 0 && (
@@ -296,7 +291,7 @@ function MobileCardList<T>({
               ))}
             </div>
           )}
-        </motion.div>
+        </div>
       ))}
     </div>
   );
@@ -425,14 +420,10 @@ export function DataTable<T>({
             ))}
 
           {!isLoading &&
-            rows.map((row, index) => (
-              <motion.tr
-                key={rowKey(row)}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
-                className="border-b last:border-0 transition-colors hover:bg-muted/40"
-              >
+            rows.map((row) => (
+              // Sin animación por fila (27-nov, velocidad). Al pasar el mouse, un
+              // tinte del color principal.
+              <tr key={rowKey(row)} className="border-b last:border-0 transition-colors hover:bg-primary/[0.045]">
                 {columns.map((column) => (
                   <td
                     key={column.header}
@@ -441,7 +432,7 @@ export function DataTable<T>({
                     {column.cell(row)}
                   </td>
                 ))}
-              </motion.tr>
+              </tr>
             ))}
         </tbody>
       </table>

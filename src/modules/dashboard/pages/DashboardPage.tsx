@@ -1,6 +1,8 @@
-import { LayoutGrid, List } from 'lucide-react';
+import { AlarmClock, LayoutGrid, List, Wallet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+
+import { TONE_BAR, TONE_CHIP, TONE_TEXT, type Tone } from '@/lib/tones';
+import { PageHeader } from '@/presentation/components/shared/PageHeader';
 
 import { QuotationDetailDialog } from '@/modules/quotations/components/QuotationDetailDialog';
 import { QuotationPdfPreviewDialog } from '@/modules/quotations/components/QuotationPdfPreviewDialog';
@@ -19,6 +21,21 @@ import { useBusinessUnits } from '@/modules/platform/hooks/useBusinessUnits';
 import { DateRangeFilter, type DateRangeValue } from '@/presentation/components/shared/DateRangeFilter';
 import { FiltersBar } from '@/presentation/components/shared/FiltersBar';
 import { FilterSelect } from '@/presentation/components/shared/FilterSelect';
+
+interface DashboardKpi {
+  label: string;
+  value: number;
+  note: string;
+  tone: Tone;
+  icon: LucideIcon;
+  testId: string;
+}
+
+// Las dos cifras de arriba del panel: lo que te deben (azul) y lo vencido (rojo).
+const DASHBOARD_KPIS = (receivable: number, receivableCount: number, expired: number, expiredCount: number): DashboardKpi[] => [
+  { label: 'Total por cobrar', value: receivable, note: `${receivableCount} cotizaciones con saldo`, tone: 'blue', icon: Wallet, testId: 'dashboard-receivable' },
+  { label: 'Vencido', value: expired, note: `${expiredCount} sin respuesta`, tone: 'red', icon: AlarmClock, testId: 'dashboard-expired' },
+];
 
 type ViewMode = 'list' | 'board';
 type TabKey = 'todas' | 'accion' | 'cobrar' | 'produccion';
@@ -113,12 +130,11 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-0.5">
-          <h1 className="text-2xl font-semibold tracking-tight">Panel principal</h1>
-          <p className="text-sm text-muted-foreground">De un vistazo: qué cotizaciones requieren acción</p>
-        </div>
-        <div className="flex items-center rounded-lg border p-0.5">
+      <PageHeader
+        title="Panel principal"
+        description="De un vistazo: qué cotizaciones requieren acción"
+        action={
+        <div className="flex items-center rounded-lg border bg-card p-0.5">
           <button
             type="button"
             onClick={() => setView('list')}
@@ -140,31 +156,30 @@ export function DashboardPage() {
             <LayoutGrid className="size-3.5" /> Tablero
           </button>
         </div>
-      </div>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {[
-          { label: 'Total por cobrar', value: totalPorCobrar, note: `${conSaldoCount} cotizaciones con saldo`, color: 'var(--primary)', testId: 'dashboard-receivable' },
-          { label: 'Vencido', value: vencido, note: `${vencidoCount} sin respuesta`, color: '#B4231F', testId: 'dashboard-expired' },
-        ].map((kpi, index) => (
-          <motion.div
+      {/* Colores de la paleta (tonos), no a mano (27-nov, "colores vivos"). */}
+      <div className="stagger-children grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {DASHBOARD_KPIS(totalPorCobrar, conSaldoCount, vencido, vencidoCount).map((kpi) => (
+          <div
             key={kpi.label}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: index * 0.05 }}
-            className="flex flex-col gap-1.5 rounded-xl border bg-card p-3.5 shadow-sm"
+            className={cn(
+              "relative flex flex-col gap-1.5 overflow-hidden rounded-xl border bg-card p-4 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-1 before:content-['']",
+              TONE_BAR[kpi.tone],
+            )}
           >
-            <div className="flex items-center gap-1.5">
-              <span className="size-1.5 rounded-full" style={{ background: kpi.color }} />
-              <span className="text-[10.5px] font-semibold tracking-wide text-muted-foreground uppercase">
-                {kpi.label}
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10.5px] font-semibold tracking-wide text-muted-foreground uppercase">{kpi.label}</span>
+              <span aria-hidden className={cn('flex size-8 items-center justify-center rounded-lg', TONE_CHIP[kpi.tone])}>
+                <kpi.icon className="size-4" />
               </span>
             </div>
-            <div className="font-mono-nums text-xl font-semibold" style={{ color: kpi.color }} data-testid={kpi.testId}>
-              {isLoading ? <Skeleton className="h-6 w-24" /> : money(kpi.value)}
+            <div className={cn('font-mono-nums text-2xl font-semibold', TONE_TEXT[kpi.tone])} data-testid={kpi.testId}>
+              {isLoading ? <Skeleton className="h-7 w-28" /> : money(kpi.value)}
             </div>
             <span className="text-[10.5px] font-semibold text-muted-foreground">{kpi.note}</span>
-          </motion.div>
+          </div>
         ))}
       </div>
 

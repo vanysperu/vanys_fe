@@ -28,7 +28,10 @@
      que la empresa tenga que elegir nada (ver
      presentation/hooks/shared/useBrandTheme.ts, que sobreescribe estas
      mismas variables cuando la empresa elige otra paleta de marca). */
-  --primary: #002e77;
+  /* Azul de acción más vivo (pedido del usuario 27-nov: "colores vivos"). De la
+     familia del marino de Vanys, que sigue en el menú y la marca. Blanco
+     encima: 6.7:1. */
+  --primary: #1d4ed8;
   --primary-foreground: #ffffff;
   --secondary: #e6eaf1;
   --secondary-foreground: #41424d;
@@ -44,7 +47,7 @@
   --warning-foreground: #ffffff;
   --border: #d9dfe8;
   --input: #b8c2d0;
-  --ring: rgba(0, 46, 119, 0.45);
+  --ring: rgba(29, 78, 216, 0.45);
   --sidebar: #001d52;
   --sidebar-foreground: #eceaf6;
   --sidebar-muted: #b8c4de;
@@ -79,6 +82,42 @@
   --brand-panel: #071c4a;
   --brand-orange: #f96f00;
   --brand-orange-deep: #f45a00;
+
+  /* Tonos vivos (27-nov, "colores vivos tipo WordPress"): íconos de cada
+     sección, tarjetas de resumen y acentos. Cada uno con su fondo suave. Para
+     texto se usan solo azul, verde, rojo, morado y rosa (≥ 4.5:1 sobre blanco);
+     naranja, ámbar y turquesa van en íconos y barras (≥ 3:1). */
+  --tone-blue: #1d64e8;
+  --tone-blue-soft: #e6efff;
+  --tone-green: #138a43;
+  --tone-green-soft: #e2f6ea;
+  --tone-red: #d92d2d;
+  --tone-red-soft: #fde9e9;
+  --tone-orange: #ea580c;
+  --tone-orange-soft: #ffeedd;
+  --tone-amber: #d97706;
+  --tone-amber-soft: #fef3d7;
+  --tone-purple: #7c3aed;
+  --tone-purple-soft: #efe7ff;
+  --tone-pink: #db2777;
+  --tone-pink-soft: #fde7f1;
+  --tone-teal: #0d9488;
+  --tone-teal-soft: #dcf5f2;
+
+  /* Los mismos tonos, claros, para usar sobre el menú azul marino (igual en
+     claro y oscuro, porque el menú es marino en los dos). */
+  --tone-blue-bright: #7cb1ff;
+  --tone-green-bright: #4ade9a;
+  --tone-red-bright: #ff8a8a;
+  --tone-orange-bright: #ffa25c;
+  --tone-amber-bright: #fcd34d;
+  --tone-purple-bright: #c4b0ff;
+  --tone-pink-bright: #ff8fc2;
+  --tone-teal-bright: #5eead4;
+
+  /* Fondo con un toque de color (azul arriba a la derecha, naranja a la izquierda). */
+  --backdrop-glow-1: rgba(29, 100, 232, 0.09);
+  --backdrop-glow-2: rgba(249, 111, 0, 0.07);
 }
 
 .dark {
@@ -125,6 +164,26 @@
   --viz-aging-4: #86b6ef;
   --viz-meter-track: #184f95;
   --viz-delta-good: #0ca30c;
+
+  --tone-blue: #6ea8ff;
+  --tone-blue-soft: rgba(110, 168, 255, 0.14);
+  --tone-green: #3dd68c;
+  --tone-green-soft: rgba(61, 214, 140, 0.13);
+  --tone-red: #ff7b7b;
+  --tone-red-soft: rgba(255, 123, 123, 0.13);
+  --tone-orange: #ff9a4d;
+  --tone-orange-soft: rgba(255, 154, 77, 0.14);
+  --tone-amber: #fbbf24;
+  --tone-amber-soft: rgba(251, 191, 36, 0.13);
+  --tone-purple: #b69bff;
+  --tone-purple-soft: rgba(182, 155, 255, 0.14);
+  --tone-pink: #ff7eb6;
+  --tone-pink-soft: rgba(255, 126, 182, 0.13);
+  --tone-teal: #3ddbc9;
+  --tone-teal-soft: rgba(61, 219, 201, 0.13);
+
+  --backdrop-glow-1: rgba(110, 168, 255, 0.07);
+  --backdrop-glow-2: rgba(255, 154, 77, 0.05);
 }
 
 @theme inline {
@@ -184,6 +243,31 @@
   --color-brand-panel: var(--brand-panel);
   --color-brand-orange: var(--brand-orange);
   --color-brand-orange-deep: var(--brand-orange-deep);
+
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-blue-soft: var(--tone-blue-soft);
+  --color-tone-green: var(--tone-green);
+  --color-tone-green-soft: var(--tone-green-soft);
+  --color-tone-red: var(--tone-red);
+  --color-tone-red-soft: var(--tone-red-soft);
+  --color-tone-orange: var(--tone-orange);
+  --color-tone-orange-soft: var(--tone-orange-soft);
+  --color-tone-amber: var(--tone-amber);
+  --color-tone-amber-soft: var(--tone-amber-soft);
+  --color-tone-purple: var(--tone-purple);
+  --color-tone-purple-soft: var(--tone-purple-soft);
+  --color-tone-pink: var(--tone-pink);
+  --color-tone-pink-soft: var(--tone-pink-soft);
+  --color-tone-teal: var(--tone-teal);
+  --color-tone-teal-soft: var(--tone-teal-soft);
+  --color-tone-blue-bright: var(--tone-blue-bright);
+  --color-tone-green-bright: var(--tone-green-bright);
+  --color-tone-red-bright: var(--tone-red-bright);
+  --color-tone-orange-bright: var(--tone-orange-bright);
+  --color-tone-amber-bright: var(--tone-amber-bright);
+  --color-tone-purple-bright: var(--tone-purple-bright);
+  --color-tone-pink-bright: var(--tone-pink-bright);
+  --color-tone-teal-bright: var(--tone-teal-bright);
 }
 
 @layer base {
@@ -203,9 +287,48 @@
 }
 
 @layer utilities {
+  /* Montos: con la letra del sistema y cifras de igual ancho (alineadas en
+     columnas). Antes era una letra de máquina de escribir (IBM Plex Mono), que
+     se veía anticuada al lado del resto (27-nov). */
   .font-mono-nums {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum', 'cv11', 'ss01';
+  }
+  /* Fondo de la app con un toque de color (sin imágenes: no pesa nada). */
+  .app-backdrop {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(900px 420px at 100% -10%, var(--backdrop-glow-1), transparent 70%),
+      radial-gradient(700px 360px at 0% 0%, var(--backdrop-glow-2), transparent 70%);
+  }
+  /* Animaciones livianas (solo opacidad y transform: no recalculan la página). */
+  .animate-page {
+    animation: page-in 0.18s ease-out both;
+  }
+  .animate-rise {
+    animation: rise-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  /* Los hijos entran uno tras otro (tarjetas de resumen, grillas). */
+  .stagger-children > * {
+    animation: rise-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .stagger-children > :nth-child(2) { animation-delay: 40ms; }
+  .stagger-children > :nth-child(3) { animation-delay: 80ms; }
+  .stagger-children > :nth-child(4) { animation-delay: 120ms; }
+  .stagger-children > :nth-child(5) { animation-delay: 160ms; }
+  .stagger-children > :nth-child(6) { animation-delay: 200ms; }
+  .stagger-children > :nth-child(n + 7) { animation-delay: 240ms; }
+  /* Tarjetas que se pueden tocar: suben un poco al pasar el mouse. */
+  .hover-lift {
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      border-color 0.18s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -12px rgba(15, 23, 42, 0.28);
   }
   .scrollbar-thin {
     scrollbar-width: thin;
@@ -226,5 +349,41 @@
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/50;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Quien pidió menos movimiento en su equipo, no ve animaciones. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-page,
+  .animate-rise,
+  .stagger-children > * {
+    animation: none;
+  }
+  .hover-lift,
+  .hover-lift:hover {
+    transition: none;
+    transform: none;
   }
 }

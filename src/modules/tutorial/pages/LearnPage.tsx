@@ -10,7 +10,8 @@ import { useLessonProgress, useStartPractice, useTeamProgress } from '@/modules/
 import { useStartLesson } from '@/modules/tutorial/hooks/useStartLesson';
 import { pendingLesson, useTutorialStore } from '@/modules/tutorial/hooks/useTutorialStore';
 import { LESSON_SECTIONS, LESSONS, lessonsFor } from '@/modules/tutorial/lessons';
-import type { TeamMemberProgress, TutorialLesson } from '@/modules/tutorial/types/tutorial.types';
+import type { LessonSection, TeamMemberProgress, TutorialLesson } from '@/modules/tutorial/types/tutorial.types';
+import { TONE_CHIP, type Tone } from '@/lib/tones';
 import { DataTable } from '@/presentation/components/shared/DataTable';
 import { EmptyState } from '@/presentation/components/shared/EmptyState';
 import { PageHeader } from '@/presentation/components/shared/PageHeader';
@@ -173,11 +174,12 @@ function LessonGrid({ lessons, completed, isPractice }: { lessons: TutorialLesso
           <div
             key={lesson.code}
             data-testid={`lesson-${lesson.code}`}
-            className={cn('flex flex-col gap-3 rounded-xl border bg-card p-4', isDone && 'border-success/40')}
+            className={cn('hover-lift flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-xs', isDone && 'border-success/40')}
           >
             <div className="flex items-start gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <Icon className="size-5 text-muted-foreground" />
+              {/* Color de su sección (27-nov, "colores vivos"). */}
+              <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg', TONE_CHIP[SECTION_TONE[lesson.section]])}>
+                <Icon className="size-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lección {numberOf.get(lesson.code)}</p>
@@ -215,6 +217,15 @@ function LessonGrid({ lessons, completed, isPractice }: { lessons: TutorialLesso
     </div>
   );
 }
+
+// Color de cada sección del curso (mismos tonos que las secciones del menú).
+const SECTION_TONE: Record<LessonSection, Tone> = {
+  start: 'blue',
+  sales: 'orange',
+  finance: 'green',
+  settings: 'purple',
+  operations: 'teal',
+};
 
 const TEAM_PAGE_SIZE = 10;
 

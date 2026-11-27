@@ -24,6 +24,8 @@ export function useQuotationMockupFile(mockupId: number) {
     queryKey: quotationsKeys.mockupFile(mockupId),
     queryFn: () => getQuotationMockupFile(mockupId),
     staleTime: Infinity,
+    // Fijo: no se vuelve a pedir al navegar por el menú (AppSidebar, 27-nov).
+    meta: { keepOnNavigate: true },
     gcTime: 10 * 60_000,
   });
 }

@@ -43,10 +43,15 @@ export function useToggleCompanyStatus() {
   });
 }
 
-export function useThemes() {
+// `enabled` opcional (por defecto true, como antes): useBrandTheme solo la pide
+// si la empresa usa una paleta distinta de la de Vanys (27-nov, velocidad).
+export function useThemes(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: themesKeys.all,
     queryFn: getThemes,
     staleTime: 10 * 60 * 1000,
+    enabled: options.enabled ?? true,
+    // Catálogo fijo: no se vuelve a pedir al navegar por el menú (AppSidebar).
+    meta: { keepOnNavigate: true },
   });
 }

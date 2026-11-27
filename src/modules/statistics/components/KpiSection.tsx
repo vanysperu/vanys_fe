@@ -1,3 +1,5 @@
+import { ArrowLeftRight, CheckCircle2, FileText, History, Hourglass, Percent, Receipt, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+
 import { computeStatDelta } from '@/lib/statDelta';
 import type { AgingItem, KpiValues } from '@/modules/statistics/types/statistics.types';
 import { formatInteger, formatMoney, formatPercent } from '@/modules/statistics/utils/format';
@@ -24,12 +26,14 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
     computeStatDelta({ current: current[key], previous: previous[key], kind: 'points', goodWhen: 'up' });
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="stagger-children grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <StatTile
         hero
         className="sm:col-span-2 lg:row-span-2 lg:justify-center"
         testId="kpi-collected"
         label="Cobrado"
+        tone="green"
+        icon={Wallet}
         value={formatMoney(current.collected)}
         delta={relative('collected')}
         caption="Pagos de clientes recibidos en el periodo"
@@ -37,6 +41,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-quoted"
         label="Cotizado"
+        tone="blue"
+        icon={FileText}
         value={formatMoney(current.quoted_amount)}
         delta={relative('quoted_amount')}
         caption={plural(current.quoted_count, 'cotización emitida', 'cotizaciones emitidas')}
@@ -44,6 +50,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-won"
         label="Aceptado"
+        tone="teal"
+        icon={CheckCircle2}
         value={formatMoney(current.won_amount)}
         delta={relative('won_amount')}
         caption={plural(current.won_count, 'cotización aceptada', 'cotizaciones aceptadas')}
@@ -51,6 +59,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-conversion"
         label="Tasa de conversión"
+        tone="purple"
+        icon={Percent}
         value={current.conversion_rate === null ? '—' : formatPercent(current.conversion_rate)}
         delta={points('conversion_rate')}
         caption={`Aceptadas sobre decididas · ${plural(current.pending_count, 'esperando respuesta', 'esperando respuesta')}`}
@@ -58,6 +68,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-ticket"
         label="Ticket promedio"
+        tone="pink"
+        icon={Receipt}
         value={current.average_ticket === null ? '—' : formatMoney(current.average_ticket)}
         delta={relative('average_ticket')}
         caption="Monto promedio de una cotización aceptada"
@@ -65,6 +77,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-expenses"
         label="Gastos"
+        tone="red"
+        icon={TrendingDown}
         value={formatMoney(current.expenses)}
         delta={relative('expenses', 'down')}
         caption="Compras, gastos de cotizaciones y egresos de caja"
@@ -72,6 +86,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-net-cash"
         label="Flujo neto de caja"
+        tone="blue"
+        icon={ArrowLeftRight}
         value={formatMoney(current.net_cash)}
         delta={relative('net_cash')}
         caption={`Entró ${formatMoney(current.collected + current.other_income)} · salió ${formatMoney(current.expenses)}`}
@@ -80,6 +96,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
         <StatTile
           testId="kpi-adjustments"
           label="Ajustes de meses cerrados"
+        tone="amber"
+        icon={History}
           value={formatMoney(current.adjustments)}
           caption="Correcciones a meses ya cerrados, anotadas en este periodo; ya están incluidas en el flujo neto"
         />
@@ -87,6 +105,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-margin"
         label="Margen estimado"
+        tone="orange"
+        icon={TrendingUp}
         value={current.margin_rate === null ? '—' : formatPercent(current.margin_rate)}
         delta={points('margin_rate')}
         caption={`${formatMoney(current.margin_amount)} sin IGV, según los gastos ya registrados`}
@@ -94,6 +114,8 @@ export function KpiSection({ current, previous, aging }: KpiSectionProps) {
       <StatTile
         testId="kpi-receivable"
         label="Por cobrar hoy"
+        tone="amber"
+        icon={Hourglass}
         value={formatMoney(receivableAmount)}
         caption={`${plural(receivableCount, 'cotización con saldo', 'cotizaciones con saldo')} · no depende del periodo`}
       />

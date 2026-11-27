@@ -17,6 +17,7 @@ import {
 } from '@/modules/quotations/hooks/useQuotations';
 import {
   getKanbanDropTargets,
+  QUOTATION_STATUS_COLOR,
   QUOTATION_STATUS_LABEL,
   type Quotation,
   type QuotationBoardColumn,
@@ -202,9 +203,11 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex h-full w-72 shrink-0 flex-col rounded-xl border bg-muted/20 transition-colors',
+        'flex h-full w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-t-4 bg-card/60 shadow-xs transition-colors',
         isOver && 'border-primary bg-primary/5',
       )}
+      // Borde de arriba del color del estado (27-nov, "colores vivos").
+      style={isOver ? undefined : { borderTopColor: QUOTATION_STATUS_COLOR[status].fg }}
       data-testid={`kanban-column-${status}`}
     >
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2.5">
@@ -289,7 +292,7 @@ function QuotationCard({
       // Marca para el modo enseñanza: la lección señala la cotización de práctica.
       data-quotation-id={quotation.id}
       className={cn(
-        'cursor-grab space-y-2 rounded-lg border bg-card p-3 shadow-sm select-none active:cursor-grabbing',
+        'hover-lift cursor-grab space-y-2 rounded-lg border bg-card p-3 shadow-sm select-none active:cursor-grabbing',
         dragging && 'shadow-lg ring-2 ring-primary',
       )}
     >

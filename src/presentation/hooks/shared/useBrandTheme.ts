@@ -26,7 +26,9 @@ const OVERRIDE_VARS = ['--primary', '--ring', '--sidebar-accent'] as const;
 // los valores estáticos de index.css sin importar modo claro/oscuro.
 export function useBrandTheme(): void {
   const { data: access } = useAccess();
-  const { data: themes } = useThemes();
+  // Con la paleta de Vanys no hace falta el catálogo: un pedido menos al entrar.
+  const usesCustomTheme = Boolean(access?.themeColor) && access?.themeColor !== DEFAULT_THEME_CODE;
+  const { data: themes } = useThemes({ enabled: usesCustomTheme });
 
   useEffect(() => {
     const root = document.documentElement;
