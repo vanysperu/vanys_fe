@@ -77,6 +77,11 @@ export function openPoppers(): HTMLElement[] {
   return Array.from(document.querySelectorAll('[data-radix-popper-content-wrapper]')).filter(isVisible);
 }
 
+// Ventanas del sistema abiertas (nunca la tarjeta del tutorial).
+export function openWindows(): HTMLElement[] {
+  return Array.from(document.querySelectorAll('[role="dialog"]:not([data-tutorial-card]), [role="alertdialog"]')).filter(isVisible);
+}
+
 export interface Box {
   x: number;
   y: number;
@@ -94,6 +99,18 @@ export function boxOf(element: HTMLElement, padding = PADDING): Box {
     width: Math.round(rect.width + padding * 2),
     height: Math.round(rect.height + padding * 2),
   };
+}
+
+// Lo que se dibuja (luz y borde naranja) no se sale de la pantalla: con un
+// elemento más alto que ella, como el menú, el borde quedaba cortado. Si el
+// elemento está del todo fuera de la pantalla, se deja igual.
+export function fitToViewport(box: Box, margin = 2): Box {
+  const left = Math.max(margin, box.x);
+  const top = Math.max(margin, box.y);
+  const right = Math.min(window.innerWidth - margin, box.x + box.width);
+  const bottom = Math.min(window.innerHeight - margin, box.y + box.height);
+  if (right <= left || bottom <= top) return box;
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 export const sameBoxes = (a: Box[], b: Box[]): boolean =>

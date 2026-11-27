@@ -15,7 +15,7 @@ import { logout } from '@/modules/auth/api/auth.api';
 import { useAuthStore } from '@/modules/auth/hooks/useAuthStore';
 import { disablePushOnThisDevice } from '@/modules/pushNotifications/hooks/usePushNotifications';
 import { PushNotificationsDialog } from '@/modules/pushNotifications/components/PushNotificationsDialog';
-import { forgetPracticeReturn } from '@/modules/tutorial/engine/practiceSession';
+import { forgetPracticeReturn, leavePracticeSession } from '@/modules/tutorial/engine/practiceSession';
 import { Avatar, AvatarFallback } from '@/presentation/components/shared/ui/avatar';
 import { Badge } from '@/presentation/components/shared/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/presentation/components/shared/ui/popover';
@@ -246,15 +246,29 @@ export function AppSidebar() {
                 Aprender a usar el sistema
               </button>
             )}
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => signOut()}
-              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
-            >
-              <LogOut className="size-4" />
-              Salir
-            </button>
+            {/* En la empresa de práctica, salir es volver a la cuenta real (pedido
+                del usuario 26-nov): "Salir" cerraba la sesión de práctica y
+                mandaba al login, sin forma de volver. */}
+            {access?.isPractice ? (
+              <button
+                type="button"
+                onClick={leavePracticeSession}
+                className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+              >
+                <LogOut className="size-4" />
+                Volver a mi cuenta
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => signOut()}
+                className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+              >
+                <LogOut className="size-4" />
+                Salir
+              </button>
+            )}
           </PopoverContent>
         </Popover>
         <PushNotificationsDialog open={pushDialogOpen} onOpenChange={setPushDialogOpen} />

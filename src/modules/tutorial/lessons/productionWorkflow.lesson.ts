@@ -4,6 +4,8 @@ import { navigateStep } from '@/modules/tutorial/lessons/helpers';
 import type { TutorialLesson } from '@/modules/tutorial/types/tutorial.types';
 
 const ROWS = '[data-testid="workflow-stage-row"]';
+// La fila recién agregada (lleva la etiqueta "Nueva").
+const NEW_ROW = { css: ROWS, text: 'Nueva' };
 
 export const productionWorkflowLesson: TutorialLesson = {
   code: 'production-workflow',
@@ -43,13 +45,22 @@ export const productionWorkflowLesson: TutorialLesson = {
           ),
       },
     },
+    // Nombre y guardar en dos pasos: antes se iluminaba toda la pantalla y el
+    // "Guardar" quedaba abajo, a veces tapado por el botón flotante (26-nov).
     {
-      id: 'name-and-save',
-      title: 'Ponle nombre y guarda',
-      body: 'Escribe el nombre de la columna nueva y presiona "Guardar".',
-      hint: 'Ejemplo: "Control de calidad".',
-      target: 'main',
-      pointer: { css: 'main button', text: 'Guardar', exact: true },
+      id: 'name',
+      title: 'Ponle nombre',
+      body: 'Escribe el nombre de la columna nueva (la que dice "Nueva"). Puedes cambiar también su tipo y su color.',
+      hint: 'Ejemplo: "Control de calidad". Luego presiona "Listo".',
+      target: NEW_ROW,
+      done: { kind: 'ack', label: 'Listo' },
+    },
+    {
+      id: 'save',
+      title: 'Guarda los cambios',
+      body: 'Presiona "Guardar". Si la columna no tiene nombre, el sistema te lo pide.',
+      target: { css: 'main button', text: 'Guardar', exact: true },
+      allow: [NEW_ROW],
       done: { kind: 'toast', texts: ['Flujo de producción guardado'] },
       checkpoint: true,
     },

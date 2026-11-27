@@ -1,11 +1,11 @@
-import { CheckCircle2, Clock, GraduationCap, PlayCircle, RotateCcw, Users } from 'lucide-react';
+import { CheckCircle2, Clock, GraduationCap, LogOut, PlayCircle, RotateCcw, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { ApiClientError } from '@/config/api.types';
 import { formatDateTime } from '@/lib/dateUtils';
 import { cn } from '@/lib/utils';
-import { enterPracticeSession } from '@/modules/tutorial/engine/practiceSession';
+import { enterPracticeSession, leavePracticeSession } from '@/modules/tutorial/engine/practiceSession';
 import { useLessonProgress, useStartPractice, useTeamProgress } from '@/modules/tutorial/hooks/useTutorial';
 import { useStartLesson } from '@/modules/tutorial/hooks/useStartLesson';
 import { pendingLesson, useTutorialStore } from '@/modules/tutorial/hooks/useTutorialStore';
@@ -70,8 +70,15 @@ function PracticeIntro() {
   }, [access, startLesson]);
 
   return (
-    <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-      Elige una lección y sigue la luz: el sistema te va diciendo qué tocar. Puedes repetirlas las veces que quieras.
+    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 text-sm text-muted-foreground sm:flex-row sm:items-center">
+      <p className="min-w-0 flex-1">
+        Elige una lección y sigue la luz: el sistema te va diciendo qué tocar. Puedes repetirlas las veces que quieras.
+      </p>
+      {/* La salida, también aquí (pedido del usuario, 26-nov). */}
+      <Button type="button" variant="outline" onClick={leavePracticeSession}>
+        <LogOut className="size-4" />
+        Volver a mi cuenta
+      </Button>
     </div>
   );
 }

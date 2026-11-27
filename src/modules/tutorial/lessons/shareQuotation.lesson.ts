@@ -29,7 +29,8 @@ export const shareQuotationLesson: TutorialLesson = {
       title: 'Mira el PDF',
       body: 'Presiona el ojo: así lo verá tu cliente.',
       target: { css: 'button[title="Vista previa del PDF"]', within: DIALOG },
-      done: { kind: 'appear', target: 'iframe[title="Vista previa del PDF"]' },
+      // La ventana, no el PDF ya cargado (con el servidor lento la luz se quedaba atrás).
+      done: { kind: 'appear', target: PREVIEW },
     },
     {
       id: 'preview-info',

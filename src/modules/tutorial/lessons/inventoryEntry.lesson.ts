@@ -66,7 +66,9 @@ export const inventoryEntryLesson: TutorialLesson = {
       id: 'kardex',
       title: 'El kardex',
       body: 'Elige un producto y ves cada entrada y salida, con su saldo. Ideal para cuadrar con un conteo físico.',
-      target: 'main',
+      // Los filtros del kardex (producto, almacén, fechas), no toda la pantalla:
+      // así la tarjeta no tapa el título (26-nov).
+      target: { css: '#kardex-from', closest: 'div.flex-wrap' },
       pointer: null,
       done: { kind: 'ack', label: 'Terminar' },
     },

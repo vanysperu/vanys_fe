@@ -3,6 +3,7 @@ import { PartyPopper } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
+import { leavePracticeSession } from '@/modules/tutorial/engine/practiceSession';
 import { useLessonProgress } from '@/modules/tutorial/hooks/useTutorial';
 import { useStartLesson } from '@/modules/tutorial/hooks/useStartLesson';
 import { useTutorialStore } from '@/modules/tutorial/hooks/useTutorialStore';
@@ -64,6 +65,10 @@ export function LessonFinishedCard({ code }: { code: string }) {
           )}
           <Button type="button" variant={next ? 'outline' : 'default'} onClick={goToLessons}>
             Ver todas las lecciones
+          </Button>
+          {/* Terminar de practicar desde aquí mismo (pedido del usuario, 26-nov). */}
+          <Button type="button" variant="ghost" onClick={leavePracticeSession}>
+            Volver a mi cuenta
           </Button>
         </div>
       </motion.div>

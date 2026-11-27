@@ -21,6 +21,7 @@ import {
   expectStep,
   finishLesson,
   lessonsTotal,
+  checkTutorialAudit,
   newWatchedPage,
   openFromMenu,
   openPreparedQuotation,
@@ -62,6 +63,9 @@ test.beforeAll(async ({ browser, request }) => {
   expect(features.status, JSON.stringify(features.body)).toBe(200);
   [adminContext, admin] = await newWatchedPage(browser, 'admin');
 });
+
+// Lo que vería una persona en cada paso (auditoría, ver tutorialHelpers.ts).
+test.afterEach(checkTutorialAudit);
 
 test.afterAll(async () => {
   await adminContext?.close();
@@ -316,10 +320,11 @@ test.describe('Modo enseñanza: todos los módulos', () => {
     await ack(admin, 'Tus columnas');
     await expectStep(admin, 'Agrega una columna');
     await admin.locator('main button', { hasText: 'Agregar columna' }).click();
-    await expectStep(admin, 'Ponle nombre y guarda');
-    const names = admin.locator('input[placeholder="Nombre de la columna"]');
-    const values = await names.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
-    await names.nth(values.findIndex((value) => value.trim() === '')).fill('Control de calidad');
+    await expectStep(admin, 'Ponle nombre');
+    // Solo la fila nueva está iluminada: se escribe ahí.
+    await admin.getByTestId('workflow-stage-row').filter({ hasText: 'Nueva' }).locator('input[placeholder="Nombre de la columna"]').fill('Control de calidad');
+    await admin.getByTestId('tutorial-ack').click();
+    await expectStep(admin, 'Guarda los cambios');
     await admin.locator('main').getByRole('button', { name: 'Guardar', exact: true }).click();
     await ack(admin, '¡Flujo guardado!');
     await finishLesson(admin);

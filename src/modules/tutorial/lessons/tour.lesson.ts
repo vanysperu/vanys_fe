@@ -44,8 +44,16 @@ export const tourLesson: TutorialLesson = {
     {
       id: 'profile',
       title: 'Tu perfil',
-      body: 'Desde aquí activas las notificaciones al teléfono, entras a "Aprender" y cierras sesión.',
+      body: 'Desde aquí activas las notificaciones al teléfono, entras a "Aprender" y sales del sistema.',
       target: 'button[aria-label="Abrir menú de perfil"]',
+      done: { kind: 'ack' },
+    },
+    {
+      // Pedido del usuario (26-nov): que quede claro cómo volver a la cuenta real.
+      id: 'way-back',
+      title: 'Así vuelves a tu cuenta',
+      body: 'Cuando termines de practicar, presiona "Volver a mi cuenta" en esta franja naranja. Siempre está arriba, aunque estés en medio de una lección.',
+      target: { css: '[data-testid="practice-mode-banner"] button', text: 'Volver a mi cuenta' },
       done: { kind: 'ack', label: 'Terminar' },
     },
   ],

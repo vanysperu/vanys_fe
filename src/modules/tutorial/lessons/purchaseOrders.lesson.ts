@@ -27,7 +27,9 @@ export const purchaseOrdersLesson: TutorialLesson = {
       title: 'Imprime la orden',
       body: 'Presiona el ícono del documento: el PDF lleva foto, código y cantidad de cada producto.',
       target: { css: 'main button[aria-label^="PDF de la orden OC-"]' },
-      done: { kind: 'appear', target: 'iframe[title="Vista previa del PDF"]' },
+      // La ventana, no el PDF ya cargado: con el servidor lento la luz se quedaba
+      // atrás de la ventana abierta mientras el PDF cargaba (26-nov).
+      done: { kind: 'appear', target: PDF },
     },
     {
       id: 'pdf-info',

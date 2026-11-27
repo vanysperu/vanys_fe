@@ -7,6 +7,7 @@ import { CreateQuotationDialog } from '@/modules/quotations/components/CreateQuo
 import { ReminderBell } from '@/modules/reminders/components/ReminderBell';
 import { PracticeModeBanner } from '@/modules/tutorial/components/PracticeModeBanner';
 import { TutorialOverlay } from '@/modules/tutorial/components/TutorialOverlay';
+import { useTutorialStore } from '@/modules/tutorial/hooks/useTutorialStore';
 import { ThemeToggle } from '@/presentation/components/shared/ThemeToggle';
 import { Button } from '@/presentation/components/shared/ui/button';
 import { SidebarProvider, SidebarTrigger } from '@/presentation/components/shared/ui/sidebar';
@@ -24,6 +25,13 @@ export function Shell() {
   const location = useLocation();
   const { data: access, isLoading } = useAccess();
   const canCreateQuotation = usePermissionButton('cotizacion.create.button');
+  // Modo enseñanza: con una lección en curso, el botón flotante se esconde (salvo
+  // en "Conoce el sistema", que lo presenta). Quedaba encima de botones que la
+  // lección pide tocar, como "Guardar" al pie de una pantalla (26-nov).
+  // (Solo en la práctica: en la cuenta real nunca hay lección, aunque quede una guardada en el navegador.)
+  const lessonCode = useTutorialStore((state) => state.active?.code ?? null);
+  const hidesQuickQuotation = Boolean(access?.isPractice) && lessonCode !== null && lessonCode !== 'tour';
+  const showQuickQuotation = canCreateQuotation && !hidesQuickQuotation;
   useBrandTheme();
 
   if (isLoading) return <ShellSkeleton />;
@@ -37,15 +45,19 @@ export function Shell() {
     <SidebarProvider className="h-svh bg-muted/30">
       <AppSidebar />
       <main className="scrollbar-thin min-w-0 flex-1 overflow-y-auto">
-        {/* Modo enseñanza (21-nov): solo en la empresa de práctica. */}
-        {access?.isPractice && <PracticeModeBanner />}
-        <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/80 px-4 py-2 backdrop-blur">
-          {/* Celular: el menú lateral vive escondido en un panel deslizable y
-              su propio botón está adentro de él, así que sin este botón no
-              había forma de abrirlo. En escritorio el menú ya está a la vista. */}
-          <SidebarTrigger aria-label="Abrir menú" className="mr-auto size-9 md:hidden" />
-          <ReminderBell />
-          <ThemeToggle />
+        {/* Fijo arriba al desplazarse. En la empresa de práctica incluye la franja
+            del modo enseñanza (21-nov): así "Volver a mi cuenta" siempre está a
+            la vista (antes se iba con el scroll; pedido del usuario 26-nov). */}
+        <div className="sticky top-0 z-10">
+          {access?.isPractice && <PracticeModeBanner />}
+          <div className="flex items-center justify-end gap-2 border-b bg-background/80 px-4 py-2 backdrop-blur">
+            {/* Celular: el menú lateral vive escondido en un panel deslizable y
+                su propio botón está adentro de él, así que sin este botón no
+                había forma de abrirlo. En escritorio el menú ya está a la vista. */}
+            <SidebarTrigger aria-label="Abrir menú" className="mr-auto size-9 md:hidden" />
+            <ReminderBell />
+            <ThemeToggle />
+          </div>
         </div>
         <AnimatePresence mode="wait">
           <motion.div
@@ -68,7 +80,7 @@ export function Shell() {
           "siempre esté un botón... para crear cotización"), no solo en
           /cotizaciones — mismo diálogo que ya usa QuotationsPage.tsx, con
           un trigger circular flotante en vez del botón con texto de ahí. */}
-      {canCreateQuotation && (
+      {showQuickQuotation && (
         <CreateQuotationDialog
           trigger={
             <Button

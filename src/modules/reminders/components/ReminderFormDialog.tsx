@@ -111,7 +111,10 @@ function ReminderForm({ reminder, onDone }: { reminder: Reminder | null; onDone:
   useEffect(() => {
     if (isEditing || !me || didPreselectMyself.current) return;
     didPreselectMyself.current = true;
-    setValue('recipient_user_ids', [me.id]);
+    // shouldValidate: si ya presionaron "Programar" antes de que cargara la
+    // lista (servidor lento), el aviso "Elige a quién avisar" se quedaba
+    // aunque "Yo" ya estuviera elegido (visto en el modo enseñanza, 26-nov).
+    setValue('recipient_user_ids', [me.id], { shouldValidate: true });
   }, [isEditing, me, setValue]);
 
   const onSubmit = (values: ReminderFormValues) => {

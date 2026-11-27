@@ -79,7 +79,10 @@ export default defineConfig({
       command: `npx vite build --outDir dist-e2e --emptyOutDir && npx vite preview --outDir dist-e2e --port ${FRONT_PORT} --strictPort`,
       url: `http://localhost:${FRONT_PORT}`,
       // VITE_API_URL del entorno manda sobre .env.production (se fija al compilar).
-      env: { VITE_API_URL: API_URL },
+      // NODE_ENV=production, igual que el release (scripts/package-release.js).
+      // (El login en blanco del 26-nov era otra cosa: la letra de la unidad,
+      // "c:" o "C:"; se arregló en vite.config.ts.)
+      env: { VITE_API_URL: API_URL, NODE_ENV: 'production' },
       reuseExistingServer: false,
       timeout: 300_000,
     },

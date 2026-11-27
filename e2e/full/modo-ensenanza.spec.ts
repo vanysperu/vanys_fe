@@ -19,6 +19,7 @@ import {
   finishLesson,
   lessonsTotal,
   markStatus,
+  checkTutorialAudit,
   newWatchedPage,
   openFromMenu,
   openPreparedQuotation,
@@ -60,6 +61,9 @@ test.beforeAll(async ({ browser, request }) => {
   [adminContext, admin] = await newWatchedPage(browser, 'admin');
 });
 
+// Lo que vería una persona en cada paso (auditoría, ver tutorialHelpers.ts).
+test.afterEach(checkTutorialAudit);
+
 test.afterAll(async () => {
   await adminContext?.close();
 });
@@ -88,6 +92,7 @@ test.describe('Modo enseñanza', () => {
     await ack(admin, 'El botón naranja crea cotizaciones');
     await ack(admin, 'Tus avisos');
     await ack(admin, 'Tu perfil');
+    await ack(admin, 'Así vuelves a tu cuenta');
     await finishLesson(admin);
   });
 
@@ -95,12 +100,15 @@ test.describe('Modo enseñanza', () => {
     await startLesson(admin, 'first-quotation');
     await expectStep(admin, 'Abre "Cotizaciones"');
     // Tocar fuera de lo iluminado no hace nada: la tarjeta avisa.
-    // ("Reiniciar práctica", arriba a la derecha: si no estuviera bloqueado, abriría su confirmación.)
-    await admin.getByTestId('practice-mode-banner').getByRole('button', { name: 'Reiniciar práctica' }).click({ force: true });
+    // (La campana, arriba a la derecha: si no estuviera bloqueada, abriría su lista.
+    // La franja del modo enseñanza no sirve para esto: es la salida y siempre funciona.)
+    await admin.locator('main button[aria-label^="Recordatorios"]').click({ force: true });
     await expect(admin.locator('[data-tutorial-card]')).toContainText('Primero haz lo que está iluminado.');
-    await expect(admin.getByRole('dialog', { name: '¿Reiniciar la práctica?' })).toHaveCount(0);
+    await expect(admin.locator('[data-radix-popper-content-wrapper]')).toHaveCount(0);
     await expect(admin).toHaveURL(/\/aprender$/);
     await expectStep(admin, 'Abre "Cotizaciones"');
+    // Durante la lección no está el botón flotante (no tapa lo que hay que tocar).
+    await expect(admin.getByRole('button', { name: 'Nueva cotización', exact: true })).toHaveCount(0);
 
     await expectHandClear(admin);
     await openFromMenu(admin, 'Cotizaciones', '/cotizaciones', 'Ventas');
@@ -297,6 +305,10 @@ test.describe('Modo enseñanza', () => {
   });
 
   test('13. vuelve a su cuenta real: sin franja, con el avance del equipo, y nada de la práctica se mezcló', async () => {
+    // Se puede volver aunque esté en medio de una lección (pedido del usuario 26-nov:
+    // "no hay una manera de volver a la cuenta en modo normal").
+    await startLesson(admin, 'dashboard');
+    await expectStep(admin, 'Abre "Inicio"');
     await admin.getByTestId('practice-mode-banner').getByRole('button', { name: 'Volver a mi cuenta' }).click();
     await expect(admin).toHaveURL(/\/aprender$/);
     await expect(admin.getByRole('button', { name: 'Entrar a la práctica' })).toBeVisible({ timeout: 20_000 });
